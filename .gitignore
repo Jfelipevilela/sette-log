@@ -1,0 +1,14 @@
+node_modules
+dist
+build
+.env
+.env.local
+.env.*.local
+coverage
+.runtime
+.DS_Store
+npm-debug.log*
+frontend/.vite
+frontend/.vercel
+backend/uploads
+*.tsbuildinfo

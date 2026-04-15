@@ -1,0 +1,65 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: sette-log-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root
+      MONGO_INITDB_DATABASE: sette_log
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    container_name: sette-log-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: sette-log-api
+    restart: unless-stopped
+    depends_on:
+      - mongo
+      - redis
+    environment:
+      NODE_ENV: production
+      API_PORT: 3333
+      API_PREFIX: api/v1
+      FRONTEND_URL: http://localhost:5173
+      JWT_ACCESS_SECRET: change-me-access-secret
+      JWT_REFRESH_SECRET: change-me-refresh-secret
+      JWT_ACCESS_TTL: 15m
+      JWT_REFRESH_TTL: 7d
+      MONGODB_URI: mongodb://root:root@mongo:27017/sette_log?authSource=admin
+      REDIS_URL: redis://redis:6379
+      DEFAULT_TENANT_ID: sette-demo
+    ports:
+      - "3333:3333"
+
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: sette-log-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      VITE_API_URL: http://localhost:3333/api/v1
+      VITE_MAP_TILE_URL: https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png
+    ports:
+      - "5173:80"
+
+volumes:
+  mongo-data:
+  redis-data:

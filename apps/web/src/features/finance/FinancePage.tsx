@@ -17,7 +17,7 @@ export function FinancePage() {
 
   const pieData = [
     { name: 'Combustivel', value: data.kpis.totalFuelCost, color: '#0f8f63' },
-    { name: 'Manutencao e despesas', value: data.kpis.totalExpenseCost, color: '#027f9f' },
+    { name: 'Manutenção e despesas', value: data.kpis.totalExpenseCost, color: '#027f9f' },
     { name: 'Multas e sinistros', value: 2380, color: '#c2413b' }
   ];
 

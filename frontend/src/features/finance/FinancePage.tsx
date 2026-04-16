@@ -4,6 +4,7 @@ import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { StatCard } from '../../components/ui/stat-card';
 import { Table, Td, Th } from '../../components/ui/table';
 import { getDashboard, getVehicles, listResource } from '../../lib/api';
 import { downloadTextFile, formatCurrency, toCsv } from '../../lib/utils';
@@ -22,7 +23,9 @@ export function FinancePage() {
       availability: 0,
       totalFuelCost: 0,
       totalFuelLiters: 0,
+      totalMaintenanceCost: 0,
       totalExpenseCost: 0,
+      totalOperationalCost: 0,
       averageFuelCost: 0
     },
     vehiclesByStatus: [],
@@ -58,7 +61,7 @@ export function FinancePage() {
 
   const pieData = [
     { name: 'Combustivel', value: data.kpis.totalFuelCost, color: '#0f8f63' },
-    { name: 'Manutencao e despesas', value: data.kpis.totalExpenseCost, color: '#027f9f' },
+    { name: 'Manutenção e despesas', value: data.kpis.totalExpenseCost, color: '#027f9f' },
     { name: 'Multas e sinistros', value: finesAndIncidentsTotal, color: '#c2413b' }
   ];
 
@@ -92,21 +95,9 @@ export function FinancePage() {
       </section>
 
       <section className="grid gap-6 lg:grid-cols-3">
-        <Card className="p-5">
-          <Fuel className="text-fleet-green" />
-          <span className="mt-4 block text-sm text-zinc-500">Combustivel</span>
-          <strong className="mt-2 block text-3xl">{formatCurrency(data.kpis.totalFuelCost)}</strong>
-        </Card>
-        <Card className="p-5">
-          <Receipt className="text-fleet-cyan" />
-          <span className="mt-4 block text-sm text-zinc-500">Despesas gerais</span>
-          <strong className="mt-2 block text-3xl">{formatCurrency(data.kpis.totalExpenseCost)}</strong>
-        </Card>
-        <Card className="p-5">
-          <CreditCard className="text-fleet-amber" />
-          <span className="mt-4 block text-sm text-zinc-500">Preço médio litro</span>
-          <strong className="mt-2 block text-3xl">{formatCurrency(data.kpis.averageFuelCost)}</strong>
-        </Card>
+        <StatCard label="Combustivel" value={formatCurrency(data.kpis.totalFuelCost)} detail={`${data.kpis.totalFuelLiters.toLocaleString('pt-BR')} L registrados`} icon={Fuel} tone="green" />
+        <StatCard label="Despesas gerais" value={formatCurrency(data.kpis.totalExpenseCost)} detail="Custos operacionais extras" icon={Receipt} tone="cyan" />
+        <StatCard label="Preco medio litro" value={formatCurrency(data.kpis.averageFuelCost)} detail="Media dos abastecimentos" icon={CreditCard} tone="amber" />
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">

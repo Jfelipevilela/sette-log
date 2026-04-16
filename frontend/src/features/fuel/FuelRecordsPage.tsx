@@ -1,37 +1,70 @@
-import { FormEvent, useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Edit2, Eye, Fuel, Plus, Trash2 } from 'lucide-react';
-import { Badge } from '../../components/ui/badge';
-import { Button } from '../../components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-import { DetailModal } from '../../components/ui/detail-modal';
-import { Input } from '../../components/ui/input';
-import { LoadingState } from '../../components/ui/loading-state';
-import { Modal } from '../../components/ui/modal';
-import { Pagination } from '../../components/ui/pagination';
-import { Select } from '../../components/ui/select';
-import { Table, Td, Th } from '../../components/ui/table';
+import { FormEvent, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  Edit2,
+  Eye,
+  Fuel,
+  Gauge,
+  Paperclip,
+  Plus,
+  ReceiptText,
+  Trash2,
+} from "lucide-react";
+import { Badge } from "../../components/ui/badge";
+import { ActionMenu } from "../../components/ui/action-menu";
+import { Button } from "../../components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../../components/ui/card";
+import { AttachmentPreviewModal } from "../../components/ui/attachment-preview-modal";
+import { DetailModal } from "../../components/ui/detail-modal";
+import { Input } from "../../components/ui/input";
+import { LoadingState } from "../../components/ui/loading-state";
+import { Modal } from "../../components/ui/modal";
+import { Pagination } from "../../components/ui/pagination";
+import { SearchableSelect } from "../../components/ui/searchable-select";
+import { Table, Td, Th } from "../../components/ui/table";
 import {
   apiErrorMessage,
   createFuelRecord,
   deleteFuelRecord,
   downloadFuelRecordAttachment,
+  fetchFuelRecordAttachmentBlob,
   getDrivers,
   getVehicles,
   listResourcePage,
   updateFuelRecord,
-  uploadFuelRecordAttachment
-} from '../../lib/api';
-import type { FuelRecord } from '../../lib/types';
-import { formatCurrency, formatDate, formatDateTime } from '../../lib/utils';
+  uploadFuelRecordAttachment,
+} from "../../lib/api";
+import type { FuelRecord } from "../../lib/types";
+import { formatCurrency, formatDate, formatDateTime } from "../../lib/utils";
 
 const fuelLabels: Record<string, string> = {
-  gasoline: 'Gasolina',
-  ethanol: 'Etanol',
-  diesel: 'Diesel',
-  gnv: 'GNV',
-  electric: 'Eletrico'
+  gasoline: "Gasolina",
+  ethanol: "Etanol",
+  diesel: "Diesel",
+  gnv: "GNV",
+  electric: "Eletrico",
 };
+
+const fuelOptions = [
+  { value: "gasoline", label: "Gasolina" },
+  { value: "ethanol", label: "Etanol" },
+  { value: "diesel", label: "Diesel" },
+  { value: "gnv", label: "GNV" },
+  { value: "electric", label: "Eletrico" },
+];
+
+function formatKmPerLiter(value?: number) {
+  return value
+    ? `${Number(value).toLocaleString("pt-BR", {
+        maximumFractionDigits: 2,
+      })} km/L`
+    : "-";
+}
 
 export function FuelRecordsPage() {
   const queryClient = useQueryClient();
@@ -41,18 +74,31 @@ export function FuelRecordsPage() {
   const [formError, setFormError] = useState<string>();
   const [page, setPage] = useState(1);
   const [attachmentFile, setAttachmentFile] = useState<File>();
+  const [previewAttachment, setPreviewAttachment] = useState<{
+    recordId: string;
+    fileName: string;
+    originalName: string;
+    mimeType?: string;
+    url: string;
+  }>();
 
   const { data: recordsPage, isLoading: recordsLoading } = useQuery({
-    queryKey: ['fuel-records', page],
-    queryFn: () => listResourcePage<FuelRecord>('/finance/fuel-records', { page, limit: 10, sortBy: 'filledAt', sortDir: 'desc' })
+    queryKey: ["fuel-records", page],
+    queryFn: () =>
+      listResourcePage<FuelRecord>("/finance/fuel-records", {
+        page,
+        limit: 10,
+        sortBy: "filledAt",
+        sortDir: "desc",
+      }),
   });
   const { data: vehicles = [] } = useQuery({
-    queryKey: ['vehicles'],
-    queryFn: () => getVehicles()
+    queryKey: ["vehicles"],
+    queryFn: () => getVehicles(),
   });
   const { data: drivers = [] } = useQuery({
-    queryKey: ['drivers'],
-    queryFn: () => getDrivers()
+    queryKey: ["drivers"],
+    queryFn: () => getDrivers(),
   });
 
   const createMutation = useMutation({
@@ -67,10 +113,19 @@ export function FuelRecordsPage() {
       closeModal();
       await invalidateFuelData();
     },
-    onError: (error) => setFormError(apiErrorMessage(error, 'Nao foi possivel registrar o abastecimento.'))
+    onError: (error) =>
+      setFormError(
+        apiErrorMessage(error, "Não foi possivel registrar o abastecimento."),
+      ),
   });
   const updateMutation = useMutation({
-    mutationFn: async ({ id, payload }: { id: string; payload: Record<string, unknown> }) => {
+    mutationFn: async ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: Record<string, unknown>;
+    }) => {
       const updated = await updateFuelRecord(id, payload);
       if (attachmentFile) {
         await uploadFuelRecordAttachment(id, attachmentFile);
@@ -81,44 +136,82 @@ export function FuelRecordsPage() {
       closeModal();
       await invalidateFuelData();
     },
-    onError: (error) => setFormError(apiErrorMessage(error, 'Nao foi possivel editar o abastecimento.'))
+    onError: (error) =>
+      setFormError(
+        apiErrorMessage(error, "Não foi possivel editar o abastecimento."),
+      ),
   });
   const deleteMutation = useMutation({
     mutationFn: deleteFuelRecord,
     onSuccess: invalidateFuelData,
-    onError: (error) => setFormError(apiErrorMessage(error, 'Nao foi possivel excluir o abastecimento.'))
+    onError: (error) =>
+      setFormError(
+        apiErrorMessage(error, "Não foi possivel excluir o abastecimento."),
+      ),
   });
 
   const records = recordsPage?.data ?? [];
   const summary = useMemo(() => {
-    const liters = records.reduce((total, record) => total + Number(record.liters ?? 0), 0);
-    const totalCost = records.reduce((total, record) => total + Number(record.totalCost ?? 0), 0);
+    const liters = records.reduce(
+      (total, record) => total + Number(record.liters ?? 0),
+      0,
+    );
+    const totalCost = records.reduce(
+      (total, record) => total + Number(record.totalCost ?? 0),
+      0,
+    );
+    const distanceKm = records.reduce(
+      (total, record) => total + Number(record.distanceKm ?? 0),
+      0,
+    );
+    const efficiencyLiters = records.reduce(
+      (total, record) =>
+        record.kmPerLiter ? total + Number(record.liters ?? 0) : total,
+      0,
+    );
     return {
       count: records.length,
       liters,
       totalCost,
-      averagePrice: liters > 0 ? totalCost / liters : 0
+      distanceKm,
+      efficiencyLiters,
+      averagePrice: liters > 0 ? totalCost / liters : 0,
+      averageKmPerLiter:
+        efficiencyLiters > 0 ? distanceKm / efficiencyLiters : 0,
     };
   }, [records]);
 
   async function invalidateFuelData() {
-    await queryClient.invalidateQueries({ queryKey: ['fuel-records'] });
-    await queryClient.invalidateQueries({ queryKey: ['vehicles'] });
-    await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-    await queryClient.invalidateQueries({ queryKey: ['finance-dashboard'] });
+    await queryClient.invalidateQueries({ queryKey: ["fuel-records"] });
+    await queryClient.invalidateQueries({ queryKey: ["vehicles"] });
+    await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    await queryClient.invalidateQueries({ queryKey: ["finance-dashboard"] });
   }
 
   function vehicleLabel(vehicleId: string) {
     const vehicle = vehicles.find((item) => item._id === vehicleId);
-    return vehicle ? `${vehicle.plate} - ${vehicle.nickname ?? vehicle.model}` : vehicleId;
+    return vehicle
+      ? `${vehicle.plate} - ${vehicle.nickname ?? vehicle.model}`
+      : vehicleId;
   }
 
   function driverLabel(driverId?: string) {
     if (!driverId) {
-      return '-';
+      return "-";
     }
     return drivers.find((item) => item._id === driverId)?.name ?? driverId;
   }
+
+  const vehicleOptions = vehicles.map((vehicle) => ({
+    value: vehicle._id,
+    label: `${vehicle.plate} - ${vehicle.nickname ?? vehicle.model}${vehicle.tankCapacityLiters ? ` (${vehicle.tankCapacityLiters} L)` : ""}`,
+    searchText: `${vehicle.plate} ${vehicle.nickname ?? ""} ${vehicle.brand} ${vehicle.model}`,
+  }));
+  const driverOptions = drivers.map((driver) => ({
+    value: driver._id,
+    label: `${driver.name}${driver.licenseNumber ? ` - CNH ${driver.licenseNumber}` : ""}`,
+    searchText: `${driver.name} ${driver.licenseNumber} ${driver.licenseCategory}`,
+  }));
 
   function openCreateModal() {
     setEditingRecord(undefined);
@@ -143,22 +236,28 @@ export function FuelRecordsPage() {
     event.preventDefault();
     setFormError(undefined);
     const form = new FormData(event.currentTarget);
-    const liters = Number(form.get('liters') || 0);
-    const totalCost = Number(form.get('totalCost') || 0);
-    const pricePerLiter = Number(form.get('pricePerLiter') || 0);
-    const driverId = String(form.get('driverId') ?? '');
-    const vehicleId = String(form.get('vehicleId') ?? '');
+    const liters = Number(form.get("liters") || 0);
+    const totalCost = Number(form.get("totalCost") || 0);
+    const pricePerLiter = Number(form.get("pricePerLiter") || 0);
+    const driverId = String(form.get("driverId") ?? "");
+    const vehicleId = String(form.get("vehicleId") ?? "");
     const vehicle = vehicles.find((item) => item._id === vehicleId);
+    if (!vehicleId) {
+      setFormError("Selecione o veiculo do abastecimento.");
+      return;
+    }
     if (vehicle?.tankCapacityLiters && liters > vehicle.tankCapacityLiters) {
-      setFormError(`Litros informados excedem a capacidade do tanque (${vehicle.tankCapacityLiters} L).`);
+      setFormError(
+        `Litros informados excedem a capacidade do tanque (${vehicle.tankCapacityLiters} L).`,
+      );
       return;
     }
     if (pricePerLiter <= 0) {
-      setFormError('Informe o valor pago por litro.');
+      setFormError("Informe o valor pago por litro.");
       return;
     }
     if (Math.abs(liters * pricePerLiter - totalCost) > 0.05) {
-      setFormError('Litros x valor por litro nao conferem com o valor total.');
+      setFormError("Litros x valor por litro Não conferem com o valor total.");
       return;
     }
     const payload = {
@@ -167,10 +266,10 @@ export function FuelRecordsPage() {
       liters,
       totalCost,
       pricePerLiter,
-      odometerKm: Number(form.get('odometerKm') || 0),
-      filledAt: String(form.get('filledAt') ?? '') || new Date().toISOString(),
-      station: String(form.get('station') ?? ''),
-      fuelType: String(form.get('fuelType') ?? 'gasoline')
+      odometerKm: Number(form.get("odometerKm") || 0),
+      filledAt: String(form.get("filledAt") ?? "") || new Date().toISOString(),
+      station: String(form.get("station") ?? ""),
+      fuelType: String(form.get("fuelType") ?? "gasoline"),
     };
 
     if (editingRecord) {
@@ -180,42 +279,101 @@ export function FuelRecordsPage() {
     createMutation.mutate(payload);
   }
 
+  async function openAttachmentPreview(
+    recordId: string,
+    attachment: NonNullable<FuelRecord["attachments"]>[number],
+  ) {
+    const blob = await fetchFuelRecordAttachmentBlob(
+      recordId,
+      attachment.fileName,
+    );
+    setPreviewAttachment({
+      recordId,
+      fileName: attachment.fileName,
+      originalName: attachment.originalName,
+      mimeType: attachment.mimeType,
+      url: URL.createObjectURL(blob),
+    });
+  }
+
+  function closeAttachmentPreview() {
+    if (previewAttachment?.url) {
+      URL.revokeObjectURL(previewAttachment.url);
+    }
+    setPreviewAttachment(undefined);
+  }
+
   return (
     <div className="space-y-6">
-      <section className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-        <div>
-          <h2 className="text-2xl font-semibold">Abastecimentos</h2>
-          <p className="mt-1 text-sm text-zinc-500">Lançamentos por veículo, litros, custo e odometro para alimentar os indicadores.</p>
+      <section className="relative overflow-hidden rounded-lg border border-fleet-line bg-white p-5 shadow-sm md:p-6">
+        <span className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-fleet-green via-cyan-500 to-fleet-amber" />
+        <div className="relative flex flex-col justify-between gap-4 md:flex-row md:items-center">
+          <div>
+          <span className="mb-2 inline-flex rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold uppercase text-emerald-700">
+            Controle de combustivel
+          </span>
+          <h2 className="text-2xl font-semibold text-fleet-ink">
+            Abastecimentos
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
+            Lançamentos por veículo, litros, custo e odometro para alimentar os
+            indicadores.
+          </p>
         </div>
-        <Button onClick={openCreateModal}>
-          <Plus size={18} />
-          Novo abastecimento
-        </Button>
+          <Button onClick={openCreateModal}>
+            <Plus size={18} />
+            Novo abastecimento
+          </Button>
+        </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <Card className="p-5">
-          <Fuel className="text-fleet-green" />
+          <ReceiptText className="text-fleet-green" />
           <span className="mt-4 block text-sm text-zinc-500">Lançamentos</span>
-          <strong className="mt-2 block text-3xl">{summary.count}</strong>
+          <strong className="mt-2 block text-3xl text-fleet-ink">
+            {summary.count}
+          </strong>
         </Card>
         <Card className="p-5">
           <span className="text-sm text-zinc-500">Litros registrados</span>
-          <strong className="mt-2 block text-3xl">{summary.liters.toLocaleString('pt-BR')} L</strong>
+          <strong className="mt-2 block text-3xl">
+            {summary.liters.toLocaleString("pt-BR")} L
+          </strong>
         </Card>
         <Card className="p-5">
           <span className="text-sm text-zinc-500">Custo total</span>
-          <strong className="mt-2 block text-3xl">{formatCurrency(summary.totalCost)}</strong>
+          <strong className="mt-2 block text-3xl">
+            {formatCurrency(summary.totalCost)}
+          </strong>
         </Card>
         <Card className="p-5">
           <span className="text-sm text-zinc-500">Preço médio por litro</span>
-          <strong className="mt-2 block text-3xl">{formatCurrency(summary.averagePrice)}</strong>
+          <strong className="mt-2 block text-3xl">
+            {formatCurrency(summary.averagePrice)}
+          </strong>
+        </Card>
+        <Card className="p-5">
+          <Gauge className="text-fleet-green" />
+          <span className="mt-4 block text-sm text-zinc-500">Km/L medio</span>
+          <strong className="mt-2 block text-3xl text-fleet-ink">
+            {formatKmPerLiter(summary.averageKmPerLiter)}
+          </strong>
+          <span className="mt-1 block text-xs text-zinc-500">
+            {summary.distanceKm.toLocaleString("pt-BR")} km analisados
+          </span>
         </Card>
       </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Historico de abastecimentos</CardTitle>
+      <Card className="overflow-hidden">
+        <CardHeader className="border-b border-fleet-line bg-zinc-50/70">
+          <div>
+            <CardTitle>Historico de abastecimentos</CardTitle>
+            <p className="mt-1 text-sm text-zinc-500">
+              O km/L usa o odometro deste lancamento contra o abastecimento
+              anterior do mesmo veiculo.
+            </p>
+          </div>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           {recordsLoading ? (
@@ -232,6 +390,7 @@ export function FuelRecordsPage() {
                     <Th>Litros</Th>
                     <Th>R$/L</Th>
                     <Th>Total</Th>
+                    <Th>Km/L</Th>
                     <Th>Anexos</Th>
                     <Th>Acoes</Th>
                   </tr>
@@ -242,41 +401,62 @@ export function FuelRecordsPage() {
                       <Td>{formatDate(record.filledAt)}</Td>
                       <Td>
                         <strong>{vehicleLabel(record.vehicleId)}</strong>
-                        <span className="block text-xs text-zinc-500">{record.station ?? '-'}</span>
+                        <span className="block text-xs text-zinc-500">
+                          {record.station ?? "-"}
+                        </span>
                       </Td>
                       <Td>{driverLabel(record.driverId)}</Td>
                       <Td>
-                        <Badge tone="cyan">{fuelLabels[record.fuelType] ?? record.fuelType}</Badge>
+                        <Badge tone="cyan">
+                          {fuelLabels[record.fuelType] ?? record.fuelType}
+                        </Badge>
                       </Td>
-                      <Td>{Number(record.liters ?? 0).toLocaleString('pt-BR')} L</Td>
-                      <Td>{formatCurrency(Number(record.pricePerLiter ?? 0))}</Td>
-                      <Td>{formatCurrency(Number(record.totalCost ?? 0))}</Td>
-                      <Td>{record.attachments?.length ?? 0}</Td>
                       <Td>
-                        <div className="flex gap-2">
-                          <Button type="button" variant="secondary" size="sm" onClick={() => openEditModal(record)}>
-                            <Edit2 size={15} />
-                            Editar
-                          </Button>
-                          <Button type="button" variant="secondary" size="sm" onClick={() => setDetailRecord(record)}>
-                            <Eye size={15} />
-                            Detalhes
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="danger"
-                            size="sm"
-                            disabled={deleteMutation.isPending}
-                            onClick={() => {
-                              if (window.confirm('Excluir este abastecimento?')) {
-                                deleteMutation.mutate(record._id);
-                              }
-                            }}
-                          >
-                            <Trash2 size={15} />
-                            Excluir
-                          </Button>
-                        </div>
+                        {Number(record.liters ?? 0).toLocaleString("pt-BR")} L
+                      </Td>
+                      <Td>
+                        {formatCurrency(Number(record.pricePerLiter ?? 0))}
+                      </Td>
+                      <Td>{formatCurrency(Number(record.totalCost ?? 0))}</Td>
+                      <Td>
+                        <Badge tone={record.kmPerLiter ? "green" : "neutral"}>
+                          {formatKmPerLiter(record.kmPerLiter)}
+                        </Badge>
+                      </Td>
+                      <Td>
+                        <span className="inline-flex items-center gap-1 text-sm text-zinc-600">
+                          <Paperclip size={14} />
+                          {record.attachments?.length ?? 0}
+                        </span>
+                      </Td>
+                      <Td>
+                        <ActionMenu
+                          items={[
+                            {
+                              label: "Editar",
+                              icon: <Edit2 size={15} />,
+                              onClick: () => openEditModal(record),
+                            },
+                            {
+                              label: "Detalhes",
+                              icon: <Eye size={15} />,
+                              onClick: () => setDetailRecord(record),
+                            },
+                            {
+                              label: "Excluir",
+                              icon: <Trash2 size={15} />,
+                              danger: true,
+                              disabled: deleteMutation.isPending,
+                              onClick: () => {
+                                if (
+                                  window.confirm("Excluir este abastecimento?")
+                                ) {
+                                  deleteMutation.mutate(record._id);
+                                }
+                              },
+                            },
+                          ]}
+                        />
                       </Td>
                     </tr>
                   ))}
@@ -295,50 +475,56 @@ export function FuelRecordsPage() {
 
       <Modal
         open={isModalOpen}
-        title={editingRecord ? 'Editar abastecimento' : 'Novo abastecimento'}
-        description="Informe veiculo, combustivel, litros, valor e odometro no momento do abastecimento."
+        title={editingRecord ? "Editar abastecimento" : "Novo abastecimento"}
+        description="Informe veiculo, combustivel, litros, valor e odometro. O km/L sera calculado com o abastecimento anterior do mesmo veiculo."
         onClose={closeModal}
       >
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-2 text-sm font-medium md:col-span-2">
               Veiculo
-              <Select name="vehicleId" required defaultValue={editingRecord?.vehicleId ?? ''}>
-                <option value="" disabled>
-                  Selecione
-                </option>
-                {vehicles.map((vehicle) => (
-                  <option key={vehicle._id} value={vehicle._id}>
-                    {vehicle.plate} - {vehicle.nickname ?? vehicle.model}
-                    {vehicle.tankCapacityLiters ? ` (${vehicle.tankCapacityLiters} L)` : ''}
-                  </option>
-                ))}
-              </Select>
+              <SearchableSelect
+                name="vehicleId"
+                required
+                defaultValue={editingRecord?.vehicleId ?? ""}
+                placeholder="Selecione"
+                searchPlaceholder="Buscar placa, modelo ou apelido"
+                options={vehicleOptions}
+              />
             </label>
             <label className="space-y-2 text-sm font-medium">
               Motorista
-              <Select name="driverId" defaultValue={editingRecord?.driverId ?? ''}>
-                <option value="">Nao informado</option>
-                {drivers.map((driver) => (
-                  <option key={driver._id} value={driver._id}>
-                    {driver.name}
-                  </option>
-                ))}
-              </Select>
+              <SearchableSelect
+                name="driverId"
+                defaultValue={editingRecord?.driverId ?? ""}
+                placeholder="Não informado"
+                searchPlaceholder="Buscar motorista ou CNH"
+                options={[
+                  { value: "", label: "Não informado" },
+                  ...driverOptions,
+                ]}
+              />
             </label>
             <label className="space-y-2 text-sm font-medium">
               Combustivel
-              <Select name="fuelType" defaultValue={editingRecord?.fuelType ?? 'gasoline'}>
-                <option value="gasoline">Gasolina</option>
-                <option value="ethanol">Etanol</option>
-                <option value="diesel">Diesel</option>
-                <option value="gnv">GNV</option>
-                <option value="electric">Eletrico</option>
-              </Select>
+              <SearchableSelect
+                name="fuelType"
+                defaultValue={editingRecord?.fuelType ?? "gasoline"}
+                options={fuelOptions}
+                searchPlaceholder="Buscar combustivel"
+                searchable={false}
+              />
             </label>
             <label className="space-y-2 text-sm font-medium">
               Litros
-              <Input name="liters" type="number" min="0.01" step="0.01" defaultValue={editingRecord?.liters} required />
+              <Input
+                name="liters"
+                type="number"
+                min="0.01"
+                step="0.01"
+                defaultValue={editingRecord?.liters}
+                required
+              />
             </label>
             <label className="space-y-2 text-sm font-medium">
               Valor por litro
@@ -347,25 +533,51 @@ export function FuelRecordsPage() {
                 type="number"
                 min="0.01"
                 step="0.01"
-                defaultValue={editingRecord?.pricePerLiter ?? (editingRecord?.liters ? Number(editingRecord.totalCost ?? 0) / editingRecord.liters : undefined)}
+                defaultValue={
+                  editingRecord?.pricePerLiter ??
+                  (editingRecord?.liters
+                    ? Number(editingRecord.totalCost ?? 0) /
+                      editingRecord.liters
+                    : undefined)
+                }
                 required
               />
             </label>
             <label className="space-y-2 text-sm font-medium">
               Valor total
-              <Input name="totalCost" type="number" min="0" step="0.01" defaultValue={editingRecord?.totalCost} required />
+              <Input
+                name="totalCost"
+                type="number"
+                min="0"
+                step="0.01"
+                defaultValue={editingRecord?.totalCost}
+                required
+              />
             </label>
             <label className="space-y-2 text-sm font-medium">
               Odometro
-              <Input name="odometerKm" type="number" min="0" defaultValue={editingRecord?.odometerKm ?? 0} />
+              <Input
+                name="odometerKm"
+                type="number"
+                min="0"
+                defaultValue={editingRecord?.odometerKm ?? 0}
+              />
             </label>
             <label className="space-y-2 text-sm font-medium">
               Data
-              <Input name="filledAt" type="datetime-local" defaultValue={editingRecord?.filledAt?.slice(0, 16)} />
+              <Input
+                name="filledAt"
+                type="datetime-local"
+                defaultValue={editingRecord?.filledAt?.slice(0, 16)}
+              />
             </label>
             <label className="space-y-2 text-sm font-medium md:col-span-2">
               Posto / fornecedor
-              <Input name="station" placeholder="Posto ou fornecedor" defaultValue={editingRecord?.station} />
+              <Input
+                name="station"
+                placeholder="Posto ou fornecedor"
+                defaultValue={editingRecord?.station}
+              />
             </label>
             <label className="space-y-2 text-sm font-medium md:col-span-2">
               Nota fiscal / comprovante
@@ -375,16 +587,27 @@ export function FuelRecordsPage() {
                 accept="image/*,.pdf,.xml,.txt,.csv,.xlsx"
                 onChange={(event) => setAttachmentFile(event.target.files?.[0])}
               />
-              <span className="block text-xs font-normal text-zinc-500">Aceita imagem, PDF, XML, TXT, CSV ou XLSX ate 10 MB.</span>
+              <span className="block text-xs font-normal text-zinc-500">
+                Aceita imagem, PDF, XML, TXT, CSV ou XLSX ate 10 MB.
+              </span>
             </label>
           </div>
-          {formError && <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{formError}</p>}
+          {formError && (
+            <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              {formError}
+            </p>
+          )}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={closeModal}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-              {createMutation.isPending || updateMutation.isPending ? 'Salvando...' : 'Salvar abastecimento'}
+            <Button
+              type="submit"
+              disabled={createMutation.isPending || updateMutation.isPending}
+            >
+              {createMutation.isPending || updateMutation.isPending
+                ? "Salvando..."
+                : "Salvar abastecimento"}
             </Button>
           </div>
         </form>
@@ -397,35 +620,110 @@ export function FuelRecordsPage() {
         description="Informacoes completas do lancamento e trilha de auditoria."
         onClose={() => setDetailRecord(undefined)}
         fields={[
-          { label: 'Veiculo', value: detailRecord ? vehicleLabel(detailRecord.vehicleId) : undefined },
-          { label: 'Motorista', value: detailRecord ? driverLabel(detailRecord.driverId) : undefined },
-          { label: 'Posto / fornecedor', value: detailRecord?.station },
-          { label: 'Data e hora', value: formatDateTime(detailRecord?.filledAt) },
-          { label: 'Combustivel', value: detailRecord ? fuelLabels[detailRecord.fuelType] ?? detailRecord.fuelType : undefined },
-          { label: 'Litros', value: detailRecord ? `${Number(detailRecord.liters ?? 0).toLocaleString('pt-BR')} L` : undefined },
-          { label: 'Valor total', value: detailRecord ? formatCurrency(Number(detailRecord.totalCost ?? 0)) : undefined },
-          { label: 'Preco por litro', value: detailRecord ? formatCurrency(Number(detailRecord.pricePerLiter ?? 0)) : undefined },
-          { label: 'Odometro', value: detailRecord ? `${Number(detailRecord.odometerKm ?? 0).toLocaleString('pt-BR')} km` : undefined }
+          {
+            label: "Veiculo",
+            value: detailRecord
+              ? vehicleLabel(detailRecord.vehicleId)
+              : undefined,
+          },
+          {
+            label: "Motorista",
+            value: detailRecord
+              ? driverLabel(detailRecord.driverId)
+              : undefined,
+          },
+          { label: "Posto / fornecedor", value: detailRecord?.station },
+          {
+            label: "Data e hora",
+            value: formatDateTime(detailRecord?.filledAt),
+          },
+          {
+            label: "Combustivel",
+            value: detailRecord
+              ? (fuelLabels[detailRecord.fuelType] ?? detailRecord.fuelType)
+              : undefined,
+          },
+          {
+            label: "Litros",
+            value: detailRecord
+              ? `${Number(detailRecord.liters ?? 0).toLocaleString("pt-BR")} L`
+              : undefined,
+          },
+          {
+            label: "Valor total",
+            value: detailRecord
+              ? formatCurrency(Number(detailRecord.totalCost ?? 0))
+              : undefined,
+          },
+          {
+            label: "Preco por litro",
+            value: detailRecord
+              ? formatCurrency(Number(detailRecord.pricePerLiter ?? 0))
+              : undefined,
+          },
+          {
+            label: "Odometro",
+            value: detailRecord
+              ? `${Number(detailRecord.odometerKm ?? 0).toLocaleString("pt-BR")} km`
+              : undefined,
+          },
+          {
+            label: "Km rodados desde o abastecimento anterior",
+            value: detailRecord?.distanceKm
+              ? `${Number(detailRecord.distanceKm).toLocaleString("pt-BR")} km`
+              : "-",
+          },
+          {
+            label: "Km/L do abastecimento",
+            value: formatKmPerLiter(detailRecord?.kmPerLiter),
+          },
         ]}
       >
         <div className="rounded-lg border border-fleet-line p-4">
           <strong className="block text-sm text-fleet-ink">Anexos</strong>
           <div className="mt-3 space-y-2">
-            {(detailRecord?.attachments?.length ?? 0) === 0 && <p className="text-sm text-zinc-500">Nenhum anexo enviado para este abastecimento.</p>}
+            {(detailRecord?.attachments?.length ?? 0) === 0 && (
+              <p className="text-sm text-zinc-500">
+                Nenhum anexo enviado para este abastecimento.
+              </p>
+            )}
             {detailRecord?.attachments?.map((attachment) => (
               <button
                 key={attachment.fileName}
                 type="button"
                 className="flex w-full items-center justify-between gap-3 rounded-md border border-fleet-line px-3 py-2 text-left text-sm transition hover:bg-zinc-50"
-                onClick={() => downloadFuelRecordAttachment(detailRecord._id, attachment)}
+                onClick={() =>
+                  openAttachmentPreview(detailRecord._id, attachment)
+                }
               >
-                <span className="font-medium text-fleet-ink">{attachment.originalName}</span>
-                <span className="shrink-0 text-xs text-zinc-500">{formatDateTime(attachment.uploadedAt)}</span>
+                <span className="font-medium text-fleet-ink">
+                  {attachment.originalName}
+                </span>
+                <span className="shrink-0 text-xs text-zinc-500">
+                  {formatDateTime(attachment.uploadedAt)}
+                </span>
               </button>
             ))}
           </div>
         </div>
       </DetailModal>
+
+      <AttachmentPreviewModal
+        open={Boolean(previewAttachment)}
+        title="Previsualizar anexo"
+        fileName={previewAttachment?.originalName ?? ""}
+        mimeType={previewAttachment?.mimeType}
+        url={previewAttachment?.url}
+        onClose={closeAttachmentPreview}
+        onDownload={() => {
+          if (previewAttachment) {
+            downloadFuelRecordAttachment(
+              previewAttachment.recordId,
+              previewAttachment,
+            );
+          }
+        }}
+      />
     </div>
   );
 }

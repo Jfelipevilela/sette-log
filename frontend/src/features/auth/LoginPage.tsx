@@ -40,7 +40,7 @@ export function LoginPage() {
       setSession(session);
       navigate('/');
     } catch {
-      setError('Nao foi possivel autenticar. Verifique API, seed e credenciais.');
+      setError('Não foi possivel autenticar. Verifique API, seed e credenciais.');
     }
   }
 

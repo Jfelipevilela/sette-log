@@ -19,7 +19,9 @@ export function ReportsPage() {
       availability: 0,
       totalFuelCost: 0,
       totalFuelLiters: 0,
+      totalMaintenanceCost: 0,
       totalExpenseCost: 0,
+      totalOperationalCost: 0,
       averageFuelCost: 0
     },
     vehiclesByStatus: [],
@@ -122,12 +124,14 @@ export function ReportsPage() {
           <CardContent className="space-y-4">
             <div className="rounded-lg border border-fleet-line p-4">
               <LineChart className="text-fleet-green" />
-              <strong className="mt-3 block">Manutencao preditiva</strong>
+              <strong className="mt-3 block">Manutenção preditiva</strong>
               <p className="mt-1 text-sm text-zinc-500">Telemetria historica, odometro, custos e falhas alimentam modelos futuros.</p>
             </div>
-            <div className="rounded-lg border border-fleet-line p-4">
-              <strong className="block">Disponibilidade</strong>
-              <span className="mt-2 block text-3xl font-semibold">{dashboard.kpis.availability}%</span>
+            <div className="relative overflow-hidden rounded-lg border border-cyan-100 bg-white p-4 shadow-sm">
+              <span className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-cyan-500 to-cyan-300" />
+              <strong className="block text-xs font-semibold uppercase text-zinc-500">Disponibilidade</strong>
+              <span className="mt-2 block text-3xl font-semibold text-fleet-ink">{dashboard.kpis.availability}%</span>
+              <p className="mt-2 text-sm text-zinc-500">Frota liberada para operacao</p>
             </div>
           </CardContent>
         </Card>

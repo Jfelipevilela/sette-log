@@ -137,6 +137,9 @@ export class Vehicle {
   odometerKm: number;
 
   @Prop()
+  initialOdometerKm?: number;
+
+  @Prop()
   tankCapacityLiters?: number;
 
   @Prop()
@@ -510,6 +513,12 @@ export class FuelRecord {
   @Prop()
   odometerKm?: number;
 
+  @Prop()
+  distanceKm?: number;
+
+  @Prop()
+  kmPerLiter?: number;
+
   @Prop({ required: true, index: true })
   filledAt: Date;
 
@@ -715,8 +724,11 @@ export class ComplianceCheck {
   @Prop()
   templateId?: string;
 
-  @Prop({ type: [{ key: String, label: String, result: String, notes: String }], default: [] })
+  @Prop({ type: [{ key: String, label: String, section: String, result: String, notes: String }], default: [] })
   items: Array<Record<string, unknown>>;
+
+  @Prop({ type: [{ originalName: String, fileName: String, mimeType: String, size: Number, uploadedAt: Date }], default: [] })
+  attachments: Array<Record<string, unknown>>;
 
   @Prop({ enum: ['passed', 'failed', 'pending'], default: 'pending', index: true })
   status: string;

@@ -1,12 +1,17 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { InjectConnection } from '@nestjs/mongoose';
-import { parse } from 'csv-parse/sync';
-import ExcelJS from 'exceljs';
-import { Connection } from 'mongoose';
-import { FleetResource, FleetService } from './fleet.service';
-import { Driver, Vehicle } from './schemas/fleet.schemas';
+import { BadRequestException, Injectable } from "@nestjs/common";
+import { InjectConnection } from "@nestjs/mongoose";
+import { parse } from "csv-parse/sync";
+import ExcelJS from "exceljs";
+import { Connection } from "mongoose";
+import { FleetResource, FleetService } from "./fleet.service";
+import { Driver, Vehicle } from "./schemas/fleet.schemas";
 
-type ImportResource = 'vehicles' | 'drivers' | 'fuel-records' | 'maintenance-orders' | 'documents';
+type ImportResource =
+  | "vehicles"
+  | "drivers"
+  | "fuel-records"
+  | "maintenance-orders"
+  | "documents";
 
 type UploadedSpreadsheetFile = {
   originalname: string;
@@ -28,80 +33,168 @@ type ImportResult = {
   sampleColumns: string[];
 };
 
-const supportedResources: ImportResource[] = ['vehicles', 'drivers', 'fuel-records', 'maintenance-orders', 'documents'];
+const supportedResources: ImportResource[] = [
+  "vehicles",
+  "drivers",
+  "fuel-records",
+  "maintenance-orders",
+  "documents",
+];
 
 const resourceSheetAliases: Record<ImportResource, string[]> = {
-  vehicles: ['vehicles', 'veiculos'],
-  drivers: ['drivers', 'motoristas'],
-  'fuel-records': ['fuel-records', 'fuel_records', 'abastecimentos', 'combustivel'],
-  'maintenance-orders': ['maintenance-orders', 'maintenance_orders', 'manutencoes', 'ordens_manutencao'],
-  documents: ['documents', 'documentos']
+  vehicles: ["vehicles", "veiculos"],
+  drivers: ["drivers", "motoristas"],
+  "fuel-records": [
+    "fuel-records",
+    "fuel_records",
+    "abastecimentos",
+    "combustivel",
+  ],
+  "maintenance-orders": [
+    "maintenance-orders",
+    "maintenance_orders",
+    "manutencoes",
+    "ordens_manutencao",
+  ],
+  documents: ["documents", "documentos"],
 };
 
 const columnAliases: Record<string, string[]> = {
-  plate: ['placa', 'plate', 'veiculo_placa', 'placa_veiculo'],
-  brand: ['marca', 'brand', 'fabricante'],
-  model: ['modelo', 'model', 'versao'],
-  nickname: ['apelido', 'nickname', 'nome_veiculo', 'nome_do_veiculo'],
-  year: ['ano', 'year', 'ano_modelo', 'ano_fabricacao'],
-  type: ['tipo', 'type', 'tipo_veiculo', 'categoria_veiculo'],
-  status: ['status', 'situacao'],
-  odometerKm: ['odometro', 'hodometro', 'km', 'quilometragem', 'odometer', 'odometerkm'],
-  tankCapacityLiters: ['tanque', 'capacidade_tanque', 'capacidade_do_tanque', 'tank_capacity', 'tankcapacityliters'],
-  costCenter: ['centro_custo', 'centro_de_custo', 'cost_center', 'costcenter', 'operacao'],
+  plate: ["placa", "plate", "veiculo_placa", "placa_veiculo"],
+  brand: ["marca", "brand", "fabricante"],
+  model: ["modelo", "model", "versao"],
+  nickname: ["apelido", "nickname", "nome_veiculo", "nome_do_veiculo"],
+  year: ["ano", "year", "ano_modelo", "ano_fabricacao"],
+  type: ["tipo", "type", "tipo_veiculo", "categoria_veiculo"],
+  status: ["status", "situacao"],
+  odometerKm: [
+    "odometro",
+    "hodometro",
+    "km",
+    "quilometragem",
+    "odometer",
+    "odometerkm",
+  ],
+  tankCapacityLiters: [
+    "tanque",
+    "capacidade_tanque",
+    "capacidade_do_tanque",
+    "tank_capacity",
+    "tankcapacityliters",
+  ],
+  costCenter: [
+    "centro_custo",
+    "centro_de_custo",
+    "cost_center",
+    "costcenter",
+    "operacao",
+  ],
 
-  name: ['nome', 'name', 'motorista', 'driver'],
-  cpf: ['cpf', 'documento_motorista'],
-  phone: ['telefone', 'celular', 'phone'],
-  email: ['email', 'e_mail'],
-  licenseNumber: ['cnh', 'numero_cnh', 'licenca', 'license', 'licensenumber'],
-  licenseCategory: ['categoria_cnh', 'categoria', 'license_category', 'licensecategory'],
-  licenseExpiresAt: ['validade_cnh', 'vencimento_cnh', 'license_expires_at', 'licenseexpiresat'],
+  name: ["nome", "name", "motorista", "driver"],
+  cpf: ["cpf", "documento_motorista"],
+  phone: ["telefone", "celular", "phone"],
+  email: ["email", "e_mail"],
+  licenseNumber: ["cnh", "numero_cnh", "licenca", "license", "licensenumber"],
+  licenseCategory: [
+    "categoria_cnh",
+    "categoria",
+    "license_category",
+    "licensecategory",
+  ],
+  licenseExpiresAt: [
+    "validade_cnh",
+    "vencimento_cnh",
+    "license_expires_at",
+    "licenseexpiresat",
+  ],
 
-  vehiclePlate: ['placa', 'vehicle_plate', 'vehicleplate', 'placa_veiculo'],
-  driverLicense: ['cnh', 'driver_license', 'driverlicense', 'cnh_motorista'],
-  liters: ['litros', 'liters', 'volume', 'quantidade_litros'],
-  totalCost: ['valor_total', 'total', 'custo_total', 'valor', 'total_cost', 'totalcost'],
-  pricePerLiter: ['preco_litro', 'valor_litro', 'price_per_liter', 'priceperliter'],
-  filledAt: ['data_abastecimento', 'abastecido_em', 'filled_at', 'filledat', 'data'],
-  station: ['posto', 'station', 'fornecedor'],
-  fuelType: ['combustivel', 'tipo_combustivel', 'fuel_type', 'fueltype'],
+  vehiclePlate: ["placa", "vehicle_plate", "vehicleplate", "placa_veiculo"],
+  driverLicense: ["cnh", "driver_license", "driverlicense", "cnh_motorista"],
+  liters: ["litros", "liters", "volume", "quantidade_litros"],
+  totalCost: [
+    "valor_total",
+    "total",
+    "custo_total",
+    "valor",
+    "total_cost",
+    "totalcost",
+  ],
+  pricePerLiter: [
+    "preco_litro",
+    "valor_litro",
+    "price_per_liter",
+    "priceperliter",
+  ],
+  filledAt: [
+    "data_abastecimento",
+    "abastecido_em",
+    "filled_at",
+    "filledat",
+    "data",
+  ],
+  station: ["posto", "station", "fornecedor"],
+  fuelType: ["combustivel", "tipo_combustivel", "fuel_type", "fueltype"],
 
-  priority: ['prioridade', 'priority'],
-  scheduledAt: ['agendamento', 'data_agendamento', 'scheduled_at', 'scheduledat', 'data'],
+  priority: ["prioridade", "priority"],
+  scheduledAt: [
+    "agendamento",
+    "data_agendamento",
+    "scheduled_at",
+    "scheduledat",
+    "data",
+  ],
 
-  entityType: ['tipo_entidade', 'entidade', 'entity_type', 'entitytype'],
-  entityReference: ['referencia', 'placa', 'cnh', 'entity_reference', 'entityreference'],
-  documentType: ['documento', 'tipo_documento', 'document_type', 'documenttype'],
-  number: ['numero', 'number', 'numero_documento'],
-  issuedAt: ['emissao', 'data_emissao', 'issued_at', 'issuedat'],
-  expiresAt: ['vencimento', 'validade', 'expires_at', 'expiresat'],
-  fileUrl: ['arquivo', 'url', 'file_url', 'fileurl']
+  entityType: ["tipo_entidade", "entidade", "entity_type", "entitytype"],
+  entityReference: [
+    "referencia",
+    "placa",
+    "cnh",
+    "entity_reference",
+    "entityreference",
+  ],
+  documentType: [
+    "documento",
+    "tipo_documento",
+    "document_type",
+    "documenttype",
+  ],
+  number: ["numero", "number", "numero_documento"],
+  issuedAt: ["emissao", "data_emissao", "issued_at", "issuedat"],
+  expiresAt: ["vencimento", "validade", "expires_at", "expiresat"],
+  fileUrl: ["arquivo", "url", "file_url", "fileurl"],
 };
 
 @Injectable()
 export class ImportsService {
   constructor(
     @InjectConnection() private readonly connection: Connection,
-    private readonly fleetService: FleetService
+    private readonly fleetService: FleetService,
   ) {}
 
-  async importSpreadsheet(tenantId: string, resource: string, file?: UploadedSpreadsheetFile): Promise<ImportResult> {
+  async importSpreadsheet(
+    tenantId: string,
+    resource: string,
+    file?: UploadedSpreadsheetFile,
+  ): Promise<ImportResult> {
     if (!file) {
       throw new BadRequestException('Envie um arquivo no campo "file".');
     }
 
     const importResource = resource as ImportResource;
     if (!supportedResources.includes(importResource)) {
-      throw new BadRequestException(`Tipo de importacao invalido. Use: ${supportedResources.join(', ')}.`);
+      throw new BadRequestException(
+        `Tipo de importacao invalido. Use: ${supportedResources.join(", ")}.`,
+      );
     }
 
     const rows = await this.parseSpreadsheet(file, importResource);
     if (rows.length === 0) {
-      throw new BadRequestException('A planilha nao possui linhas de dados.');
+      throw new BadRequestException("A planilha não possui linhas de dados.");
     }
     if (rows.length > 5000) {
-      throw new BadRequestException('Importacao limitada a 5000 linhas por arquivo.');
+      throw new BadRequestException(
+        "Importacao limitada a 5000 linhas por arquivo.",
+      );
     }
 
     const result: ImportResult = {
@@ -112,7 +205,7 @@ export class ImportsService {
       updated: 0,
       failed: 0,
       errors: [],
-      sampleColumns: Object.keys(rows[0] ?? {})
+      sampleColumns: Object.keys(rows[0] ?? {}),
     };
 
     for (const [index, rawRow] of rows.entries()) {
@@ -120,7 +213,7 @@ export class ImportsService {
       try {
         const payload = await this.mapRow(tenantId, importResource, rawRow);
         const upserted = await this.persist(tenantId, importResource, payload);
-        if (upserted === 'updated') {
+        if (upserted === "updated") {
           result.updated += 1;
         } else {
           result.imported += 1;
@@ -129,7 +222,7 @@ export class ImportsService {
         result.failed += 1;
         result.errors.push({
           row: rowNumber,
-          message: error instanceof Error ? error.message : 'Erro desconhecido'
+          message: error instanceof Error ? error.message : "Erro desconhecido",
         });
       }
     }
@@ -137,22 +230,27 @@ export class ImportsService {
     return result;
   }
 
-  private async parseSpreadsheet(file: UploadedSpreadsheetFile, resource: ImportResource): Promise<LegacyRow[]> {
-    const extension = file.originalname.split('.').pop()?.toLowerCase();
-    if (extension === 'csv') {
+  private async parseSpreadsheet(
+    file: UploadedSpreadsheetFile,
+    resource: ImportResource,
+  ): Promise<LegacyRow[]> {
+    const extension = file.originalname.split(".").pop()?.toLowerCase();
+    if (extension === "csv") {
       const content = this.decodeCsv(file.buffer);
       return parse(content, {
         columns: true,
         bom: true,
         delimiter: this.detectCsvDelimiter(content),
         skip_empty_lines: true,
-        trim: true
+        trim: true,
       }) as LegacyRow[];
     }
 
-    if (extension === 'xlsx') {
+    if (extension === "xlsx") {
       const workbook = new ExcelJS.Workbook();
-      const workbookBuffer = file.buffer as unknown as Parameters<typeof workbook.xlsx.load>[0];
+      const workbookBuffer = file.buffer as unknown as Parameters<
+        typeof workbook.xlsx.load
+      >[0];
       await workbook.xlsx.load(workbookBuffer);
       const worksheet = this.selectWorksheet(workbook, resource);
       if (!worksheet) {
@@ -174,166 +272,235 @@ export class ImportsService {
         headers.forEach((header, columnNumber) => {
           record[header] = this.cellValue(row.getCell(columnNumber).value);
         });
-        if (Object.values(record).some((value) => value !== undefined && value !== null && String(value).trim() !== '')) {
+        if (
+          Object.values(record).some(
+            (value) =>
+              value !== undefined &&
+              value !== null &&
+              String(value).trim() !== "",
+          )
+        ) {
           rows.push(record);
         }
       }
       return rows;
     }
 
-    throw new BadRequestException('Formato nao suportado. Envie CSV ou XLSX.');
+    throw new BadRequestException("Formato não suportado. Envie CSV ou XLSX.");
   }
 
-  private selectWorksheet(workbook: ExcelJS.Workbook, resource: ImportResource) {
+  private selectWorksheet(
+    workbook: ExcelJS.Workbook,
+    resource: ImportResource,
+  ) {
     if (workbook.worksheets.length <= 1) {
       return workbook.worksheets[0];
     }
 
-    const aliases = new Set(resourceSheetAliases[resource].map((alias) => this.normalizeKey(alias)));
-    const worksheet = workbook.worksheets.find((sheet) => aliases.has(this.normalizeKey(sheet.name)));
+    const aliases = new Set(
+      resourceSheetAliases[resource].map((alias) => this.normalizeKey(alias)),
+    );
+    const worksheet = workbook.worksheets.find((sheet) =>
+      aliases.has(this.normalizeKey(sheet.name)),
+    );
     if (!worksheet) {
       throw new BadRequestException(
-        `Aba nao encontrada para ${resource}. Use uma aba chamada: ${resourceSheetAliases[resource].join(', ')}.`
+        `Aba não encontrada para ${resource}. Use uma aba chamada: ${resourceSheetAliases[resource].join(", ")}.`,
       );
     }
 
     return worksheet;
   }
 
-  private async mapRow(tenantId: string, resource: ImportResource, row: LegacyRow) {
+  private async mapRow(
+    tenantId: string,
+    resource: ImportResource,
+    row: LegacyRow,
+  ) {
     const normalized = this.normalizeRow(row);
 
-    if (resource === 'vehicles') {
-      const plate = this.requiredString(normalized, 'plate', 'placa');
+    if (resource === "vehicles") {
+      const plate = this.requiredString(normalized, "plate", "placa");
       return {
         plate,
-        brand: this.stringValue(normalized, 'brand') ?? 'Nao informado',
-        model: this.stringValue(normalized, 'model') ?? 'Nao informado',
-        nickname: this.stringValue(normalized, 'nickname'),
-        year: this.numberValue(normalized, 'year') ?? new Date().getFullYear(),
-        type: this.normalizeVehicleType(this.stringValue(normalized, 'type')),
-        status: this.normalizeVehicleStatus(this.stringValue(normalized, 'status')),
-        odometerKm: this.numberValue(normalized, 'odometerKm') ?? 0,
-        tankCapacityLiters: this.numberValue(normalized, 'tankCapacityLiters'),
-        costCenter: this.stringValue(normalized, 'costCenter')
+        brand: this.stringValue(normalized, "brand") ?? "Não informado",
+        model: this.stringValue(normalized, "model") ?? "Não informado",
+        nickname: this.stringValue(normalized, "nickname"),
+        year: this.numberValue(normalized, "year") ?? new Date().getFullYear(),
+        type: this.normalizeVehicleType(this.stringValue(normalized, "type")),
+        status: this.normalizeVehicleStatus(
+          this.stringValue(normalized, "status"),
+        ),
+        odometerKm: this.numberValue(normalized, "odometerKm") ?? 0,
+        tankCapacityLiters: this.numberValue(normalized, "tankCapacityLiters"),
+        costCenter: this.stringValue(normalized, "costCenter"),
       };
     }
 
-    if (resource === 'drivers') {
+    if (resource === "drivers") {
       return {
-        name: this.requiredString(normalized, 'name', 'nome'),
-        licenseNumber: this.requiredString(normalized, 'licenseNumber', 'CNH'),
-        licenseCategory: this.stringValue(normalized, 'licenseCategory') ?? 'B',
-        licenseExpiresAt: this.dateValue(normalized, 'licenseExpiresAt') ?? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-        cpf: this.stringValue(normalized, 'cpf'),
-        phone: this.stringValue(normalized, 'phone'),
-        email: this.stringValue(normalized, 'email'),
-        status: this.normalizeDriverStatus(this.stringValue(normalized, 'status'))
+        name: this.requiredString(normalized, "name", "nome"),
+        licenseNumber: this.requiredString(normalized, "licenseNumber", "CNH"),
+        licenseCategory: this.stringValue(normalized, "licenseCategory") ?? "B",
+        licenseExpiresAt:
+          this.dateValue(normalized, "licenseExpiresAt") ??
+          new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        cpf: this.stringValue(normalized, "cpf"),
+        phone: this.stringValue(normalized, "phone"),
+        email: this.stringValue(normalized, "email"),
+        status: this.normalizeDriverStatus(
+          this.stringValue(normalized, "status"),
+        ),
       };
     }
 
-    if (resource === 'fuel-records') {
-      const vehicleId = await this.vehicleIdByPlate(tenantId, this.requiredString(normalized, 'vehiclePlate', 'placa'));
-      const driverId = await this.driverIdByLicense(tenantId, this.stringValue(normalized, 'driverLicense'));
+    if (resource === "fuel-records") {
+      const vehicleId = await this.vehicleIdByPlate(
+        tenantId,
+        this.requiredString(normalized, "vehiclePlate", "placa"),
+      );
+      const driverId = await this.driverIdByLicense(
+        tenantId,
+        this.stringValue(normalized, "driverLicense"),
+      );
       return {
         vehicleId,
         driverId,
-        liters: this.requiredNumber(normalized, 'liters', 'litros'),
-        totalCost: this.requiredNumber(normalized, 'totalCost', 'valor total'),
-        pricePerLiter: this.numberValue(normalized, 'pricePerLiter'),
-        odometerKm: this.numberValue(normalized, 'odometerKm'),
-        filledAt: this.dateValue(normalized, 'filledAt') ?? new Date(),
-        station: this.stringValue(normalized, 'station'),
-        fuelType: this.normalizeFuelType(this.stringValue(normalized, 'fuelType'))
+        liters: this.requiredNumber(normalized, "liters", "litros"),
+        totalCost: this.requiredNumber(normalized, "totalCost", "valor total"),
+        pricePerLiter: this.numberValue(normalized, "pricePerLiter"),
+        odometerKm: this.numberValue(normalized, "odometerKm"),
+        filledAt: this.dateValue(normalized, "filledAt") ?? new Date(),
+        station: this.stringValue(normalized, "station"),
+        fuelType: this.normalizeFuelType(
+          this.stringValue(normalized, "fuelType"),
+        ),
       };
     }
 
-    if (resource === 'maintenance-orders') {
-      const vehicleId = await this.vehicleIdByPlate(tenantId, this.requiredString(normalized, 'vehiclePlate', 'placa'));
+    if (resource === "maintenance-orders") {
+      const vehicleId = await this.vehicleIdByPlate(
+        tenantId,
+        this.requiredString(normalized, "vehiclePlate", "placa"),
+      );
       return {
         vehicleId,
-        type: this.normalizeMaintenanceType(this.stringValue(normalized, 'type')),
-        priority: this.normalizePriority(this.stringValue(normalized, 'priority')),
-        status: this.normalizeMaintenanceStatus(this.stringValue(normalized, 'status')),
-        scheduledAt: this.dateValue(normalized, 'scheduledAt'),
-        odometerKm: this.numberValue(normalized, 'odometerKm'),
-        totalCost: this.numberValue(normalized, 'totalCost') ?? 0
+        type: this.normalizeMaintenanceType(
+          this.stringValue(normalized, "type"),
+        ),
+        priority: this.normalizePriority(
+          this.stringValue(normalized, "priority"),
+        ),
+        status: this.normalizeMaintenanceStatus(
+          this.stringValue(normalized, "status"),
+        ),
+        scheduledAt: this.dateValue(normalized, "scheduledAt"),
+        odometerKm: this.numberValue(normalized, "odometerKm"),
+        totalCost: this.numberValue(normalized, "totalCost") ?? 0,
       };
     }
 
     const entityType = this.normalizeEntityType(
-      this.stringValue(normalized, 'entityType') ?? (this.stringValue(normalized, 'driverLicense') ? 'driver' : 'vehicle')
+      this.stringValue(normalized, "entityType") ??
+        (this.stringValue(normalized, "driverLicense") ? "driver" : "vehicle"),
     );
-    const entityReference = this.requiredString(normalized, 'entityReference', 'referencia');
+    const entityReference = this.requiredString(
+      normalized,
+      "entityReference",
+      "referencia",
+    );
     return {
       entityType,
       entityId:
-        entityType === 'driver'
+        entityType === "driver"
           ? await this.driverIdByLicense(tenantId, entityReference)
           : await this.vehicleIdByPlate(tenantId, entityReference),
-      type: this.stringValue(normalized, 'documentType') ?? 'documento',
-      number: this.stringValue(normalized, 'number'),
-      issuedAt: this.dateValue(normalized, 'issuedAt'),
-      expiresAt: this.dateValue(normalized, 'expiresAt'),
-      fileUrl: this.stringValue(normalized, 'fileUrl')
+      type: this.stringValue(normalized, "documentType") ?? "documento",
+      number: this.stringValue(normalized, "number"),
+      issuedAt: this.dateValue(normalized, "issuedAt"),
+      expiresAt: this.dateValue(normalized, "expiresAt"),
+      fileUrl: this.stringValue(normalized, "fileUrl"),
     };
   }
 
-  private async persist(tenantId: string, resource: ImportResource, payload: Record<string, unknown>) {
-    if (resource === 'vehicles') {
-      payload.plate = this.normalizePlate(String(payload.plate ?? ''));
+  private async persist(
+    tenantId: string,
+    resource: ImportResource,
+    payload: Record<string, unknown>,
+  ) {
+    if (resource === "vehicles") {
+      payload.plate = this.normalizePlate(String(payload.plate ?? ""));
       const existing = await this.connection
         .model(Vehicle.name)
         .findOne({ tenantId, plate: payload.plate })
         .lean<{ _id: unknown }>()
         .exec();
       if (existing?._id) {
-        await this.fleetService.update('vehicles', tenantId, String(existing._id), payload);
-        return 'updated';
+        await this.fleetService.update(
+          "vehicles",
+          tenantId,
+          String(existing._id),
+          payload,
+        );
+        return "updated";
       }
     }
 
-    if (resource === 'drivers') {
-      payload.licenseNumber = String(payload.licenseNumber ?? '').trim();
+    if (resource === "drivers") {
+      payload.licenseNumber = String(payload.licenseNumber ?? "").trim();
       const existing = await this.connection
         .model(Driver.name)
         .findOne({ tenantId, licenseNumber: payload.licenseNumber })
         .lean<{ _id: unknown }>()
         .exec();
       if (existing?._id) {
-        await this.fleetService.update('drivers', tenantId, String(existing._id), payload);
-        return 'updated';
+        await this.fleetService.update(
+          "drivers",
+          tenantId,
+          String(existing._id),
+          payload,
+        );
+        return "updated";
       }
     }
 
-    if (resource === 'documents') {
+    if (resource === "documents") {
       const existing = await this.connection
-        .model('DocumentRecord')
+        .model("DocumentRecord")
         .findOne({
           tenantId,
           entityType: payload.entityType,
           entityId: payload.entityId,
           type: payload.type,
-          ...(payload.number ? { number: payload.number } : {})
+          ...(payload.number ? { number: payload.number } : {}),
         })
         .lean<{ _id: unknown }>()
         .exec();
       if (existing?._id) {
-        await this.fleetService.update('documents', tenantId, String(existing._id), payload);
-        return 'updated';
+        await this.fleetService.update(
+          "documents",
+          tenantId,
+          String(existing._id),
+          payload,
+        );
+        return "updated";
       }
     }
 
-    await this.fleetService.create(resource as FleetResource, tenantId, payload);
-    return 'imported';
+    await this.fleetService.create(
+      resource as FleetResource,
+      tenantId,
+      payload,
+    );
+    return "imported";
   }
 
   private decodeCsv(buffer: Buffer) {
-    const utf8 = buffer.toString('utf8');
-    if (!utf8.includes('\uFFFD')) {
+    const utf8 = buffer.toString("utf8");
+    if (!utf8.includes("\uFFFD")) {
       return utf8;
     }
-    return buffer.toString('latin1');
+    return buffer.toString("latin1");
   }
 
   private detectCsvDelimiter(content: string) {
@@ -342,24 +509,33 @@ export class ImportsService {
       .map((line) => line.trim())
       .find(Boolean);
     if (!firstLine) {
-      return ',';
+      return ",";
     }
 
-    const delimiters = [',', ';', '\t'];
-    return delimiters
-      .map((delimiter) => ({
-        delimiter,
-        count: firstLine.split(delimiter).length - 1
-      }))
-      .sort((a, b) => b.count - a.count)[0]?.delimiter ?? ',';
+    const delimiters = [",", ";", "\t"];
+    return (
+      delimiters
+        .map((delimiter) => ({
+          delimiter,
+          count: firstLine.split(delimiter).length - 1,
+        }))
+        .sort((a, b) => b.count - a.count)[0]?.delimiter ?? ","
+    );
   }
 
   private normalizeRow(row: LegacyRow) {
-    const normalizedInput = Object.fromEntries(Object.entries(row).map(([key, value]) => [this.normalizeKey(key), value]));
+    const normalizedInput = Object.fromEntries(
+      Object.entries(row).map(([key, value]) => [
+        this.normalizeKey(key),
+        value,
+      ]),
+    );
     const output: LegacyRow = {};
 
     Object.entries(columnAliases).forEach(([target, aliases]) => {
-      const match = aliases.map((alias) => this.normalizeKey(alias)).find((alias) => alias in normalizedInput);
+      const match = aliases
+        .map((alias) => this.normalizeKey(alias))
+        .find((alias) => alias in normalizedInput);
       if (match) {
         output[target] = normalizedInput[match];
       }
@@ -370,11 +546,11 @@ export class ImportsService {
 
   private normalizeKey(value: string) {
     return value
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '_')
-      .replace(/^_+|_+$/g, '');
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
   }
 
   private requiredString(row: LegacyRow, key: string, label: string) {
@@ -387,7 +563,7 @@ export class ImportsService {
 
   private stringValue(row: LegacyRow, key: string) {
     const value = row[key];
-    if (value === undefined || value === null || String(value).trim() === '') {
+    if (value === undefined || value === null || String(value).trim() === "") {
       return undefined;
     }
     return String(value).trim();
@@ -396,23 +572,25 @@ export class ImportsService {
   private requiredNumber(row: LegacyRow, key: string, label: string) {
     const value = this.numberValue(row, key);
     if (value === undefined || Number.isNaN(value)) {
-      throw new Error(`Campo numerico obrigatorio ausente ou invalido: ${label}.`);
+      throw new Error(
+        `Campo numerico obrigatorio ausente ou invalido: ${label}.`,
+      );
     }
     return value;
   }
 
   private numberValue(row: LegacyRow, key: string) {
     const value = row[key];
-    if (value === undefined || value === null || String(value).trim() === '') {
+    if (value === undefined || value === null || String(value).trim() === "") {
       return undefined;
     }
-    if (typeof value === 'number') {
+    if (typeof value === "number") {
       return value;
     }
     const normalized = String(value)
-      .replace(/[R$\s]/g, '')
-      .replace(/\.(?=\d{3}(\D|$))/g, '')
-      .replace(',', '.');
+      .replace(/[R$\s]/g, "")
+      .replace(/\.(?=\d{3}(\D|$))/g, "")
+      .replace(",", ".");
     const parsed = Number(normalized);
     return Number.isFinite(parsed) ? parsed : undefined;
   }
@@ -425,7 +603,7 @@ export class ImportsService {
     if (value instanceof Date) {
       return value;
     }
-    if (typeof value === 'number') {
+    if (typeof value === "number") {
       return this.excelSerialToDate(value) ?? new Date(value);
     }
     const text = String(value).trim();
@@ -462,7 +640,9 @@ export class ImportsService {
       .lean<{ _id: unknown }>()
       .exec();
     if (!vehicle?._id) {
-      throw new Error(`Veiculo nao encontrado para placa ${plate}. Importe os veiculos antes.`);
+      throw new Error(
+        `Veiculo Não encontrado para placa ${plate}. Importe os veiculos antes.`,
+      );
     }
     return String(vehicle._id);
   }
@@ -481,146 +661,158 @@ export class ImportsService {
 
   private cellToString(value: ExcelJS.CellValue) {
     const cellValue = this.cellValue(value);
-    return cellValue === undefined || cellValue === null ? '' : String(cellValue).trim();
+    return cellValue === undefined || cellValue === null
+      ? ""
+      : String(cellValue).trim();
   }
 
   private cellValue(value: ExcelJS.CellValue): unknown {
-    if (value && typeof value === 'object') {
+    if (value && typeof value === "object") {
       if (value instanceof Date) {
         return value;
       }
-      if ('text' in value) {
+      if ("text" in value) {
         return value.text;
       }
-      if ('result' in value) {
+      if ("result" in value) {
         return value.result;
       }
-      if ('richText' in value && Array.isArray(value.richText)) {
-        return value.richText.map((item) => item.text).join('');
+      if ("richText" in value && Array.isArray(value.richText)) {
+        return value.richText.map((item) => item.text).join("");
       }
     }
     return value;
   }
 
   private normalizeVehicleType(value?: string) {
-    const normalized = this.normalizeKey(value ?? 'car');
-    if (['van', 'truck', 'bus', 'motorcycle', 'equipment'].includes(normalized)) {
+    const normalized = this.normalizeKey(value ?? "car");
+    if (
+      ["van", "truck", "bus", "motorcycle", "equipment"].includes(normalized)
+    ) {
       return normalized;
     }
-    if (['caminhao', 'truck'].includes(normalized)) {
-      return 'truck';
+    if (["caminhao", "truck"].includes(normalized)) {
+      return "truck";
     }
-    if (['onibus', 'bus'].includes(normalized)) {
-      return 'bus';
+    if (["onibus", "bus"].includes(normalized)) {
+      return "bus";
     }
-    if (['moto', 'motocicleta', 'motorcycle'].includes(normalized)) {
-      return 'motorcycle';
+    if (["moto", "motocicleta", "motorcycle"].includes(normalized)) {
+      return "motorcycle";
     }
-    return 'car';
+    return "car";
   }
 
   private normalizeVehicleStatus(value?: string) {
-    const normalized = this.normalizeKey(value ?? 'available');
-    if (['available', 'disponivel', 'ativo', 'operacional'].includes(normalized)) {
-      return 'available';
+    const normalized = this.normalizeKey(value ?? "available");
+    if (
+      ["available", "disponivel", "ativo", "operacional"].includes(normalized)
+    ) {
+      return "available";
     }
-    if (['in_route', 'em_rota', 'rota', 'viagem'].includes(normalized)) {
-      return 'in_route';
+    if (["in_route", "em_rota", "rota", "viagem"].includes(normalized)) {
+      return "in_route";
     }
-    if (['stopped', 'parado', 'ocioso'].includes(normalized)) {
-      return 'stopped';
+    if (["stopped", "parado", "ocioso"].includes(normalized)) {
+      return "stopped";
     }
-    if (['maintenance', 'manutencao', 'oficina'].includes(normalized)) {
-      return 'maintenance';
+    if (["maintenance", "manutencao", "oficina"].includes(normalized)) {
+      return "maintenance";
     }
-    if (['inactive', 'inativo'].includes(normalized)) {
-      return 'inactive';
+    if (["inactive", "inativo"].includes(normalized)) {
+      return "inactive";
     }
-    if (['blocked', 'bloqueado'].includes(normalized)) {
-      return 'blocked';
+    if (["blocked", "bloqueado"].includes(normalized)) {
+      return "blocked";
     }
-    return 'available';
+    return "available";
   }
 
   private normalizeDriverStatus(value?: string) {
-    const normalized = this.normalizeKey(value ?? 'active');
-    if (['inactive', 'inativo'].includes(normalized)) {
-      return 'inactive';
+    const normalized = this.normalizeKey(value ?? "active");
+    if (["inactive", "inativo"].includes(normalized)) {
+      return "inactive";
     }
-    if (['blocked', 'bloqueado'].includes(normalized)) {
-      return 'blocked';
+    if (["blocked", "bloqueado"].includes(normalized)) {
+      return "blocked";
     }
-    if (['vacation', 'ferias'].includes(normalized)) {
-      return 'vacation';
+    if (["vacation", "ferias"].includes(normalized)) {
+      return "vacation";
     }
-    return 'active';
+    return "active";
   }
 
   private normalizeFuelType(value?: string) {
-    const normalized = this.normalizeKey(value ?? 'diesel');
-    if (['gasoline', 'ethanol', 'diesel', 'gnv', 'electric'].includes(normalized)) {
+    const normalized = this.normalizeKey(value ?? "diesel");
+    if (
+      ["gasoline", "ethanol", "diesel", "gnv", "electric"].includes(normalized)
+    ) {
       return normalized;
     }
-    if (['gasolina'].includes(normalized)) {
-      return 'gasoline';
+    if (["gasolina"].includes(normalized)) {
+      return "gasoline";
     }
-    if (['etanol', 'alcool'].includes(normalized)) {
-      return 'ethanol';
+    if (["etanol", "alcool"].includes(normalized)) {
+      return "ethanol";
     }
-    if (['eletrico', 'energia'].includes(normalized)) {
-      return 'electric';
+    if (["eletrico", "energia"].includes(normalized)) {
+      return "electric";
     }
-    return 'diesel';
+    return "diesel";
   }
 
   private normalizeMaintenanceType(value?: string) {
-    const normalized = this.normalizeKey(value ?? 'preventive');
-    if (['corrective', 'corretiva'].includes(normalized)) {
-      return 'corrective';
+    const normalized = this.normalizeKey(value ?? "preventive");
+    if (["corrective", "corretiva"].includes(normalized)) {
+      return "corrective";
     }
-    if (['predictive', 'preditiva'].includes(normalized)) {
-      return 'predictive';
+    if (["predictive", "preditiva"].includes(normalized)) {
+      return "predictive";
     }
-    return 'preventive';
+    return "preventive";
   }
 
   private normalizePriority(value?: string) {
-    const normalized = this.normalizeKey(value ?? 'medium');
-    if (['low', 'baixa'].includes(normalized)) {
-      return 'low';
+    const normalized = this.normalizeKey(value ?? "medium");
+    if (["low", "baixa"].includes(normalized)) {
+      return "low";
     }
-    if (['high', 'alta'].includes(normalized)) {
-      return 'high';
+    if (["high", "alta"].includes(normalized)) {
+      return "high";
     }
-    if (['critical', 'critica', 'critico'].includes(normalized)) {
-      return 'critical';
+    if (["critical", "critica", "critico"].includes(normalized)) {
+      return "critical";
     }
-    return 'medium';
+    return "medium";
   }
 
   private normalizeMaintenanceStatus(value?: string) {
-    const normalized = this.normalizeKey(value ?? 'open');
-    if (['scheduled', 'agendada', 'agendado'].includes(normalized)) {
-      return 'scheduled';
+    const normalized = this.normalizeKey(value ?? "open");
+    if (["scheduled", "agendada", "agendado"].includes(normalized)) {
+      return "scheduled";
     }
-    if (['in_progress', 'em_andamento', 'executando'].includes(normalized)) {
-      return 'in_progress';
+    if (["in_progress", "em_andamento", "executando"].includes(normalized)) {
+      return "in_progress";
     }
-    if (['closed', 'fechada', 'fechado', 'concluida', 'concluido'].includes(normalized)) {
-      return 'closed';
+    if (
+      ["closed", "fechada", "fechado", "concluida", "concluido"].includes(
+        normalized,
+      )
+    ) {
+      return "closed";
     }
-    if (['cancelled', 'cancelada', 'cancelado'].includes(normalized)) {
-      return 'cancelled';
+    if (["cancelled", "cancelada", "cancelado"].includes(normalized)) {
+      return "cancelled";
     }
-    return 'open';
+    return "open";
   }
 
   private normalizeEntityType(value: string) {
     const normalized = this.normalizeKey(value);
-    return ['driver', 'motorista'].includes(normalized) ? 'driver' : 'vehicle';
+    return ["driver", "motorista"].includes(normalized) ? "driver" : "vehicle";
   }
 
   private normalizePlate(value: string) {
-    return value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    return value.toUpperCase().replace(/[^A-Z0-9]/g, "");
   }
 }

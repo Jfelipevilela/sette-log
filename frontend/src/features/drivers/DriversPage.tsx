@@ -1,7 +1,17 @@
 import { FormEvent, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Award, CalendarDays, Edit2, Eye, Plus, Search, Trash2, UserRound } from "lucide-react";
+import {
+  Award,
+  CalendarDays,
+  Edit2,
+  Eye,
+  Plus,
+  Search,
+  Trash2,
+  UserRound,
+} from "lucide-react";
 import { Badge } from "../../components/ui/badge";
+import { ActionMenu } from "../../components/ui/action-menu";
 import { Button } from "../../components/ui/button";
 import {
   Card,
@@ -12,12 +22,32 @@ import {
 import { Input } from "../../components/ui/input";
 import { DetailModal } from "../../components/ui/detail-modal";
 import { Modal } from "../../components/ui/modal";
-import { Select } from "../../components/ui/select";
+import { SearchableSelect } from "../../components/ui/searchable-select";
 import { Table, Td, Th } from "../../components/ui/table";
-import { apiErrorMessage, createDriver, deleteDriver, getDrivers, getVehicles, updateDriver } from "../../lib/api";
+import {
+  apiErrorMessage,
+  createDriver,
+  deleteDriver,
+  getDrivers,
+  getVehicles,
+  updateDriver,
+} from "../../lib/api";
+import { labelFor } from "../../lib/labels";
 import type { Driver } from "../../lib/types";
 
 import { formatDate } from "../../lib/utils";
+
+const licenseCategoryOptions = ["A", "B", "C", "D", "E"].map((category) => ({
+  value: category,
+  label: category,
+}));
+
+const driverStatusOptions = [
+  { value: "active", label: "Ativo" },
+  { value: "inactive", label: "Inativo" },
+  { value: "blocked", label: "Bloqueado" },
+  { value: "vacation", label: "Ferias" },
+];
 
 export function DriversPage() {
   const queryClient = useQueryClient();
@@ -44,7 +74,7 @@ export function DriversPage() {
     },
     onError: () =>
       setFormError(
-        "Nao foi possivel criar o motorista. Verifique CNH e vinculo com veiculo.",
+        "Não foi possivel criar o motorista. Verifique CNH e vinculo com veiculo.",
       ),
   });
   const updateDriverMutation = useMutation({
@@ -55,13 +85,17 @@ export function DriversPage() {
       await invalidateDriverData();
     },
     onError: (error) =>
-      setFormError(apiErrorMessage(error, "Nao foi possivel editar o motorista.")),
+      setFormError(
+        apiErrorMessage(error, "Não foi possivel editar o motorista."),
+      ),
   });
   const deleteDriverMutation = useMutation({
     mutationFn: deleteDriver,
     onSuccess: invalidateDriverData,
     onError: (error) =>
-      setFormError(apiErrorMessage(error, "Nao foi possivel excluir o motorista.")),
+      setFormError(
+        apiErrorMessage(error, "Não foi possivel excluir o motorista."),
+      ),
   });
 
   async function invalidateDriverData() {
@@ -100,6 +134,12 @@ export function DriversPage() {
         driver.licenseCategory.toLowerCase().includes(term),
     );
   }, [drivers, search]);
+
+  const vehicleOptions = vehicles.map((vehicle) => ({
+    value: vehicle._id,
+    label: `${vehicle.plate} - ${vehicle.nickname ?? vehicle.model}`,
+    searchText: `${vehicle.plate} ${vehicle.nickname ?? ""} ${vehicle.brand} ${vehicle.model}`,
+  }));
 
   function handleCreateDriver(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -202,34 +242,39 @@ export function DriversPage() {
                             driver.status === "active" ? "green" : "neutral"
                           }
                         >
-                          {driver.status}
+                          {labelFor(driver.status)}
                         </Badge>
                       </Td>
                       <Td>
-                        <div className="flex gap-2">
-                          <Button type="button" variant="secondary" size="sm" onClick={() => openEditModal(driver)}>
-                            <Edit2 size={15} />
-                            Editar
-                          </Button>
-                          <Button type="button" variant="secondary" size="sm" onClick={() => setDetailDriver(driver)}>
-                            <Eye size={15} />
-                            Detalhes
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="danger"
-                            size="sm"
-                            disabled={deleteDriverMutation.isPending}
-                            onClick={() => {
-                              if (window.confirm(`Excluir o motorista ${driver.name}?`)) {
-                                deleteDriverMutation.mutate(driver._id);
-                              }
-                            }}
-                          >
-                            <Trash2 size={15} />
-                            Excluir
-                          </Button>
-                        </div>
+                        <ActionMenu
+                          items={[
+                            {
+                              label: "Editar",
+                              icon: <Edit2 size={15} />,
+                              onClick: () => openEditModal(driver),
+                            },
+                            {
+                              label: "Detalhes",
+                              icon: <Eye size={15} />,
+                              onClick: () => setDetailDriver(driver),
+                            },
+                            {
+                              label: "Excluir",
+                              icon: <Trash2 size={15} />,
+                              danger: true,
+                              disabled: deleteDriverMutation.isPending,
+                              onClick: () => {
+                                if (
+                                  window.confirm(
+                                    `Excluir o motorista ${driver.name}?`,
+                                  )
+                                ) {
+                                  deleteDriverMutation.mutate(driver._id);
+                                }
+                              },
+                            },
+                          ]}
+                        />
                       </Td>
                     </tr>
                   ))}
@@ -285,40 +330,60 @@ export function DriversPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-2 text-sm font-medium md:col-span-2">
               Nome
-              <Input name="name" placeholder="Nome completo" defaultValue={editingDriver?.name} required />
+              <Input
+                name="name"
+                placeholder="Nome completo"
+                defaultValue={editingDriver?.name}
+                required
+              />
             </label>
             <label className="space-y-2 text-sm font-medium">
               CNH
-              <Input name="licenseNumber" placeholder="SP12345678" defaultValue={editingDriver?.licenseNumber} required />
+              <Input
+                name="licenseNumber"
+                placeholder="SP12345678"
+                defaultValue={editingDriver?.licenseNumber}
+                required
+              />
             </label>
             <label className="space-y-2 text-sm font-medium">
               Categoria
-              <Select name="licenseCategory" defaultValue={editingDriver?.licenseCategory ?? "B"}>
-                <option value="A">A</option>
-                <option value="B">B</option>
-                <option value="C">C</option>
-                <option value="D">D</option>
-                <option value="E">E</option>
-              </Select>
+              <SearchableSelect
+                name="licenseCategory"
+                defaultValue={editingDriver?.licenseCategory ?? "B"}
+                options={licenseCategoryOptions}
+                searchPlaceholder="Buscar categoria"
+              />
             </label>
             <label className="space-y-2 text-sm font-medium">
               Validade da CNH
-              <Input name="licenseExpiresAt" type="date" defaultValue={editingDriver?.licenseExpiresAt?.slice(0, 10)} required />
+              <Input
+                name="licenseExpiresAt"
+                type="date"
+                defaultValue={editingDriver?.licenseExpiresAt?.slice(0, 10)}
+                required
+              />
             </label>
             <label className="space-y-2 text-sm font-medium">
               Veiculo principal
-              <Select name="assignedVehicleId" defaultValue={editingDriver?.assignedVehicleId ?? ""}>
-                <option value="">Sem vinculo</option>
-                {vehicles.map((vehicle) => (
-                  <option key={vehicle._id} value={vehicle._id}>
-                    {vehicle.plate} - {vehicle.model}
-                  </option>
-                ))}
-              </Select>
+              <SearchableSelect
+                name="assignedVehicleId"
+                defaultValue={editingDriver?.assignedVehicleId ?? ""}
+                placeholder="Sem vinculo"
+                searchPlaceholder="Buscar placa, modelo ou apelido"
+                options={[
+                  { value: "", label: "Sem vinculo" },
+                  ...vehicleOptions,
+                ]}
+              />
             </label>
             <label className="space-y-2 text-sm font-medium">
               Telefone
-              <Input name="phone" placeholder="+55 11 90000-0000" defaultValue={editingDriver?.phone} />
+              <Input
+                name="phone"
+                placeholder="+55 11 90000-0000"
+                defaultValue={editingDriver?.phone}
+              />
             </label>
             <label className="space-y-2 text-sm font-medium">
               Email
@@ -331,12 +396,12 @@ export function DriversPage() {
             </label>
             <label className="space-y-2 text-sm font-medium">
               Status
-              <Select name="status" defaultValue={editingDriver?.status ?? "active"}>
-                <option value="active">Ativo</option>
-                <option value="inactive">Inativo</option>
-                <option value="blocked">Bloqueado</option>
-                <option value="vacation">Ferias</option>
-              </Select>
+              <SearchableSelect
+                name="status"
+                defaultValue={editingDriver?.status ?? "active"}
+                options={driverStatusOptions}
+                searchPlaceholder="Buscar status"
+              />
             </label>
           </div>
           {formError && (
@@ -345,14 +410,15 @@ export function DriversPage() {
             </p>
           )}
           <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={closeModal}
-            >
+            <Button type="button" variant="secondary" onClick={closeModal}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={createDriverMutation.isPending || updateDriverMutation.isPending}>
+            <Button
+              type="submit"
+              disabled={
+                createDriverMutation.isPending || updateDriverMutation.isPending
+              }
+            >
               {createDriverMutation.isPending || updateDriverMutation.isPending
                 ? "Salvando..."
                 : "Salvar motorista"}
@@ -371,17 +437,22 @@ export function DriversPage() {
           { label: "Nome", value: detailDriver?.name },
           { label: "CNH", value: detailDriver?.licenseNumber },
           { label: "Categoria", value: detailDriver?.licenseCategory },
-          { label: "Validade da CNH", value: formatDate(detailDriver?.licenseExpiresAt) },
+          {
+            label: "Validade da CNH",
+            value: formatDate(detailDriver?.licenseExpiresAt),
+          },
           { label: "Telefone", value: detailDriver?.phone },
           { label: "Email", value: detailDriver?.email },
-          { label: "Status", value: detailDriver?.status },
+          { label: "Status", value: labelFor(detailDriver?.status) },
           { label: "Score", value: detailDriver?.score },
           {
             label: "Veiculo vinculado",
             value: detailDriver?.assignedVehicleId
-              ? vehicles.find((vehicle) => vehicle._id === detailDriver.assignedVehicleId)?.plate ?? detailDriver.assignedVehicleId
-              : "-"
-          }
+              ? (vehicles.find(
+                  (vehicle) => vehicle._id === detailDriver.assignedVehicleId,
+                )?.plate ?? detailDriver.assignedVehicleId)
+              : "-",
+          },
         ]}
       />
     </div>

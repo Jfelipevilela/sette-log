@@ -40,7 +40,7 @@ export function DriversPage() {
     },
     onError: () =>
       setFormError(
-        "Nao foi possivel criar o motorista. Verifique CNH e vinculo com veiculo.",
+        "Não foi possivel criar o motorista. Verifique CNH e vinculo com veiculo.",
       ),
   });
 

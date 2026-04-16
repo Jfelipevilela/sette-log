@@ -83,8 +83,8 @@ Modulos implementados na base:
 
 Regras ja codificadas:
 
-- Motorista principal nao pode ficar vinculado a dois veiculos.
-- Veiculo nao pode receber motorista principal ja associado a outro veiculo.
+- Motorista principal não pode ficar vinculado a dois veiculos.
+- Veiculo não pode receber motorista principal ja associado a outro veiculo.
 - Documento vencido ou proximo do vencimento gera alerta.
 - Abastecimento atualiza custo e litros acumulados do veiculo.
 - Despesas, multas e sinistros impactam resumo financeiro do veiculo.
@@ -290,9 +290,9 @@ Tambem existem estes pontos relacionados:
 
 - `.env.example`: modelo de variaveis para outros ambientes.
 - `docker-compose.yml`: banco MongoDB local do Docker e nome do database inicial.
-- `backend/src/app.module.ts`: fallback tecnico usado somente se `MONGODB_URI` nao existir.
+- `backend/src/app.module.ts`: fallback tecnico usado somente se `MONGODB_URI` não existir.
 
-Em producao, nao altere `app.module.ts`; configure `MONGODB_URI` no ambiente do servidor, container, CI/CD ou painel de deploy.
+Em producao, não altere `app.module.ts`; configure `MONGODB_URI` no ambiente do servidor, container, CI/CD ou painel de deploy.
 
 Tambem e possivel subir tudo com Docker:
 

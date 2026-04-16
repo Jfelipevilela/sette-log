@@ -19,6 +19,20 @@ export type AuthUser = {
   permissions: string[];
 };
 
+export type SystemUser = {
+  _id: string;
+  name: string;
+  email: string;
+  tenantId: string;
+  branchId?: string;
+  roles: string[];
+  permissions: string[];
+  status: 'active' | 'inactive' | 'blocked';
+  lastLoginAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export type Vehicle = {
   _id: string;
   plate: string;
@@ -29,11 +43,12 @@ export type Vehicle = {
   type: string;
   status: string;
   odometerKm: number;
+  initialOdometerKm?: number;
   tankCapacityLiters?: number;
   costCenter?: string;
   primaryDriverId?: string;
   lastPosition?: {
-    type: 'Point';
+    type: "Point";
     coordinates: [number, number];
     address?: string;
   };
@@ -57,7 +72,7 @@ export type Driver = {
 export type Alert = {
   _id: string;
   type: string;
-  severity: 'info' | 'warning' | 'critical';
+  severity: "info" | "warning" | "critical";
   status: string;
   triggeredAt: string;
   vehicleId?: string;
@@ -89,6 +104,7 @@ export type MaintenanceOrder = {
   scheduledAt?: string;
   odometerKm?: number;
   totalCost: number;
+  attachments?: string[];
 };
 
 export type FuelRecord = {
@@ -99,6 +115,8 @@ export type FuelRecord = {
   totalCost: number;
   pricePerLiter?: number;
   odometerKm?: number;
+  distanceKm?: number;
+  kmPerLiter?: number;
   filledAt: string;
   station?: string;
   fuelType: string;
@@ -123,7 +141,18 @@ export type DocumentRecord = {
   status: string;
 };
 
+export type DashboardDay = {
+  _id: { year: number; month: number; day: number };
+  total: number;
+  liters: number;
+  fuelCost?: number;
+  maintenanceCost?: number;
+  expenseCost?: number;
+};
+
 export type Dashboard = {
+  costByDay?: DashboardDay[];
+
   kpis: {
     totalVehicles: number;
     availableVehicles: number;
@@ -132,14 +161,23 @@ export type Dashboard = {
     availability: number;
     totalFuelCost: number;
     totalFuelLiters: number;
+    totalMaintenanceCost: number;
     totalExpenseCost: number;
+    totalOperationalCost: number;
     averageFuelCost: number;
   };
   vehiclesByStatus: Array<{ _id: string; count: number }>;
   criticalVehicles: Vehicle[];
   upcomingMaintenance: MaintenanceOrder[];
   expiringDocuments: DocumentRecord[];
-  costByMonth: Array<{ _id: { year: number; month: number }; total: number; liters: number }>;
+  costByMonth: Array<{
+    _id: { year: number; month: number };
+    total: number;
+    liters: number;
+    fuelCost?: number;
+    maintenanceCost?: number;
+    expenseCost?: number;
+  }>;
   fuelByVehicle: Array<{
     vehicleId: string;
     plate: string;
@@ -147,22 +185,36 @@ export type Dashboard = {
     nickname?: string;
     brand?: string;
     model?: string;
+    type?: string;
     tankCapacityLiters?: number;
     totalCost: number;
     totalLiters: number;
+    distanceKm?: number;
+    efficiencyLiters?: number;
     records: number;
     averagePrice: number;
+    averageKmPerLiter?: number;
     lastFuelAt?: string;
   }>;
   topFuelCostVehicles: Array<{
     vehicleId: string;
     plate: string;
     label: string;
+    type?: string;
+    totalCost: number;
+    totalLiters: number;
+    distanceKm?: number;
+    efficiencyLiters?: number;
+    records: number;
+    averagePrice: number;
+    averageKmPerLiter?: number;
+    lastFuelAt?: string;
+  }>;
+  fuelByType?: Array<{
+    fuelType: string;
     totalCost: number;
     totalLiters: number;
     records: number;
-    averagePrice: number;
-    lastFuelAt?: string;
   }>;
   dashboardPeriod: {
     from: string;

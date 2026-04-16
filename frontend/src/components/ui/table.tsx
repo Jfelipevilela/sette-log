@@ -6,7 +6,7 @@ export function Table({ className, ...props }: TableHTMLAttributes<HTMLTableElem
 }
 
 export function Th({ className, ...props }: HTMLAttributes<HTMLTableCellElement>) {
-  return <th className={cn('border-b border-fleet-line px-4 py-3 font-semibold text-zinc-600', className)} {...props} />;
+  return <th className={cn('border-b border-fleet-line bg-zinc-50/80 px-4 py-3 text-xs font-semibold uppercase text-zinc-500', className)} {...props} />;
 }
 
 export function Td({ className, ...props }: HTMLAttributes<HTMLTableCellElement>) {

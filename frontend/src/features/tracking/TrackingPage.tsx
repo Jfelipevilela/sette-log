@@ -21,6 +21,7 @@ import {
 } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { getRoutePlayback, getTracking } from "../../lib/api";
+import { labelFor, vehicleStatusLabels } from "../../lib/labels";
 
 const tileUrl =
   import.meta.env.VITE_MAP_TILE_URL ??
@@ -144,7 +145,7 @@ export function TrackingPage() {
                             : "green"
                       }
                     >
-                      {vehicle.status}
+                      {labelFor(vehicle.status, vehicleStatusLabels)}
                     </Badge>
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
@@ -224,7 +225,9 @@ export function TrackingPage() {
                         <p>
                           {vehicle.brand} {vehicle.model}
                         </p>
-                        <p>Status: {vehicle.status}</p>
+                        <p>
+                          Status: {labelFor(vehicle.status, vehicleStatusLabels)}
+                        </p>
                         <p>
                           Velocidade:{" "}
                           {String(vehicle.telemetrySummary?.speedKph ?? 0)} km/h

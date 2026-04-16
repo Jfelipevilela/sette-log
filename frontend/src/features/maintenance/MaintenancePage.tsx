@@ -1,25 +1,76 @@
-import { FormEvent, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, ClipboardList, Edit2, Eye, Paperclip, Trash2, Wrench } from 'lucide-react';
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { Badge } from '../../components/ui/badge';
-import { Button } from '../../components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-import { DetailModal } from '../../components/ui/detail-modal';
-import { Input } from '../../components/ui/input';
-import { Modal } from '../../components/ui/modal';
-import { Select } from '../../components/ui/select';
-import { Table, Td, Th } from '../../components/ui/table';
+import { FormEvent, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  CalendarDays,
+  ClipboardList,
+  Edit2,
+  Eye,
+  Paperclip,
+  Trash2,
+  Wrench,
+} from "lucide-react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { Badge } from "../../components/ui/badge";
+import { ActionMenu } from "../../components/ui/action-menu";
+import { AttachmentPreviewModal } from "../../components/ui/attachment-preview-modal";
+import { Button } from "../../components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../../components/ui/card";
+import { DetailModal } from "../../components/ui/detail-modal";
+import { Input } from "../../components/ui/input";
+import { Modal } from "../../components/ui/modal";
+import { SearchableSelect } from "../../components/ui/searchable-select";
+import { Table, Td, Th } from "../../components/ui/table";
 import {
   apiErrorMessage,
   createMaintenanceOrder,
   deleteMaintenanceOrder,
+  downloadExternalFile,
   getVehicles,
   listResource,
-  updateMaintenanceOrder
-} from '../../lib/api';
-import type { MaintenanceOrder } from '../../lib/types';
-import { formatCurrency, formatDate } from '../../lib/utils';
+  updateMaintenanceOrder,
+} from "../../lib/api";
+import {
+  labelFor,
+  maintenanceStatusLabels,
+  maintenanceTypeLabels,
+  priorityLabels,
+} from "../../lib/labels";
+import type { MaintenanceOrder } from "../../lib/types";
+import { formatCurrency, formatDate } from "../../lib/utils";
+
+const maintenanceTypeOptions = [
+  { value: "preventive", label: "Preventiva" },
+  { value: "corrective", label: "Corretiva" },
+  { value: "predictive", label: "Preditiva" },
+];
+
+const priorityOptions = [
+  { value: "low", label: "Baixa" },
+  { value: "medium", label: "Media" },
+  { value: "high", label: "Alta" },
+  { value: "critical", label: "Critica" },
+];
+
+const maintenanceStatusOptions = [
+  { value: "open", label: "Aberta" },
+  { value: "scheduled", label: "Agendada" },
+  { value: "in_progress", label: "Em execucao" },
+  { value: "closed", label: "Fechada" },
+  { value: "cancelled", label: "Cancelada" },
+];
 
 export function MaintenancePage() {
   const queryClient = useQueryClient();
@@ -27,42 +78,58 @@ export function MaintenancePage() {
   const [editingOrder, setEditingOrder] = useState<MaintenanceOrder>();
   const [detailOrder, setDetailOrder] = useState<MaintenanceOrder>();
   const [formError, setFormError] = useState<string>();
+  const [previewAttachment, setPreviewAttachment] = useState<{
+    fileName: string;
+    url: string;
+  }>();
   const { data: orders = [] } = useQuery({
-    queryKey: ['maintenance-orders'],
-    queryFn: () => listResource<MaintenanceOrder>('/maintenance/orders')
+    queryKey: ["maintenance-orders"],
+    queryFn: () => listResource<MaintenanceOrder>("/maintenance/orders"),
   });
   const { data: vehicles = [] } = useQuery({
-    queryKey: ['vehicles'],
-    queryFn: () => getVehicles()
+    queryKey: ["vehicles"],
+    queryFn: () => getVehicles(),
   });
   const createOrderMutation = useMutation({
     mutationFn: createMaintenanceOrder,
     onSuccess: async () => {
       setIsModalOpen(false);
-      await queryClient.invalidateQueries({ queryKey: ['maintenance-orders'] });
-      await queryClient.invalidateQueries({ queryKey: ['vehicles'] });
-      await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      await queryClient.invalidateQueries({ queryKey: ["maintenance-orders"] });
+      await queryClient.invalidateQueries({ queryKey: ["vehicles"] });
+      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
-    onError: () => setFormError('Nao foi possivel criar a ordem de servico.')
+    onError: () => setFormError("Não foi possivel criar a ordem de servico."),
   });
   const updateOrderMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: Record<string, unknown> }) => updateMaintenanceOrder(id, payload),
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: Record<string, unknown>;
+    }) => updateMaintenanceOrder(id, payload),
     onSuccess: async () => {
       closeModal();
       await invalidateMaintenanceData();
     },
-    onError: (error) => setFormError(apiErrorMessage(error, 'Nao foi possivel editar a ordem de servico.'))
+    onError: (error) =>
+      setFormError(
+        apiErrorMessage(error, "Não foi possivel editar a ordem de servico."),
+      ),
   });
   const deleteOrderMutation = useMutation({
     mutationFn: deleteMaintenanceOrder,
     onSuccess: invalidateMaintenanceData,
-    onError: (error) => setFormError(apiErrorMessage(error, 'Nao foi possivel excluir a ordem de servico.'))
+    onError: (error) =>
+      setFormError(
+        apiErrorMessage(error, "Não foi possivel excluir a ordem de servico."),
+      ),
   });
 
   async function invalidateMaintenanceData() {
-    await queryClient.invalidateQueries({ queryKey: ['maintenance-orders'] });
-    await queryClient.invalidateQueries({ queryKey: ['vehicles'] });
-    await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    await queryClient.invalidateQueries({ queryKey: ["maintenance-orders"] });
+    await queryClient.invalidateQueries({ queryKey: ["vehicles"] });
+    await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
   }
 
   function openCreateModal() {
@@ -84,18 +151,38 @@ export function MaintenancePage() {
   }
 
   const chartData = [
-    { status: 'Aberta', total: orders.filter((order) => order.status === 'open').length },
-    { status: 'Agendada', total: orders.filter((order) => order.status === 'scheduled').length },
-    { status: 'Execucao', total: orders.filter((order) => order.status === 'in_progress').length },
-    { status: 'Fechada', total: orders.filter((order) => order.status === 'closed').length }
+    {
+      status: "Aberta",
+      total: orders.filter((order) => order.status === "open").length,
+    },
+    {
+      status: "Agendada",
+      total: orders.filter((order) => order.status === "scheduled").length,
+    },
+    {
+      status: "Execucao",
+      total: orders.filter((order) => order.status === "in_progress").length,
+    },
+    {
+      status: "Fechada",
+      total: orders.filter((order) => order.status === "closed").length,
+    },
   ];
+  const vehicleOptions = vehicles.map((vehicle) => ({
+    value: vehicle._id,
+    label: `${vehicle.plate} - ${vehicle.nickname ?? vehicle.model}`,
+    searchText: `${vehicle.plate} ${vehicle.nickname ?? ""} ${vehicle.brand} ${vehicle.model}`,
+  }));
 
   return (
     <div className="space-y-6">
       <section className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
         <div>
-          <h2 className="text-2xl font-semibold">Manutencao</h2>
-          <p className="mt-1 text-sm text-zinc-500">Preventivas, corretivas, historico de custos, anexos e ordens de servico.</p>
+          <h2 className="text-2xl font-semibold">Manutenção</h2>
+          <p className="mt-1 text-sm text-zinc-500">
+            Preventivas, corretivas, historico de custos, anexos e ordens de
+            servico.
+          </p>
         </div>
         <Button onClick={openCreateModal}>
           <Wrench size={18} />
@@ -127,45 +214,58 @@ export function MaintenancePage() {
                     <Td>
                       <div className="flex items-center gap-2">
                         <ClipboardList size={16} className="text-fleet-green" />
-                        <strong>{order.type}</strong>
+                        <strong>
+                          {labelFor(order.type, maintenanceTypeLabels)}
+                        </strong>
                       </div>
                     </Td>
                     <Td>
-                      <Badge tone={order.priority === 'high' ? 'red' : order.priority === 'medium' ? 'amber' : 'green'}>
-                        {order.priority}
+                      <Badge
+                        tone={
+                          order.priority === "high"
+                            ? "red"
+                            : order.priority === "medium"
+                              ? "amber"
+                              : "green"
+                        }
+                      >
+                        {labelFor(order.priority, priorityLabels)}
                       </Badge>
                     </Td>
-                    <Td>{order.status}</Td>
+                    <Td>{labelFor(order.status, maintenanceStatusLabels)}</Td>
                     <Td>{formatDate(order.scheduledAt)}</Td>
                     <Td>{formatCurrency(order.totalCost)}</Td>
                     <Td>
                       <Paperclip size={16} className="text-zinc-500" />
                     </Td>
                     <Td>
-                      <div className="flex gap-2">
-                        <Button type="button" variant="secondary" size="sm" onClick={() => openEditModal(order)}>
-                          <Edit2 size={15} />
-                          Editar
-                        </Button>
-                        <Button type="button" variant="secondary" size="sm" onClick={() => setDetailOrder(order)}>
-                          <Eye size={15} />
-                          Detalhes
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="danger"
-                          size="sm"
-                          disabled={deleteOrderMutation.isPending}
-                          onClick={() => {
-                            if (window.confirm('Excluir esta ordem de servico?')) {
-                              deleteOrderMutation.mutate(order._id);
-                            }
-                          }}
-                        >
-                          <Trash2 size={15} />
-                          Excluir
-                        </Button>
-                      </div>
+                      <ActionMenu
+                        items={[
+                          {
+                            label: "Editar",
+                            icon: <Edit2 size={15} />,
+                            onClick: () => openEditModal(order),
+                          },
+                          {
+                            label: "Detalhes",
+                            icon: <Eye size={15} />,
+                            onClick: () => setDetailOrder(order),
+                          },
+                          {
+                            label: "Excluir",
+                            icon: <Trash2 size={15} />,
+                            danger: true,
+                            disabled: deleteOrderMutation.isPending,
+                            onClick: () => {
+                              if (
+                                window.confirm("Excluir esta ordem de servico?")
+                              ) {
+                                deleteOrderMutation.mutate(order._id);
+                              }
+                            },
+                          },
+                        ]}
+                      />
                     </Td>
                   </tr>
                 ))}
@@ -178,16 +278,25 @@ export function MaintenancePage() {
           <CardHeader>
             <div>
               <CardTitle>Calendario operacional</CardTitle>
-              <p className="mt-1 text-sm text-zinc-500">Proximas execucoes e backlog por status.</p>
+              <p className="mt-1 text-sm text-zinc-500">
+                Proximas execucoes e backlog por status.
+              </p>
             </div>
           </CardHeader>
           <CardContent>
             <div className="mb-5 grid grid-cols-2 gap-3">
               {orders.map((order) => (
-                <div key={order._id} className="rounded-lg border border-fleet-line p-3">
+                <div
+                  key={order._id}
+                  className="rounded-lg border border-fleet-line p-3"
+                >
                   <CalendarDays size={17} className="text-fleet-cyan" />
-                  <strong className="mt-2 block text-sm">{formatDate(order.scheduledAt)}</strong>
-                  <span className="text-xs text-zinc-500">{order.type}</span>
+                  <strong className="mt-2 block text-sm">
+                    {formatDate(order.scheduledAt)}
+                  </strong>
+                  <span className="text-xs text-zinc-500">
+                    {labelFor(order.type, maintenanceTypeLabels)}
+                  </span>
                 </div>
               ))}
             </div>
@@ -196,7 +305,11 @@ export function MaintenancePage() {
                 <BarChart data={chartData}>
                   <CartesianGrid stroke="#e5e7eb" vertical={false} />
                   <XAxis dataKey="status" tickLine={false} axisLine={false} />
-                  <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
+                  <YAxis
+                    allowDecimals={false}
+                    tickLine={false}
+                    axisLine={false}
+                  />
                   <Tooltip />
                   <Bar dataKey="total" fill="#027f9f" radius={[6, 6, 0, 0]} />
                 </BarChart>
@@ -208,8 +321,10 @@ export function MaintenancePage() {
 
       <Modal
         open={isModalOpen}
-        title={editingOrder ? 'Editar ordem de servico' : 'Nova ordem de servico'}
-        description="Abra uma manutencao preventiva, corretiva ou preditiva para um veiculo."
+        title={
+          editingOrder ? "Editar ordem de servico" : "Nova ordem de servico"
+        }
+        description="Abra uma manutenção preventiva, corretiva ou preditiva para um veiculo."
         onClose={closeModal}
       >
         <form
@@ -218,14 +333,19 @@ export function MaintenancePage() {
             event.preventDefault();
             setFormError(undefined);
             const form = new FormData(event.currentTarget);
+            const vehicleId = String(form.get("vehicleId") ?? "");
+            if (!vehicleId) {
+              setFormError("Selecione o veiculo da ordem de servico.");
+              return;
+            }
             const payload = {
-              vehicleId: String(form.get('vehicleId') ?? ''),
-              type: String(form.get('type') ?? 'preventive'),
-              priority: String(form.get('priority') ?? 'medium'),
-              status: String(form.get('status') ?? 'open'),
-              scheduledAt: String(form.get('scheduledAt') ?? '') || undefined,
-              odometerKm: Number(form.get('odometerKm') || 0),
-              totalCost: Number(form.get('totalCost') || 0)
+              vehicleId,
+              type: String(form.get("type") ?? "preventive"),
+              priority: String(form.get("priority") ?? "medium"),
+              status: String(form.get("status") ?? "open"),
+              scheduledAt: String(form.get("scheduledAt") ?? "") || undefined,
+              odometerKm: Number(form.get("odometerKm") || 0),
+              totalCost: Number(form.get("totalCost") || 0),
             };
             if (editingOrder) {
               updateOrderMutation.mutate({ id: editingOrder._id, payload });
@@ -237,64 +357,91 @@ export function MaintenancePage() {
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-2 text-sm font-medium md:col-span-2">
               Veiculo
-              <Select name="vehicleId" required defaultValue={editingOrder?.vehicleId ?? ''}>
-                <option value="" disabled>
-                  Selecione
-                </option>
-                {vehicles.map((vehicle) => (
-                  <option key={vehicle._id} value={vehicle._id}>
-                    {vehicle.plate} - {vehicle.model}
-                  </option>
-                ))}
-              </Select>
+              <SearchableSelect
+                name="vehicleId"
+                required
+                defaultValue={editingOrder?.vehicleId ?? ""}
+                placeholder="Selecione"
+                searchPlaceholder="Buscar placa, modelo ou apelido"
+                options={vehicleOptions}
+              />
             </label>
             <label className="space-y-2 text-sm font-medium">
               Tipo
-              <Select name="type" defaultValue={editingOrder?.type ?? 'preventive'}>
-                <option value="preventive">Preventiva</option>
-                <option value="corrective">Corretiva</option>
-                <option value="predictive">Preditiva</option>
-              </Select>
+              <SearchableSelect
+                name="type"
+                defaultValue={editingOrder?.type ?? "preventive"}
+                options={maintenanceTypeOptions}
+                searchPlaceholder="Buscar tipo"
+                searchable={false}
+              />
             </label>
             <label className="space-y-2 text-sm font-medium">
               Prioridade
-              <Select name="priority" defaultValue={editingOrder?.priority ?? 'medium'}>
-                <option value="low">Baixa</option>
-                <option value="medium">Media</option>
-                <option value="high">Alta</option>
-                <option value="critical">Critica</option>
-              </Select>
+              <SearchableSelect
+                name="priority"
+                defaultValue={editingOrder?.priority ?? "medium"}
+                options={priorityOptions}
+                searchPlaceholder="Buscar prioridade"
+                searchable={false}
+              />
             </label>
             <label className="space-y-2 text-sm font-medium">
               Status
-              <Select name="status" defaultValue={editingOrder?.status ?? 'open'}>
-                <option value="open">Aberta</option>
-                <option value="scheduled">Agendada</option>
-                <option value="in_progress">Em execucao</option>
-                <option value="closed">Fechada</option>
-                <option value="cancelled">Cancelada</option>
-              </Select>
+              <SearchableSelect
+                name="status"
+                defaultValue={editingOrder?.status ?? "open"}
+                options={maintenanceStatusOptions}
+                searchPlaceholder="Buscar status"
+                searchable={false}
+              />
             </label>
             <label className="space-y-2 text-sm font-medium">
               Agendamento
-              <Input name="scheduledAt" type="datetime-local" defaultValue={editingOrder?.scheduledAt?.slice(0, 16)} />
+              <Input
+                name="scheduledAt"
+                type="datetime-local"
+                defaultValue={editingOrder?.scheduledAt?.slice(0, 16)}
+              />
             </label>
             <label className="space-y-2 text-sm font-medium">
               Odometro
-              <Input name="odometerKm" type="number" min="0" defaultValue={editingOrder?.odometerKm ?? 0} />
+              <Input
+                name="odometerKm"
+                type="number"
+                min="0"
+                defaultValue={editingOrder?.odometerKm ?? 0}
+              />
             </label>
             <label className="space-y-2 text-sm font-medium">
               Custo previsto
-              <Input name="totalCost" type="number" min="0" step="0.01" defaultValue={editingOrder?.totalCost ?? 0} />
+              <Input
+                name="totalCost"
+                type="number"
+                min="0"
+                step="0.01"
+                defaultValue={editingOrder?.totalCost ?? 0}
+              />
             </label>
           </div>
-          {formError && <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{formError}</p>}
+          {formError && (
+            <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              {formError}
+            </p>
+          )}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={closeModal}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={createOrderMutation.isPending || updateOrderMutation.isPending}>
-              {createOrderMutation.isPending || updateOrderMutation.isPending ? 'Salvando...' : 'Salvar OS'}
+            <Button
+              type="submit"
+              disabled={
+                createOrderMutation.isPending || updateOrderMutation.isPending
+              }
+            >
+              {createOrderMutation.isPending || updateOrderMutation.isPending
+                ? "Salvando..."
+                : "Salvar OS"}
             </Button>
           </div>
         </form>
@@ -304,22 +451,90 @@ export function MaintenancePage() {
         open={Boolean(detailOrder)}
         entityId={detailOrder?._id}
         title="Detalhes da ordem de servico"
-        description="Dados da manutencao, custo e historico de auditoria."
+        description="Dados da manutenção, custo e historico de auditoria."
         onClose={() => setDetailOrder(undefined)}
         fields={[
           {
-            label: 'Veiculo',
+            label: "Veiculo",
             value: detailOrder?.vehicleId
-              ? vehicles.find((vehicle) => vehicle._id === detailOrder.vehicleId)?.plate ?? detailOrder.vehicleId
-              : undefined
+              ? (vehicles.find(
+                  (vehicle) => vehicle._id === detailOrder.vehicleId,
+                )?.plate ?? detailOrder.vehicleId)
+              : undefined,
           },
-          { label: 'Tipo', value: detailOrder?.type },
-          { label: 'Prioridade', value: detailOrder?.priority },
-          { label: 'Status', value: detailOrder?.status },
-          { label: 'Agendamento', value: formatDate(detailOrder?.scheduledAt) },
-          { label: 'Odometro', value: detailOrder?.odometerKm ? `${detailOrder.odometerKm.toLocaleString('pt-BR')} km` : '-' },
-          { label: 'Custo', value: detailOrder ? formatCurrency(detailOrder.totalCost) : undefined }
+          {
+            label: "Tipo",
+            value: labelFor(detailOrder?.type, maintenanceTypeLabels),
+          },
+          {
+            label: "Prioridade",
+            value: labelFor(detailOrder?.priority, priorityLabels),
+          },
+          {
+            label: "Status",
+            value: labelFor(detailOrder?.status, maintenanceStatusLabels),
+          },
+          { label: "Agendamento", value: formatDate(detailOrder?.scheduledAt) },
+          {
+            label: "Odometro",
+            value: detailOrder?.odometerKm
+              ? `${detailOrder.odometerKm.toLocaleString("pt-BR")} km`
+              : "-",
+          },
+          {
+            label: "Custo",
+            value: detailOrder
+              ? formatCurrency(detailOrder.totalCost)
+              : undefined,
+          },
         ]}
+      >
+        <div className="rounded-lg border border-fleet-line p-4">
+          <strong className="block text-sm text-fleet-ink">Anexos</strong>
+          <div className="mt-3 space-y-2">
+            {(detailOrder?.attachments?.length ?? 0) === 0 && (
+              <p className="text-sm text-zinc-500">
+                Nenhum anexo vinculado a esta ordem.
+              </p>
+            )}
+            {detailOrder?.attachments?.map((url) => (
+              <button
+                key={url}
+                type="button"
+                className="flex w-full items-center justify-between gap-3 rounded-md border border-fleet-line px-3 py-2 text-left text-sm transition hover:bg-zinc-50"
+                onClick={() =>
+                  setPreviewAttachment({
+                    fileName: url.split("/").pop() || "anexo",
+                    url,
+                  })
+                }
+              >
+                <span className="break-all font-medium text-fleet-ink">
+                  {url.split("/").pop() || url}
+                </span>
+                <span className="shrink-0 text-xs text-zinc-500">
+                  Previsualizar
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </DetailModal>
+
+      <AttachmentPreviewModal
+        open={Boolean(previewAttachment)}
+        title="Previsualizar anexo"
+        fileName={previewAttachment?.fileName ?? ""}
+        url={previewAttachment?.url}
+        onClose={() => setPreviewAttachment(undefined)}
+        onDownload={() => {
+          if (previewAttachment) {
+            downloadExternalFile(
+              previewAttachment.url,
+              previewAttachment.fileName,
+            );
+          }
+        }}
       />
     </div>
   );

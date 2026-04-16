@@ -12,3 +12,4 @@ frontend/.vite
 frontend/.vercel
 backend/uploads
 *.tsbuildinfo
+TODO.md

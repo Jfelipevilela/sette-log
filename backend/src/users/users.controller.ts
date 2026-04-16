@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../common/decorators/roles.decorator';
@@ -31,5 +31,11 @@ export class UsersController {
   @RequirePermissions(PERMISSIONS.USERS_MANAGE)
   update(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: UpdateUserDto) {
     return this.usersService.update(user.tenantId, id, dto);
+  }
+
+  @Delete(':id')
+  @RequirePermissions(PERMISSIONS.USERS_MANAGE)
+  remove(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.usersService.remove(user.tenantId, id, user.sub);
   }
 }

@@ -2,6 +2,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Edit2, Eye, Filter, Plus, Search, Trash2 } from "lucide-react";
 import { Badge } from "../../components/ui/badge";
+import { ActionMenu } from "../../components/ui/action-menu";
 import { Button } from "../../components/ui/button";
 import {
   Card,
@@ -14,8 +15,12 @@ import { Input } from "../../components/ui/input";
 import { LoadingState } from "../../components/ui/loading-state";
 import { Modal } from "../../components/ui/modal";
 import { Pagination } from "../../components/ui/pagination";
-import { Select } from "../../components/ui/select";
+import { SearchableSelect } from "../../components/ui/searchable-select";
 import { Table, Td, Th } from "../../components/ui/table";
+import {
+  VehicleTypeIcon,
+  vehicleTypeLabel,
+} from "../../components/vehicle-type-icon";
 import {
   apiErrorMessage,
   createVehicle,
@@ -23,6 +28,7 @@ import {
   getVehiclesPage,
   updateVehicle,
 } from "../../lib/api";
+import { labelFor, vehicleStatusLabels } from "../../lib/labels";
 import type { Vehicle } from "../../lib/types";
 import { formatCurrency } from "../../lib/utils";
 
@@ -37,6 +43,24 @@ const statusTone: Record<
   inactive: "neutral",
   blocked: "red",
 };
+
+const vehicleTypeOptions = [
+  { value: "car", label: "Automovel" },
+  { value: "van", label: "Van" },
+  { value: "truck", label: "Caminhao" },
+  { value: "bus", label: "Onibus" },
+  { value: "motorcycle", label: "Moto" },
+  { value: "equipment", label: "Equipamento" },
+];
+
+const vehicleStatusOptions = [
+  { value: "available", label: "Disponivel" },
+  { value: "in_route", label: "Em rota" },
+  { value: "stopped", label: "Parado" },
+  { value: "maintenance", label: "Manutencao" },
+  { value: "inactive", label: "Inativo" },
+  { value: "blocked", label: "Bloqueado" },
+];
 
 export function VehiclesPage() {
   const queryClient = useQueryClient();
@@ -149,6 +173,7 @@ export function VehiclesPage() {
       type: String(form.get("type") || "car"),
       status: String(form.get("status") || "available"),
       odometerKm: Number(form.get("odometerKm") || 0),
+      initialOdometerKm: Number(form.get("initialOdometerKm") || 0),
       tankCapacityLiters:
         Number(form.get("tankCapacityLiters") || 0) || undefined,
       costCenter: String(form.get("costCenter") ?? ""),
@@ -200,18 +225,13 @@ export function VehiclesPage() {
               disabled
               title="Filial sera ligada ao cadastro multiunidade"
             />
-            <Select
+            <SearchableSelect
               value={status}
-              onChange={(event) => setStatus(event.target.value)}
-            >
-              <option value="">Todos os status</option>
-              <option value="available">Disponivel</option>
-              <option value="in_route">Em rota</option>
-              <option value="stopped">Parado</option>
-              <option value="maintenance">Manutencao</option>
-              <option value="inactive">Inativo</option>
-              <option value="blocked">Bloqueado</option>
-            </Select>
+              onValueChange={setStatus}
+              placeholder="Todos os status"
+              searchPlaceholder="Buscar status"
+              options={[{ value: "", label: "Todos os status" }, ...vehicleStatusOptions]}
+            />
             <Button
               variant="secondary"
               onClick={() => {
@@ -254,17 +274,23 @@ export function VehiclesPage() {
                         <strong>{vehicle.plate}</strong>
                       </Td>
                       <Td>
-                        <span className="block font-medium">
-                          {vehicle.nickname ??
-                            `${vehicle.brand} ${vehicle.model}`}
-                        </span>
-                        <span className="text-xs text-zinc-500">
-                          {vehicle.plate} - {vehicle.year} - {vehicle.type}
-                        </span>
+                        <div className="flex items-center gap-3">
+                          <VehicleTypeIcon type={vehicle.type} />
+                          <div>
+                            <span className="block font-medium">
+                              {vehicle.nickname ??
+                                `${vehicle.brand} ${vehicle.model}`}
+                            </span>
+                            <span className="text-xs text-zinc-500">
+                              {vehicle.plate} - {vehicle.year} -{" "}
+                              {vehicleTypeLabel(vehicle.type)}
+                            </span>
+                          </div>
+                        </div>
                       </Td>
                       <Td>
                         <Badge tone={statusTone[vehicle.status] ?? "neutral"}>
-                          {vehicle.status}
+                          {labelFor(vehicle.status, vehicleStatusLabels)}
                         </Badge>
                       </Td>
                       <Td>{vehicle.odometerKm.toLocaleString("pt-BR")} km</Td>
@@ -275,44 +301,35 @@ export function VehiclesPage() {
                       </Td>
                       <Td>{vehicle.lastPosition?.address ?? "-"}</Td>
                       <Td>
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => openEditModal(vehicle)}
-                          >
-                            <Edit2 size={15} />
-                            Editar
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => setDetailVehicle(vehicle)}
-                          >
-                            <Eye size={15} />
-                            Detalhes
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="danger"
-                            size="sm"
-                            disabled={deleteVehicleMutation.isPending}
-                            onClick={() => {
-                              if (
-                                window.confirm(
-                                  `Excluir o veiculo ${vehicle.plate}?`,
-                                )
-                              ) {
-                                deleteVehicleMutation.mutate(vehicle._id);
-                              }
-                            }}
-                          >
-                            <Trash2 size={15} />
-                            Excluir
-                          </Button>
-                        </div>
+                        <ActionMenu
+                          items={[
+                            {
+                              label: "Editar",
+                              icon: <Edit2 size={15} />,
+                              onClick: () => openEditModal(vehicle),
+                            },
+                            {
+                              label: "Detalhes",
+                              icon: <Eye size={15} />,
+                              onClick: () => setDetailVehicle(vehicle),
+                            },
+                            {
+                              label: "Excluir",
+                              icon: <Trash2 size={15} />,
+                              danger: true,
+                              disabled: deleteVehicleMutation.isPending,
+                              onClick: () => {
+                                if (
+                                  window.confirm(
+                                    `Excluir o veiculo ${vehicle.plate}?`,
+                                  )
+                                ) {
+                                  deleteVehicleMutation.mutate(vehicle._id);
+                                }
+                              },
+                            },
+                          ]}
+                        />
                       </Td>
                     </tr>
                   ))}
@@ -352,14 +369,7 @@ export function VehiclesPage() {
             </label>
             <label className="space-y-2 text-sm font-medium">
               Tipo
-              <Select name="type" defaultValue={editingVehicle?.type ?? "car"}>
-                <option value="car">Automóvel</option>
-                <option value="van">Van</option>
-                <option value="truck">Caminhão</option>
-                <option value="bus">Ônibus</option>
-                <option value="motorcycle">Moto</option>
-                <option value="equipment">Equipamento</option>
-              </Select>
+              <SearchableSelect searchable={false} name="type" defaultValue={editingVehicle?.type ?? "car"} options={vehicleTypeOptions} searchPlaceholder="Buscar tipo" />
             </label>
             <label className="space-y-2 text-sm font-medium">
               Marca
@@ -406,6 +416,23 @@ export function VehiclesPage() {
               />
             </label>
             <label className="space-y-2 text-sm font-medium">
+              Odometro base de consumo
+              <Input
+                name="initialOdometerKm"
+                type="number"
+                min="0"
+                placeholder="Km antes do primeiro abastecimento"
+                defaultValue={
+                  editingVehicle?.initialOdometerKm ??
+                  editingVehicle?.odometerKm ??
+                  0
+                }
+              />
+              <span className="block text-xs font-normal text-zinc-500">
+                Usado como base para calcular o km/L do primeiro abastecimento.
+              </span>
+            </label>
+            <label className="space-y-2 text-sm font-medium">
               Tanque em litros
               <Input
                 name="tankCapacityLiters"
@@ -418,17 +445,13 @@ export function VehiclesPage() {
             </label>
             <label className="space-y-2 text-sm font-medium">
               Status
-              <Select
+              <SearchableSelect
                 name="status"
                 defaultValue={editingVehicle?.status ?? "available"}
-              >
-                <option value="available">Disponivel</option>
-                <option value="in_route">Em rota</option>
-                <option value="stopped">Parado</option>
-                <option value="maintenance">Manutencao</option>
-                <option value="inactive">Inativo</option>
-                <option value="blocked">Bloqueado</option>
-              </Select>
+                options={vehicleStatusOptions}
+                searchPlaceholder="Buscar status"
+                searchable={false}
+              />
             </label>
             <label className="space-y-2 text-sm font-medium">
               Centro de custo
@@ -476,13 +499,23 @@ export function VehiclesPage() {
           { label: "Modelo", value: detailVehicle?.model },
           { label: "Apelido", value: detailVehicle?.nickname },
           { label: "Ano", value: detailVehicle?.year },
-          { label: "Tipo", value: detailVehicle?.type },
-          { label: "Status", value: detailVehicle?.status },
+          { label: "Tipo", value: vehicleTypeLabel(detailVehicle?.type) },
+          {
+            label: "Status",
+            value: labelFor(detailVehicle?.status, vehicleStatusLabels),
+          },
           {
             label: "Odometro",
             value: detailVehicle
               ? `${detailVehicle.odometerKm.toLocaleString("pt-BR")} km`
               : undefined,
+          },
+          {
+            label: "Odometro base de consumo",
+            value:
+              detailVehicle?.initialOdometerKm !== undefined
+                ? `${Number(detailVehicle.initialOdometerKm).toLocaleString("pt-BR")} km`
+                : "-",
           },
           {
             label: "Tanque",

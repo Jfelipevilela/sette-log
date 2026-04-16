@@ -14,11 +14,13 @@ import {
   Wrench,
   LogOut,
 } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { Button } from "../ui/button";
 import { useAuthStore } from "../../store/auth-store";
 import { cn } from "../../lib/utils";
+import { getNotifications, markNotificationRead } from "../../lib/api";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: Home },
@@ -36,7 +38,22 @@ const navItems = [
 export function AdminLayout() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const { data: notifications = [] } = useQuery({
+    queryKey: ["notifications"],
+    queryFn: getNotifications,
+    refetchInterval: 30_000,
+  });
+  const markReadMutation = useMutation({
+    mutationFn: markNotificationRead,
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+  });
+  const unreadCount = notifications.filter(
+    (notification) => notification.status !== "read",
+  ).length;
 
   function handleLogout() {
     logout();
@@ -55,7 +72,7 @@ export function AdminLayout() {
               <ClipboardCheck size={22} />
             </div>
             <div>
-              <strong className="block text-lg font-semibold">Sette Log</strong>
+              <strong className="block text-lg font-semibold">SETTE Log</strong>
               <span className="text-xs text-zinc-300">
                 Operação corporativa
               </span>
@@ -130,10 +147,52 @@ export function AdminLayout() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button className="relative flex h-10 w-10 items-center justify-center rounded-md border border-fleet-line bg-white text-zinc-700 shadow-sm transition hover:bg-zinc-50">
+            <button
+              type="button"
+              className="relative flex h-10 w-10 items-center justify-center rounded-md border border-fleet-line bg-white text-zinc-700 shadow-sm transition hover:bg-zinc-50"
+              onClick={() => setNotificationsOpen((current) => !current)}
+            >
               <Bell size={18} />
-              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-fleet-red" />
+              {unreadCount > 0 && (
+                <span className="absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-fleet-red px-1 text-[10px] font-bold text-white">
+                  {unreadCount}
+                </span>
+              )}
             </button>
+            {notificationsOpen && (
+              <div className="absolute right-4 top-16 z-50 w-[min(360px,calc(100vw-2rem))] rounded-lg border border-fleet-line bg-white p-2 shadow-2xl lg:right-8">
+                <strong className="block px-2 py-2 text-sm">
+                  Notificações
+                </strong>
+                <div className="max-h-96 space-y-1 overflow-y-auto">
+                  {notifications.length === 0 && (
+                    <p className="px-2 py-4 text-sm text-zinc-500">
+                      Nenhuma notificação.
+                    </p>
+                  )}
+                  {notifications.map((notification) => (
+                    <button
+                      key={notification._id}
+                      type="button"
+                      className="w-full rounded-md px-2 py-2 text-left text-sm hover:bg-zinc-50"
+                      onClick={() => markReadMutation.mutate(notification._id)}
+                    >
+                      <span className="flex items-start justify-between gap-2">
+                        <strong className="text-fleet-ink">
+                          {notification.title}
+                        </strong>
+                        {notification.status !== "read" && (
+                          <span className="mt-1 h-2 w-2 rounded-full bg-fleet-red" />
+                        )}
+                      </span>
+                      <span className="mt-1 block text-xs text-zinc-500">
+                        {notification.message}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </header>
         <main className="mx-auto w-full max-w-[1520px] px-4 py-6 lg:px-8">
@@ -154,7 +213,7 @@ export function AdminLayout() {
                 </div>
                 <div>
                   <strong className="block text-lg font-semibold">
-                    Sette Log
+                    SETTE Log
                   </strong>
                   <span className="text-xs text-zinc-300">
                     Operação corporativa

@@ -146,6 +146,12 @@ export class Vehicle {
   costCenter?: string;
 
   @Prop({ index: true })
+  sector?: string;
+
+  @Prop({ index: true })
+  city?: string;
+
+  @Prop({ index: true })
   primaryDriverId?: string;
 
   @Prop({ index: true })
@@ -451,6 +457,9 @@ export class MaintenanceOrder {
 
   @Prop({ default: 0 })
   totalCost: number;
+
+  @Prop()
+  description?: string;
 
   @Prop({ type: [String], default: [] })
   attachments: string[];

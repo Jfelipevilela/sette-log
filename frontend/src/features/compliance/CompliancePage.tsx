@@ -822,30 +822,6 @@ export function CompliancePage() {
         </Card>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[1fr_380px]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Auditoria</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="rounded-lg border border-fleet-line p-4">
-              <ShieldAlert size={18} className="text-fleet-red" />
-              <strong className="mt-3 block">Acoes criticas auditadas</strong>
-              <p className="mt-1 text-sm text-zinc-500">
-                Criacao, alteracao e exclusao passam pelo interceptor global da
-                API.
-              </p>
-            </div>
-            <div className="rounded-lg border border-fleet-line p-4">
-              <strong className="block">Checklist versionado</strong>
-              <p className="mt-1 text-sm text-zinc-500">
-                Cada execucao registra versao, itens avaliados e resultado.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </section>
-
       <Modal
         open={isDocumentModalOpen}
         title={editingDocument ? "Editar documento" : "Novo documento"}
@@ -1292,7 +1268,10 @@ export function CompliancePage() {
                 type="number"
                 min="0"
                 placeholder="Ex.: 125000"
-                defaultValue={checkItemNotes(editingCheck, "delivery_odometer_km").replace(/\D/g, "")}
+                defaultValue={checkItemNotes(
+                  editingCheck,
+                  "delivery_odometer_km",
+                ).replace(/\D/g, "")}
               />
             </label>
             <label className="space-y-2 text-sm font-medium">
@@ -1300,12 +1279,17 @@ export function CompliancePage() {
               <Input
                 name="deliveredAt"
                 type="datetime-local"
-                defaultValue={(editingCheck?.performedAt ?? new Date().toISOString()).slice(0, 16)}
+                defaultValue={(
+                  editingCheck?.performedAt ?? new Date().toISOString()
+                ).slice(0, 16)}
               />
             </label>
             <label className="space-y-2 text-sm font-medium">
               Versao
-              <Input name="checklistVersion" defaultValue={editingCheck?.checklistVersion ?? "entrega-v1"} />
+              <Input
+                name="checklistVersion"
+                defaultValue={editingCheck?.checklistVersion ?? "entrega-v1"}
+              />
             </label>
           </div>
 
@@ -1371,7 +1355,10 @@ export function CompliancePage() {
               Observacoes do veiculo
               <Textarea
                 name="maintenanceNotes"
-                defaultValue={checkItemNotes(editingCheck, "maintenance_observations")}
+                defaultValue={checkItemNotes(
+                  editingCheck,
+                  "maintenance_observations",
+                )}
                 placeholder="Descreva manutencoes necessarias ou observacoes da entrega."
               />
             </label>
@@ -1379,13 +1366,20 @@ export function CompliancePage() {
               Responsavel pela entrega
               <Input
                 name="responsibleName"
-                defaultValue={checkItemNotes(editingCheck, "delivery_responsible")}
+                defaultValue={checkItemNotes(
+                  editingCheck,
+                  "delivery_responsible",
+                )}
                 placeholder="Nome de quem entregou"
               />
             </label>
             <label className="space-y-2 text-sm font-medium">
               Recebido por
-              <Input name="receivedBy" placeholder="Nome de quem recebeu" defaultValue={checkItemNotes(editingCheck, "received_by")} />
+              <Input
+                name="receivedBy"
+                placeholder="Nome de quem recebeu"
+                defaultValue={checkItemNotes(editingCheck, "received_by")}
+              />
             </label>
           </div>
 
@@ -1502,7 +1496,9 @@ function ChecklistSection({
             <input
               name={item.key}
               type="checkbox"
-              defaultChecked={checkItemValue(check, item.key, "ok") !== "failed"}
+              defaultChecked={
+                checkItemValue(check, item.key, "ok") !== "failed"
+              }
               className="h-4 w-4 accent-fleet-green"
             />
             <span>{item.label}</span>
@@ -1542,7 +1538,11 @@ function SelectChecklistSection({
             {item.label}
             <SearchableSelect
               name={item.key}
-              defaultValue={checkItemValue(check, item.key, options[0]?.value ?? "")}
+              defaultValue={checkItemValue(
+                check,
+                item.key,
+                options[0]?.value ?? "",
+              )}
               options={options}
               searchPlaceholder={searchPlaceholder}
               searchable={searchable}

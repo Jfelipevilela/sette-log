@@ -8,10 +8,12 @@ import type {
   Driver,
   FuelRecord,
   MaintenanceOrder,
+  AppNotification,
   SystemUser,
   TrackingSnapshot,
   Vehicle,
 } from "./types";
+import { notify } from "./toast";
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? "http://localhost:3333/api/v1",
@@ -35,6 +37,58 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+function successMessage(method?: string, url?: string) {
+  const normalizedUrl = url ?? "";
+  const normalizedMethod = method?.toUpperCase();
+  if (!normalizedMethod || normalizedMethod === "GET") {
+    return undefined;
+  }
+  if (normalizedUrl.includes("/auth/")) {
+    return undefined;
+  }
+  if (normalizedUrl.includes("/imports/spreadsheet")) {
+    return "Importacao processada";
+  }
+  if (normalizedUrl.includes("/attachments")) {
+    return "Arquivo anexado";
+  }
+  if (normalizedMethod === "POST") {
+    return "Cadastro realizado";
+  }
+  if (normalizedMethod === "PATCH" || normalizedMethod === "PUT") {
+    return "Registro atualizado";
+  }
+  if (normalizedMethod === "DELETE") {
+    return "Registro excluido";
+  }
+  return "Acao realizada";
+}
+
+api.interceptors.response.use(
+  (response) => {
+    const message = successMessage(response.config.method, response.config.url);
+    if (message) {
+      notify({
+        title: message,
+        description: "Os dados foram salvos no sistema.",
+        tone: "success",
+      });
+    }
+    return response;
+  },
+  (error) => {
+    const method = error?.config?.method?.toUpperCase?.();
+    if (method && method !== "GET") {
+      notify({
+        title: "Nao foi possivel concluir a acao",
+        description: apiErrorMessage(error, "Verifique os dados e tente novamente."),
+        tone: "error",
+      });
+    }
+    return Promise.reject(error);
+  },
+);
 
 export async function login(email: string, password: string) {
   const { data } = await api.post<{
@@ -84,6 +138,18 @@ export async function getDrivers() {
     params: { limit: 50, sortBy: "score", sortDir: "desc" },
   });
   return data.data;
+}
+
+export async function getNotifications() {
+  const { data } = await api.get<ApiPage<AppNotification>>("/notifications", {
+    params: { limit: 10, sortBy: "createdAt", sortDir: "desc" },
+  });
+  return data.data;
+}
+
+export async function markNotificationRead(id: string) {
+  const { data } = await api.post<AppNotification>(`/notifications/${id}/read`);
+  return data;
 }
 
 export async function getUsersPage(params?: {
@@ -405,10 +471,17 @@ export async function saveSetting(
   return data;
 }
 
-export async function uploadLegacySpreadsheet(resource: string, file: File) {
+export async function uploadLegacySpreadsheet(
+  resource: string,
+  file: File,
+  options?: { recalculateFuelTotal?: boolean },
+) {
   const formData = new FormData();
   formData.append("resource", resource);
   formData.append("file", file);
+  if (options?.recalculateFuelTotal) {
+    formData.append("recalculateFuelTotal", "true");
+  }
 
   try {
     const { data } = await api.post<{
@@ -427,6 +500,70 @@ export async function uploadLegacySpreadsheet(resource: string, file: File) {
   } catch (error) {
     throw new Error(
       apiErrorMessage(error, "Não foi possivel importar a planilha."),
+    );
+  }
+}
+
+export async function downloadImportTemplate() {
+  try {
+    const response = await fetch(
+      `/templates/sette-log-importacao-template.xlsx?v=${Date.now()}`,
+    );
+    if (!response.ok) {
+      throw new Error("Template nao encontrado.");
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "sette-log-importacao-template.xlsx");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    throw new Error(
+      apiErrorMessage(error, "Não foi possível baixar o template."),
+    );
+  }
+}
+
+export async function uploadCompleteLegacySpreadsheet(
+  file: File,
+  options?: { recalculateFuelTotal?: boolean },
+) {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (options?.recalculateFuelTotal) {
+    formData.append("recalculateFuelTotal", "true");
+  }
+
+  try {
+    const { data } = await api.post<{
+      fileName: string;
+      totalResources: number;
+      results: Array<{
+        resource: string;
+        fileName: string;
+        totalRows: number;
+        imported: number;
+        updated: number;
+        failed: number;
+        errors: Array<{ row: number; message: string }>;
+      }>;
+      summary: {
+        totalImported: number;
+        totalUpdated: number;
+        totalFailed: number;
+      };
+    }>("/imports/spreadsheet/complete", formData, {
+      timeout: 120_000,
+    });
+    return data;
+  } catch (error) {
+    throw new Error(
+      apiErrorMessage(error, "Não foi possível importar a planilha completa."),
     );
   }
 }

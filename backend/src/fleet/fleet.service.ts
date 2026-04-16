@@ -102,7 +102,7 @@ const resourceModels: Record<FleetResource, string> = {
 
 const searchableFields: Partial<Record<FleetResource, string[]>> = {
   branches: ["name", "code", "city", "state"],
-  vehicles: ["plate", "brand", "model", "vin", "costCenter"],
+  vehicles: ["plate", "brand", "model", "vin", "costCenter", "sector", "city"],
   drivers: ["name", "licenseNumber", "cpf", "email"],
   trackers: ["imei", "provider"],
   geofences: ["name"],
@@ -168,6 +168,71 @@ export class FleetService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  async listNotifications(
+    tenantId: string,
+    userId: string,
+    query: PaginationQueryDto,
+  ) {
+    const model = this.model("notifications");
+    const filter: FilterQuery<AnyRecord> = {
+      tenantId,
+      $or: [{ userId }, { userId: { $exists: false } }],
+    };
+
+    if (query.search) {
+      filter.$or = [
+        ...(filter.$or as FilterQuery<AnyRecord>[]),
+        { title: { $regex: query.search, $options: "i" } },
+        { message: { $regex: query.search, $options: "i" } },
+      ];
+    }
+
+    const page = query.page;
+    const limit = query.limit;
+    const sortBy = this.safeSortField(query.sortBy ?? "createdAt");
+    const sortDir = query.sortDir === "asc" ? 1 : -1;
+
+    const [data, total] = await Promise.all([
+      model
+        .find(filter)
+        .sort({ [sortBy]: sortDir })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean<AnyRecord[]>()
+        .exec(),
+      model.countDocuments(filter),
+    ]);
+
+    return {
+      data: data.map((record) => this.serialize(record)),
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async markNotificationRead(tenantId: string, id: string, userId: string) {
+    const notification = await this.model("notifications")
+      .findOneAndUpdate(
+        {
+          _id: id,
+          tenantId,
+          $or: [{ userId }, { userId: { $exists: false } }],
+        },
+        { status: "read", readAt: new Date() },
+        { new: true },
+      )
+      .lean<AnyRecord>()
+      .exec();
+    if (!notification) {
+      throw new NotFoundException("Notificação não encontrada.");
+    }
+    return this.serialize(notification);
   }
 
   private async enrichFuelRecordsWithEfficiency(
@@ -363,6 +428,23 @@ export class FleetService {
     });
     await this.afterCreate(resource, tenantId, created.toObject() as AnyRecord);
     return this.serialize(created.toObject());
+  }
+
+  async createNotification(
+    tenantId: string,
+    userId: string,
+    title: string,
+    message: string,
+  ) {
+    const notification = await this.model("notifications").create({
+      tenantId,
+      userId,
+      channel: "platform",
+      title,
+      message,
+      status: "pending",
+    });
+    return this.serialize(notification.toObject());
   }
 
   async update(
@@ -1800,10 +1882,10 @@ export class FleetService {
         .filter((vehicle) => vehicle.initialOdometerKm !== undefined)
         .map(
           (vehicle) =>
-            [
-              String(vehicle._id),
-              Number(vehicle.initialOdometerKm ?? 0),
-            ] as [string, number],
+            [String(vehicle._id), Number(vehicle.initialOdometerKm ?? 0)] as [
+              string,
+              number,
+            ],
         ),
     );
 
@@ -1925,7 +2007,7 @@ export class FleetService {
       {
         ...(record.odometerKm
           ? { $max: { odometerKm: Number(record.odometerKm) } }
-        : {}),
+          : {}),
       },
     );
     await this.recalculateFuelEfficiencyForVehicle(

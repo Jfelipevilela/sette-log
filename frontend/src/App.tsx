@@ -13,6 +13,7 @@ import { ReportsPage } from './features/reports/ReportsPage';
 import { SettingsPage } from './features/settings/SettingsPage';
 import { TrackingPage } from './features/tracking/TrackingPage';
 import { VehiclesPage } from './features/vehicles/VehiclesPage';
+import { ToastViewport } from './components/ui/toast';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -46,6 +47,7 @@ export function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
+      <ToastViewport />
     </QueryClientProvider>
   );
 }

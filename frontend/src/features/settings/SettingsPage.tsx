@@ -1,18 +1,24 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  AlertCircle,
+  CheckCircle2,
+  ChevronRight,
   Edit2,
   FileSpreadsheet,
   KeyRound,
+  Loader2,
   PlugZap,
   Search,
   ShieldCheck,
   Trash2,
+  TriangleAlert,
   Upload,
   UserMinus,
   UserPlus,
   UsersRound,
   Webhook,
+  X,
 } from "lucide-react";
 import { Badge } from "../../components/ui/badge";
 import { ActionMenu } from "../../components/ui/action-menu";
@@ -33,10 +39,12 @@ import {
   apiErrorMessage,
   createUser,
   deleteUser,
+  downloadImportTemplate,
   getUsersPage,
   saveSetting,
   updateUser,
   uploadLegacySpreadsheet,
+  uploadCompleteLegacySpreadsheet,
 } from "../../lib/api";
 import { labelFor } from "../../lib/labels";
 import type { SystemUser } from "../../lib/types";
@@ -77,6 +85,92 @@ const importResources = [
   { value: "documents", label: "Documentos" },
 ];
 
+type ResourceMeta = {
+  step: number;
+  color: string;
+  bgColor: string;
+  borderColor: string;
+  required: string[];
+  optional: string[];
+  hint: string;
+  depends?: string;
+};
+
+const resourceMeta: Record<string, ResourceMeta> = {
+  vehicles: {
+    step: 1,
+    color: "text-emerald-700",
+    bgColor: "bg-emerald-50",
+    borderColor: "border-emerald-200",
+    required: ["placa", "marca", "modelo"],
+    optional: [
+      "apelido",
+      "ano",
+      "tipo",
+      "status",
+      "odometro",
+      "odometro_base_consumo",
+      "capacidade_tanque",
+      "centro_custo",
+    ],
+    hint: "Se a placa ja existir, o veiculo sera atualizado. Preencha odometro_base_consumo para calcular o primeiro km/L.",
+  },
+  drivers: {
+    step: 2,
+    color: "text-blue-700",
+    bgColor: "bg-blue-50",
+    borderColor: "border-blue-200",
+    required: ["nome", "cnh", "categoria_cnh", "validade_cnh"],
+    optional: ["cpf", "telefone", "email", "status"],
+    hint: "Se o número de CNH já existir, o motorista será atualizado. Pode ser importado junto com veículos.",
+  },
+  "fuel-records": {
+    step: 3,
+    color: "text-amber-700",
+    bgColor: "bg-amber-50",
+    borderColor: "border-amber-200",
+    required: ["placa", "litros", "valor_total"],
+    optional: [
+      "cnh",
+      "preco_litro",
+      "odometro",
+      "data_abastecimento",
+      "posto",
+      "combustivel",
+    ],
+    hint: "Sempre inserido como novo registro. Preencha o odômetro para calcular km/litro automaticamente.",
+    depends: "Requer veículos (e opcionalmente motoristas) já importados.",
+  },
+  "maintenance-orders": {
+    step: 4,
+    color: "text-red-700",
+    bgColor: "bg-red-50",
+    borderColor: "border-red-200",
+    required: ["placa"],
+    optional: [
+      "tipo",
+      "prioridade",
+      "status",
+      "agendamento",
+      "odometro",
+      "valor_total",
+      "descricao",
+    ],
+    hint: "Sempre inserida como nova ordem. tipo: preventiva, corretiva, preditiva.",
+    depends: "Requer veículos já importados.",
+  },
+  documents: {
+    step: 5,
+    color: "text-purple-700",
+    bgColor: "bg-purple-50",
+    borderColor: "border-purple-200",
+    required: ["entidade", "referencia", "documento"],
+    optional: ["numero", "emissao", "vencimento", "url"],
+    hint: "entidade = veiculo ou motorista | referencia = placa ou CNH | documento = crlv, ipva, cnh, seguro...",
+    depends: "Requer veículos e/ou motoristas já importados.",
+  },
+};
+
 const roleOptions = [
   { value: "super_admin", label: "Super Admin" },
   { value: "fleet_manager", label: "Gestor de Frota" },
@@ -114,8 +208,14 @@ export function SettingsPage() {
   const [userError, setUserError] = useState<string>();
   const [importResource, setImportResource] = useState("vehicles");
   const [importFile, setImportFile] = useState<File>();
-  const [importResult, setImportResult] =
-    useState<Awaited<ReturnType<typeof uploadLegacySpreadsheet>>>();
+  const [recalculateFuelTotal, setRecalculateFuelTotal] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importResult, setImportResult] = useState<
+    | Awaited<ReturnType<typeof uploadLegacySpreadsheet>>
+    | Awaited<ReturnType<typeof uploadCompleteLegacySpreadsheet>>
+  >();
+
   const { data: usersPage, isLoading: usersLoading } = useQuery({
     queryKey: ["users", userPage, appliedUserSearch],
     queryFn: () =>
@@ -151,7 +251,9 @@ export function SettingsPage() {
       if (!importFile) {
         throw new Error("Selecione um arquivo CSV ou XLSX.");
       }
-      return uploadLegacySpreadsheet(importResource, importFile);
+      return uploadLegacySpreadsheet(importResource, importFile, {
+        recalculateFuelTotal,
+      });
     },
     onSuccess: async (result) => {
       setImportResult(result);
@@ -163,6 +265,7 @@ export function SettingsPage() {
         queryClient.invalidateQueries({ queryKey: ["vehicles"] }),
         queryClient.invalidateQueries({ queryKey: ["drivers"] }),
         queryClient.invalidateQueries({ queryKey: ["tracking-live"] }),
+        queryClient.invalidateQueries({ queryKey: ["fuel-records"] }),
         queryClient.invalidateQueries({ queryKey: ["maintenance-orders"] }),
         queryClient.invalidateQueries({ queryKey: ["finance-dashboard"] }),
         queryClient.invalidateQueries({ queryKey: ["compliance-documents"] }),
@@ -174,6 +277,46 @@ export function SettingsPage() {
         error instanceof Error
           ? error.message
           : "Não foi possivel importar a planilha.",
+      );
+    },
+  });
+
+  const completeImportMutation = useMutation({
+    mutationFn: async () => {
+      if (!importFile) {
+        throw new Error("Selecione um arquivo CSV ou XLSX.");
+      }
+      return uploadCompleteLegacySpreadsheet(importFile, {
+        recalculateFuelTotal,
+      });
+    },
+    onSuccess: async (result) => {
+      setImportResult(result as any);
+      const totalImported = result.summary.totalImported;
+      const totalUpdated = result.summary.totalUpdated;
+      const totalFailed = result.summary.totalFailed;
+      setMessage(
+        `✅ Importacao completa concluida: ${totalImported} inseridos, ${totalUpdated} atualizados, ${totalFailed} falhas.`,
+      );
+      setImportFile(undefined);
+      fileInputRef.current?.removeAttribute("value");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["vehicles"] }),
+        queryClient.invalidateQueries({ queryKey: ["drivers"] }),
+        queryClient.invalidateQueries({ queryKey: ["tracking-live"] }),
+        queryClient.invalidateQueries({ queryKey: ["fuel-records"] }),
+        queryClient.invalidateQueries({ queryKey: ["maintenance-orders"] }),
+        queryClient.invalidateQueries({ queryKey: ["finance-dashboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["compliance-documents"] }),
+      ]);
+    },
+    onError: (error) => {
+      setImportResult(undefined);
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Não foi possivel importar a planilha completa.",
       );
     },
   });
@@ -276,13 +419,21 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <section className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-        <div>
-          <h2 className="text-2xl font-semibold">Configuracoes</h2>
-          <p className="mt-1 text-sm text-zinc-500">
-            Usuarios, perfis, filiais, alertas, integracoes, webhooks e tokens.
-          </p>
-        </div>
+      <section className="relative overflow-hidden rounded-lg border border-fleet-line bg-white p-5 shadow-sm md:p-6">
+        <span className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-fleet-green via-cyan-500 to-fleet-amber" />
+        <div className="relative flex flex-col justify-between gap-4 md:flex-row md:items-center">
+          <div>
+            <span className="mb-2 inline-flex rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold uppercase text-emerald-700">
+              Administracao
+            </span>
+            <h2 className="text-2xl font-semibold text-fleet-ink">
+              Configuracoes
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
+              Usuarios, perfis, filiais, alertas, integracoes, webhooks e
+              tokens.
+            </p>
+          </div>
         <Button
           type="submit"
           form="settings-form"
@@ -291,19 +442,28 @@ export function SettingsPage() {
           <ShieldCheck size={18} />
           {saveSettingsMutation.isPending ? "Salvando..." : "Salvar parametros"}
         </Button>
+        </div>
       </section>
 
       <section className="grid gap-6 lg:grid-cols-2">
         {settings.map((item) => (
-          <Card key={item.title} className="p-5">
+          <Card
+            key={item.title}
+            className="group relative overflow-hidden p-5 transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_45px_rgba(15,23,42,0.10)]"
+          >
+            <span className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-fleet-green to-cyan-500" />
             <div className="flex items-start justify-between gap-4">
               <div className="flex gap-4">
-                <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-zinc-100 text-fleet-ink">
+                <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
                   <item.icon size={20} />
                 </span>
                 <div>
-                  <strong className="block">{item.title}</strong>
-                  <p className="mt-1 text-sm text-zinc-500">{item.detail}</p>
+                  <strong className="block text-fleet-ink">
+                    {item.title}
+                  </strong>
+                  <p className="mt-1 text-sm leading-6 text-zinc-500">
+                    {item.detail}
+                  </p>
                 </div>
               </div>
               <Badge tone={item.status === "ativo" ? "green" : "cyan"}>
@@ -314,8 +474,8 @@ export function SettingsPage() {
         ))}
       </section>
 
-      <Card>
-        <CardHeader>
+      <Card className="overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-zinc-50 via-white to-emerald-50">
           <div>
             <CardTitle>Usuarios</CardTitle>
             <p className="mt-1 text-sm text-zinc-500">
@@ -449,107 +609,510 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Importar dados antigos</CardTitle>
+      {/* ── Importar dados antigos ────────────────────────────────── */}
+      <Card className="overflow-hidden">
+        <CardHeader className="relative bg-gradient-to-r from-emerald-50 via-white to-cyan-50">
+          <span className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-fleet-green via-cyan-500 to-fleet-amber" />
+          <div>
+            <CardTitle>Importar dados antigos</CardTitle>
+            <p className="mt-1 text-sm text-zinc-500">
+              Suba planilhas CSV ou XLSX para migrar histórico de frotas
+              legadas.
+            </p>
+          </div>
+          <button
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-fleet-line bg-white px-3 text-sm font-medium text-fleet-ink transition hover:bg-zinc-50 hover:border-zinc-300 flex-shrink-0 disabled:opacity-50"
+            onClick={async () => {
+              try {
+                await downloadImportTemplate();
+                setMessage("Template baixado com sucesso.");
+              } catch (error) {
+                setMessage(
+                  error instanceof Error
+                    ? error.message
+                    : "Não foi possível baixar o template.",
+                );
+              }
+            }}
+            disabled={false}
+          >
+            <FileSpreadsheet size={15} className="text-fleet-green" />
+            Baixar template
+          </button>
         </CardHeader>
-        <CardContent className="space-y-5">
-          <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)_auto] lg:items-end">
-            <label className="space-y-2 text-sm font-medium">
-              Tipo de dado
-              <SearchableSelect
-                value={importResource}
-                onValueChange={setImportResource}
-                options={importResources}
-                searchPlaceholder="Buscar tipo de dado"
-              />
-            </label>
-            <label className="space-y-2 text-sm font-medium">
-              Arquivo CSV ou XLSX
-              <Input
-                type="file"
-                accept=".csv,.xlsx"
-                onChange={(event) => {
-                  setImportFile(event.target.files?.[0]);
-                  setImportResult(undefined);
-                }}
-              />
-            </label>
-            <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
-              <a
-                className="inline-flex h-10 items-center justify-center rounded-md border border-fleet-line bg-white px-4 text-sm font-medium text-fleet-ink transition hover:bg-zinc-50"
-                href="/templates/sette-log-importacao-template.xlsx"
-                download
+
+        <CardContent className="space-y-6">
+          {/* Step flow */}
+          <div className="flex flex-wrap items-center gap-1.5 text-xs font-medium text-zinc-500">
+            {importResources.map((r, idx) => {
+              const meta = resourceMeta[r.value]!;
+              const isActive = importResource === r.value;
+              return (
+                <div key={r.value} className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImportResource(r.value);
+                      setImportResult(undefined);
+                      setImportFile(undefined);
+                      if (fileInputRef.current) fileInputRef.current.value = "";
+                    }}
+                    className={[
+                      "flex items-center gap-1.5 rounded-full border px-3 py-1 transition-all",
+                      isActive
+                        ? `${meta.bgColor} ${meta.borderColor} ${meta.color} font-semibold shadow-sm`
+                        : "border-zinc-200 bg-white text-zinc-500 hover:border-zinc-300 hover:bg-zinc-50",
+                    ].join(" ")}
+                  >
+                    <span
+                      className={[
+                        "flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold",
+                        isActive ? "bg-current/10" : "bg-zinc-100",
+                      ].join(" ")}
+                      style={
+                        isActive
+                          ? { backgroundColor: "currentcolor", color: "white" }
+                          : {}
+                      }
+                    >
+                      {meta.step}
+                    </span>
+                    {r.label}
+                  </button>
+                  {idx < importResources.length - 1 && (
+                    <ChevronRight
+                      size={12}
+                      className="text-zinc-300 flex-shrink-0"
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Resource hint */}
+          {(() => {
+            const meta = resourceMeta[importResource]!;
+            return (
+              <div
+                className={`rounded-lg border ${meta.borderColor} ${meta.bgColor} p-4 text-sm`}
               >
-                Baixar template
-              </a>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="space-y-2 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                        Obrigatorios
+                      </span>
+                      {meta.required.map((col) => (
+                        <span
+                          key={col}
+                          className={`inline-flex rounded px-1.5 py-0.5 text-xs font-mono font-semibold ${meta.bgColor} ${meta.color} border ${meta.borderColor}`}
+                        >
+                          {col}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                        Opcionais
+                      </span>
+                      {meta.optional.map((col) => (
+                        <span
+                          key={col}
+                          className="inline-flex rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-xs font-mono text-zinc-500"
+                        >
+                          {col}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="sm:max-w-xs space-y-1 text-xs text-zinc-600 border-t border-zinc-200/60 pt-2 sm:border-t-0 sm:pt-0 sm:border-l sm:pl-4">
+                    <p>{meta.hint}</p>
+                    {meta.depends && (
+                      <p className="flex items-start gap-1 font-medium text-amber-700">
+                        <TriangleAlert
+                          size={12}
+                          className="mt-0.5 flex-shrink-0"
+                        />
+                        {meta.depends}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Drop zone */}
+          <div
+            className={[
+              "relative flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-8 transition-all",
+              isDragging
+                ? "border-fleet-green bg-emerald-50 scale-[1.01]"
+                : importFile
+                  ? "border-fleet-green/50 bg-emerald-50/50"
+                  : "border-zinc-200 bg-zinc-50/60 hover:border-zinc-300 hover:bg-zinc-50",
+            ].join(" ")}
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDragging(true);
+            }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setIsDragging(false);
+              const file = e.dataTransfer.files?.[0];
+              if (
+                file &&
+                (file.name.endsWith(".csv") || file.name.endsWith(".xlsx"))
+              ) {
+                setImportFile(file);
+                setImportResult(undefined);
+              }
+            }}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,.xlsx"
+              className="sr-only"
+              onChange={(e) => {
+                setImportFile(e.target.files?.[0]);
+                setImportResult(undefined);
+              }}
+            />
+            {importFile ? (
+              <>
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-fleet-green/10">
+                  <FileSpreadsheet size={24} className="text-fleet-green" />
+                </div>
+                <div className="text-center">
+                  <p className="font-semibold text-fleet-ink">
+                    {importFile.name}
+                  </p>
+                  <p className="mt-0.5 text-xs text-zinc-500">
+                    {(importFile.size / 1024).toFixed(1)} KB · Clique para
+                    trocar
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="absolute right-3 top-3 rounded-full p-1 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setImportFile(undefined);
+                    setImportResult(undefined);
+                    if (fileInputRef.current) fileInputRef.current.value = "";
+                  }}
+                >
+                  <X size={14} />
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-100">
+                  <Upload size={22} className="text-zinc-400" />
+                </div>
+                <div className="text-center">
+                  <p className="font-medium text-zinc-700">
+                    Arraste o arquivo ou{" "}
+                    <span className="text-fleet-green underline underline-offset-2">
+                      clique para selecionar
+                    </span>
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-400">
+                    CSV ou XLSX · máximo 5.000 linhas
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+
+          <label className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50/60 p-4 text-sm text-emerald-950">
+            <input
+              type="checkbox"
+              checked={recalculateFuelTotal}
+              onChange={(event) =>
+                setRecalculateFuelTotal(event.target.checked)
+              }
+              className="mt-1 h-4 w-4 rounded border-emerald-300 text-emerald-700"
+            />
+            <span>
+              <strong>Recalcular valor total dos abastecimentos</strong>
+              <span className="mt-1 block text-xs text-emerald-800">
+                Quando marcado, o sistema ignora o valor_total incorreto da
+                planilha e grava o total como litros x preco_litro.
+              </span>
+            </span>
+          </label>
+
+          {/* Action buttons */}
+          <div className="space-y-4">
+            {/* Import by resource type */}
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1">
+                <p className="text-xs font-medium text-zinc-600 mb-2">
+                  Importar por tipo (um de cada vez):
+                </p>
+                <SearchableSelect
+                  options={importResources}
+                  value={importResource}
+                  onValueChange={(value) => setImportResource(value)}
+                  placeholder="Selecione o tipo de dados"
+                />
+              </div>
               <Button
                 type="button"
-                className="w-full lg:w-auto"
                 disabled={!importFile || importMutation.isPending}
                 onClick={() => importMutation.mutate()}
+                className="flex-shrink-0 gap-2 mt-6"
               >
-                <Upload size={18} />
+                {importMutation.isPending ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Upload size={16} />
+                )}
                 {importMutation.isPending ? "Importando..." : "Importar"}
               </Button>
             </div>
-          </div>
 
-          <div className="rounded-lg border border-fleet-line bg-zinc-50 p-4 text-sm text-zinc-600">
-            <div className="flex items-start gap-3">
-              <FileSpreadsheet className="mt-0.5 text-fleet-green" size={18} />
-              <div>
-                <strong className="block text-zinc-800">
-                  Ordem recomendada
-                </strong>
-                <p className="mt-1">
-                  Importe primeiro veiculos e motoristas. Depois suba
-                  abastecimentos, manutencoes e documentos, porque essas
-                  planilhas usam placa ou CNH para vincular os historicos.
-                </p>
-                <p className="mt-2">
-                  O template possui uma aba para cada tipo de dado. A primeira
-                  linha precisa conter os cabecalhos: placa, modelo, marca,
-                  odometro, nome, cnh, validade_cnh, litros, valor_total,
-                  vencimento.
-                </p>
-              </div>
+            {/* Import complete spreadsheet */}
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-4">
+              <p className="text-sm font-medium text-emerald-900 mb-3">
+                ✨ Ou importe tudo de uma vez!
+              </p>
+              <Button
+                type="button"
+                disabled={!importFile || completeImportMutation.isPending}
+                onClick={() => completeImportMutation.mutate()}
+                className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700"
+              >
+                {completeImportMutation.isPending ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <FileSpreadsheet size={16} />
+                )}
+                {completeImportMutation.isPending
+                  ? "Importando planilha completa..."
+                  : "Importar planilha completa (todos os dados)"}
+              </Button>
+              <p className="mt-2 text-xs text-emerald-800">
+                Preencha todos os dados da planilha (veículos, motoristas,
+                abastecimentos, manutenções e documentos) e faça upload uma
+                única vez.
+              </p>
             </div>
           </div>
 
+          {/* Result panel */}
           {importResult && (
-            <div className="rounded-lg border border-fleet-line p-4 text-sm">
-              <div className="grid gap-3 md:grid-cols-4">
-                <div>
-                  <span className="block text-zinc-500">Linhas</span>
-                  <strong>{importResult.totalRows}</strong>
-                </div>
-                <div>
-                  <span className="block text-zinc-500">Inseridos</span>
-                  <strong>{importResult.imported}</strong>
-                </div>
-                <div>
-                  <span className="block text-zinc-500">Atualizados</span>
-                  <strong>{importResult.updated}</strong>
-                </div>
-                <div>
-                  <span className="block text-zinc-500">Falhas</span>
-                  <strong>{importResult.failed}</strong>
-                </div>
-              </div>
-              {importResult.errors.length > 0 && (
-                <div className="mt-4 space-y-2">
-                  <strong className="text-zinc-800">
-                    Primeiros erros encontrados
-                  </strong>
-                  {importResult.errors.slice(0, 5).map((error) => (
-                    <p
-                      key={`${error.row}-${error.message}`}
-                      className="text-zinc-600"
-                    >
-                      Linha {error.row}: {error.message}
+            <div className="space-y-4">
+              {/* If complete spreadsheet result */}
+              {"totalResources" in importResult ? (
+                <div className="rounded-xl border border-fleet-line overflow-hidden">
+                  {/* Complete import summary */}
+                  <div className="bg-emerald-50 border-b border-emerald-100 px-4 py-3">
+                    <p className="text-sm font-semibold text-emerald-900">
+                      ✅ Importação completa realizada com sucesso!
                     </p>
-                  ))}
+                  </div>
+
+                  {/* Overall stats */}
+                  <div className="grid grid-cols-3 divide-x divide-fleet-line px-4 py-4">
+                    <div>
+                      <p className="text-xs text-zinc-500">Abas processadas</p>
+                      <p className="text-2xl font-bold text-zinc-700">
+                        {importResult.totalResources}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-zinc-500">Total inseridos</p>
+                      <p className="text-2xl font-bold text-emerald-700">
+                        {importResult.summary.totalImported}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-zinc-500">Total atualizados</p>
+                      <p className="text-2xl font-bold text-blue-700">
+                        {importResult.summary.totalUpdated}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Individual results */}
+                  <div className="border-t border-fleet-line">
+                    {importResult.results.map((result) => (
+                      <div
+                        key={result.resource}
+                        className="border-b border-fleet-line last:border-b-0 px-4 py-3"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-zinc-800 capitalize">
+                              {result.resource === "fuel-records"
+                                ? "Abastecimentos"
+                                : result.resource === "maintenance-orders"
+                                  ? "Manutenções"
+                                  : result.resource === "vehicles"
+                                    ? "Veículos"
+                                    : result.resource === "drivers"
+                                      ? "Motoristas"
+                                      : "Documentos"}
+                            </p>
+                            <p className="text-xs text-zinc-500 mt-1">
+                              {result.totalRows} linhas · {result.imported}{" "}
+                              inseridos · {result.updated} atualizados
+                              {result.failed > 0 && (
+                                <span className="text-red-600">
+                                  {" "}
+                                  · {result.failed} erros
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                          {result.failed === 0 ? (
+                            <CheckCircle2
+                              size={20}
+                              className="text-emerald-600"
+                            />
+                          ) : (
+                            <AlertCircle size={20} className="text-amber-500" />
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Show errors if any */}
+                  {importResult.results.some((r) => r.errors.length > 0) && (
+                    <div className="border-t border-fleet-line bg-red-50/50 px-4 py-3 space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-red-700">
+                        Erros encontrados
+                      </p>
+                      {importResult.results.map(
+                        (result) =>
+                          result.errors.length > 0 && (
+                            <div key={result.resource} className="space-y-2">
+                              <p className="text-xs font-medium text-red-800 capitalize">
+                                {result.resource === "fuel-records"
+                                  ? "Abastecimentos"
+                                  : result.resource === "maintenance-orders"
+                                    ? "Manutenções"
+                                    : result.resource}
+                              </p>
+                              {result.errors.slice(0, 3).map((error) => (
+                                <div
+                                  key={`${error.row}-${error.message}`}
+                                  className="flex items-start gap-2 rounded-md border border-red-200 bg-white px-3 py-2 text-xs"
+                                >
+                                  <span className="rounded bg-red-100 px-1.5 py-0.5 font-mono font-bold text-red-700 flex-shrink-0">
+                                    L{error.row}
+                                  </span>
+                                  <span className="text-zinc-600">
+                                    {error.message}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          ),
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                // Single resource result (original behavior)
+                <div className="rounded-xl border border-fleet-line overflow-hidden">
+                  {/* Stats header */}
+                  <div
+                    className={[
+                      "grid grid-cols-2 md:grid-cols-4 divide-x divide-fleet-line",
+                      importResult.failed > 0
+                        ? "bg-amber-50 border-b border-amber-200"
+                        : "bg-emerald-50 border-b border-emerald-100",
+                    ].join(" ")}
+                  >
+                    {[
+                      {
+                        label: "Total de linhas",
+                        value: importResult.totalRows,
+                        color: "text-zinc-700",
+                        bg: "",
+                      },
+                      {
+                        label: "Inseridos",
+                        value: importResult.imported,
+                        color: "text-emerald-700",
+                        bg: "bg-emerald-50",
+                      },
+                      {
+                        label: "Atualizados",
+                        value: importResult.updated,
+                        color: "text-blue-700",
+                        bg: "",
+                      },
+                      {
+                        label: "Falhas",
+                        value: importResult.failed,
+                        color:
+                          importResult.failed > 0
+                            ? "text-red-700"
+                            : "text-zinc-400",
+                        bg: importResult.failed > 0 ? "bg-red-50" : "",
+                      },
+                    ].map((stat) => (
+                      <div key={stat.label} className={`px-4 py-3 ${stat.bg}`}>
+                        <p className="text-xs text-zinc-500">{stat.label}</p>
+                        <p className={`text-2xl font-bold ${stat.color}`}>
+                          {stat.value}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Summary line */}
+                  <div className="flex items-center gap-2 px-4 py-3 bg-white text-sm">
+                    {importResult.failed === 0 ? (
+                      <CheckCircle2
+                        size={16}
+                        className="text-fleet-green flex-shrink-0"
+                      />
+                    ) : (
+                      <AlertCircle
+                        size={16}
+                        className="text-amber-500 flex-shrink-0"
+                      />
+                    )}
+                    <span className="text-zinc-600">
+                      Arquivo:{" "}
+                      <span className="font-medium text-zinc-800">
+                        {importResult.fileName}
+                      </span>
+                      {importResult.failed === 0
+                        ? " — importado com sucesso!"
+                        : ` — ${importResult.failed} linha(s) com erro. Corrija e reimporte.`}
+                    </span>
+                  </div>
+                  {/* Errors */}
+                  {importResult.errors.length > 0 && (
+                    <div className="border-t border-fleet-line bg-red-50/50 px-4 py-3 space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-red-700">
+                        Erros encontrados (primeiros{" "}
+                        {Math.min(importResult.errors.length, 5)} de{" "}
+                        {importResult.errors.length})
+                      </p>
+                      {importResult.errors.slice(0, 5).map((error) => (
+                        <div
+                          key={`${error.row}-${error.message}`}
+                          className="flex items-start gap-2 rounded-md border border-red-200 bg-white px-3 py-2 text-xs"
+                        >
+                          <span className="rounded bg-red-100 px-1.5 py-0.5 font-mono font-bold text-red-700 flex-shrink-0">
+                            L{error.row}
+                          </span>
+                          <span className="text-zinc-600">{error.message}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -557,42 +1120,65 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Parametros de alerta</CardTitle>
+      <Card className="overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-amber-50 via-white to-emerald-50">
+          <div>
+            <CardTitle>Parametros de alerta</CardTitle>
+            <p className="mt-1 text-sm text-zinc-500">
+              Limites usados para alertas operacionais e vencimentos.
+            </p>
+          </div>
         </CardHeader>
         <CardContent>
           <form id="settings-form" onSubmit={handleSaveSettings}>
             <div className="grid gap-4 md:grid-cols-3">
-              <label className="space-y-2 text-sm font-medium">
-                Velocidade maxima
+              <label className="rounded-lg border border-zinc-200 bg-zinc-50/60 p-4 text-sm font-medium">
+                <span className="block text-zinc-700">Velocidade maxima</span>
                 <Input
+                  className="mt-3 bg-white"
                   name="speedLimit"
                   type="number"
                   min="1"
                   defaultValue="90"
                 />
+                <span className="mt-2 block text-xs font-normal text-zinc-500">
+                  Dispara alerta de excesso de velocidade.
+                </span>
               </label>
-              <label className="space-y-2 text-sm font-medium">
-                Dias para vencimento
+              <label className="rounded-lg border border-zinc-200 bg-zinc-50/60 p-4 text-sm font-medium">
+                <span className="block text-zinc-700">Dias para vencimento</span>
                 <Input
+                  className="mt-3 bg-white"
                   name="expirationDays"
                   type="number"
                   min="1"
                   defaultValue="30"
                 />
+                <span className="mt-2 block text-xs font-normal text-zinc-500">
+                  Janela para documentos e CNHs proximos do prazo.
+                </span>
               </label>
-              <label className="space-y-2 text-sm font-medium">
-                Tempo parado em minutos
+              <label className="rounded-lg border border-zinc-200 bg-zinc-50/60 p-4 text-sm font-medium">
+                <span className="block text-zinc-700">
+                  Tempo parado em minutos
+                </span>
                 <Input
+                  className="mt-3 bg-white"
                   name="idleMinutes"
                   type="number"
                   min="1"
                   defaultValue="20"
                 />
+                <span className="mt-2 block text-xs font-normal text-zinc-500">
+                  Base para alertas de ociosidade.
+                </span>
               </label>
             </div>
-            {message && <p className="mt-4 text-sm text-zinc-600">{message}</p>}
+            {message && (
+              <p className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                {message}
+              </p>
+            )}
           </form>
         </CardContent>
       </Card>

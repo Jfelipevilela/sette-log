@@ -1,5 +1,12 @@
 import { MoreHorizontal } from "lucide-react";
-import { ButtonHTMLAttributes, ReactNode } from "react";
+import {
+  ButtonHTMLAttributes,
+  ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import { cn } from "../../lib/utils";
 
 type ActionMenuItem = {
@@ -12,20 +19,16 @@ type ActionMenuItem = {
 
 type ActionMenuProps = {
   items: ActionMenuItem[];
-  align?: "left" | "right";
 };
 
-function closeMenu(event: React.MouseEvent<HTMLButtonElement>) {
-  const details = event.currentTarget.closest("details");
-  if (details) {
-    details.removeAttribute("open");
-  }
-}
+type MenuPosition = {
+  top: number;
+  left: number;
+};
 
 function MenuButton({
   danger,
   className,
-  onClick,
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { danger?: boolean }) {
   return (
@@ -36,40 +39,109 @@ function MenuButton({
         danger ? "text-red-700 hover:bg-red-50" : "text-fleet-ink",
         className,
       )}
-      onClick={(event) => {
-        closeMenu(event);
-        onClick?.(event);
-      }}
       {...props}
     />
   );
 }
 
-export function ActionMenu({ items, align = "right" }: ActionMenuProps) {
+export function ActionMenu({ items }: ActionMenuProps) {
+  const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState<MenuPosition>();
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  function updatePosition() {
+    const button = buttonRef.current;
+    if (!button) {
+      return;
+    }
+    const rect = button.getBoundingClientRect();
+    const width = 192;
+    const left = Math.min(
+      Math.max(8, rect.right - width),
+      window.innerWidth - width - 8,
+    );
+    setPosition({
+      top: rect.bottom + 8,
+      left,
+    });
+  }
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    updatePosition();
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target as Node;
+      if (
+        buttonRef.current?.contains(target) ||
+        menuRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setOpen(false);
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    }
+
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    window.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("keydown", handleEscape);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [open]);
+
   return (
-    <details className="group relative inline-block text-left">
-      <summary className="flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-md border border-fleet-line bg-white text-fleet-ink shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-fleet-green [&::-webkit-details-marker]:hidden">
-        <MoreHorizontal size={18} />
-        <span className="sr-only">Abrir acoes</span>
-      </summary>
-      <div
-        className={cn(
-          "absolute z-30 mt-2 min-w-44 rounded-lg border border-fleet-line bg-white p-1 shadow-xl",
-          align === "right" ? "right-0" : "left-0",
-        )}
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        className="flex h-9 w-9 items-center justify-center rounded-md border border-fleet-line bg-white text-fleet-ink shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-fleet-green"
+        aria-label="Abrir acoes"
+        aria-expanded={open}
+        onClick={() => {
+          updatePosition();
+          setOpen((current) => !current);
+        }}
       >
-        {items.map((item) => (
-          <MenuButton
-            key={item.label}
-            danger={item.danger}
-            disabled={item.disabled}
-            onClick={item.onClick}
+        <MoreHorizontal size={18} />
+      </button>
+      {open &&
+        position &&
+        createPortal(
+          <div
+            ref={menuRef}
+            className="fixed z-[9999] min-w-48 rounded-lg border border-fleet-line bg-white p-1 shadow-2xl"
+            style={{ top: position.top, left: position.left }}
           >
-            {item.icon}
-            {item.label}
-          </MenuButton>
-        ))}
-      </div>
-    </details>
+            {items.map((item) => (
+              <MenuButton
+                key={item.label}
+                danger={item.danger}
+                disabled={item.disabled}
+                onClick={() => {
+                  setOpen(false);
+                  item.onClick();
+                }}
+              >
+                {item.icon}
+                {item.label}
+              </MenuButton>
+            ))}
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }

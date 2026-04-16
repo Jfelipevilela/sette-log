@@ -73,6 +73,16 @@ export class CreateVehicleDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  sector?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  city?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   primaryDriverId?: string;
 
   @ApiPropertyOptional()
@@ -84,6 +94,11 @@ export class CreateVehicleDto {
   @IsOptional()
   @IsNumber()
   odometerKm?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  initialOdometerKm?: number;
 
   @ApiPropertyOptional({ example: 55 })
   @IsOptional()

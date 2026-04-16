@@ -1,6 +1,8 @@
 import { FormEvent, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  CircleDollarSign,
+  Droplets,
   Edit2,
   Eye,
   Fuel,
@@ -181,6 +183,49 @@ export function FuelRecordsPage() {
     };
   }, [records]);
 
+  const fuelKpis = [
+    {
+      label: "Lancamentos",
+      value: summary.count.toLocaleString("pt-BR"),
+      detail: "Registros nesta pagina",
+      icon: ReceiptText,
+      accent: "from-emerald-500 to-teal-500",
+      iconClass: "bg-emerald-50 text-emerald-700",
+    },
+    {
+      label: "Litros registrados",
+      value: `${summary.liters.toLocaleString("pt-BR")} L`,
+      detail: "Volume abastecido",
+      icon: Droplets,
+      accent: "from-cyan-500 to-sky-500",
+      iconClass: "bg-cyan-50 text-cyan-700",
+    },
+    {
+      label: "Custo total",
+      value: formatCurrency(summary.totalCost),
+      detail: "Valor consolidado",
+      icon: CircleDollarSign,
+      accent: "from-amber-500 to-orange-500",
+      iconClass: "bg-amber-50 text-amber-700",
+    },
+    {
+      label: "Preco medio por litro",
+      value: formatCurrency(summary.averagePrice),
+      detail: "Total dividido por litros",
+      icon: Fuel,
+      accent: "from-lime-500 to-emerald-500",
+      iconClass: "bg-lime-50 text-lime-700",
+    },
+    {
+      label: "Km/L medio",
+      value: formatKmPerLiter(summary.averageKmPerLiter),
+      detail: `${summary.distanceKm.toLocaleString("pt-BR")} km analisados`,
+      icon: Gauge,
+      accent: "from-violet-500 to-fuchsia-500",
+      iconClass: "bg-violet-50 text-violet-700",
+    },
+  ];
+
   async function invalidateFuelData() {
     await queryClient.invalidateQueries({ queryKey: ["fuel-records"] });
     await queryClient.invalidateQueries({ queryKey: ["vehicles"] });
@@ -328,6 +373,41 @@ export function FuelRecordsPage() {
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        {fuelKpis.map((item) => {
+          const Icon = item.icon;
+          return (
+            <Card
+              key={item.label}
+              className="group relative overflow-hidden p-5 transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_45px_rgba(15,23,42,0.10)]"
+            >
+              <span
+                className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${item.accent}`}
+              />
+              <div className="flex items-start justify-between gap-3">
+                <span
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${item.iconClass}`}
+                >
+                  <Icon size={21} />
+                </span>
+                <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-1 text-[11px] font-semibold uppercase text-zinc-500">
+                  KPI
+                </span>
+              </div>
+              <span className="mt-5 block text-sm font-medium text-zinc-500">
+                {item.label}
+              </span>
+              <strong className="mt-2 block break-words text-2xl font-semibold tracking-tight text-fleet-ink">
+                {item.value}
+              </strong>
+              <span className="mt-2 block text-xs text-zinc-500">
+                {item.detail}
+              </span>
+            </Card>
+          );
+        })}
+      </section>
+
+      <section className="hidden">
         <Card className="p-5">
           <ReceiptText className="text-fleet-green" />
           <span className="mt-4 block text-sm text-zinc-500">Lançamentos</span>

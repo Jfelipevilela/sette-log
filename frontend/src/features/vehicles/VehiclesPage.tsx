@@ -153,7 +153,9 @@ export function VehiclesPage() {
         vehicle.plate.toLowerCase().includes(term) ||
         vehicle.model.toLowerCase().includes(term) ||
         vehicle.brand.toLowerCase().includes(term) ||
-        vehicle.costCenter?.toLowerCase().includes(term);
+        vehicle.costCenter?.toLowerCase().includes(term) ||
+        vehicle.sector?.toLowerCase().includes(term) ||
+        vehicle.city?.toLowerCase().includes(term);
       const matchesStatus =
         !appliedFilters.status || vehicle.status === appliedFilters.status;
       return matchesSearch && matchesStatus;
@@ -177,6 +179,8 @@ export function VehiclesPage() {
       tankCapacityLiters:
         Number(form.get("tankCapacityLiters") || 0) || undefined,
       costCenter: String(form.get("costCenter") ?? ""),
+      sector: String(form.get("sector") ?? ""),
+      city: String(form.get("city") ?? ""),
     };
 
     if (editingVehicle) {
@@ -461,6 +465,22 @@ export function VehiclesPage() {
                 defaultValue={editingVehicle?.costCenter}
               />
             </label>
+            <label className="space-y-2 text-sm font-medium">
+              Setor
+              <Input
+                name="sector"
+                placeholder="Logistica"
+                defaultValue={editingVehicle?.sector}
+              />
+            </label>
+            <label className="space-y-2 text-sm font-medium">
+              Cidade
+              <Input
+                name="city"
+                placeholder="Manaus"
+                defaultValue={editingVehicle?.city}
+              />
+            </label>
           </div>
           {formError && (
             <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -524,6 +544,8 @@ export function VehiclesPage() {
               : "-",
           },
           { label: "Centro de custo", value: detailVehicle?.costCenter },
+          { label: "Setor", value: detailVehicle?.sector },
+          { label: "Cidade", value: detailVehicle?.city },
           {
             label: "Custo de combustivel",
             value: detailVehicle

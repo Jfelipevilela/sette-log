@@ -46,6 +46,8 @@ export type Vehicle = {
   initialOdometerKm?: number;
   tankCapacityLiters?: number;
   costCenter?: string;
+  sector?: string;
+  city?: string;
   primaryDriverId?: string;
   lastPosition?: {
     type: "Point";
@@ -139,6 +141,15 @@ export type DocumentRecord = {
   expiresAt?: string;
   fileUrl?: string;
   status: string;
+};
+
+export type AppNotification = {
+  _id: string;
+  title: string;
+  message: string;
+  status: string;
+  createdAt: string;
+  readAt?: string;
 };
 
 export type DashboardDay = {

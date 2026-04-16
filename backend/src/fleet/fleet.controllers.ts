@@ -33,6 +33,7 @@ import {
 } from "./dto/fleet.dto";
 import { FleetResource, FleetService } from "./fleet.service";
 import { ImportsService } from "./imports.service";
+import { TemplateGeneratorService } from "./template-generator.service";
 import { DashboardQueryDto } from "./dto/dashboard.dto";
 
 type GenericBody = Record<string, unknown>;
@@ -88,30 +89,44 @@ export class VehiclesController {
 
   @Post()
   @RequirePermissions(PERMISSIONS.VEHICLES_CREATE)
-  create(
+  async create(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateVehicleDto,
   ) {
-    return this.fleetService.create(
+    const created = await this.fleetService.create(
       "vehicles",
       user.tenantId,
       dto as unknown as GenericBody,
     );
+    await this.fleetService.createNotification(
+      user.tenantId,
+      user.sub ?? "",
+      `Veículo ${created.plate} cadastrado`,
+      `O veículo ${created.plate} foi adicionado à frota.`,
+    );
+    return created;
   }
 
   @Patch(":id")
   @RequirePermissions(PERMISSIONS.VEHICLES_EDIT)
-  update(
+  async update(
     @CurrentUser() user: AuthenticatedUser,
     @Param("id") id: string,
     @Body() dto: UpdateVehicleDto,
   ) {
-    return this.fleetService.update(
+    const updated = await this.fleetService.update(
       "vehicles",
       user.tenantId,
       id,
       dto as unknown as GenericBody,
     );
+    await this.fleetService.createNotification(
+      user.tenantId,
+      user.sub ?? "",
+      `Veículo ${updated.plate} atualizado`,
+      `O veículo ${updated.plate} foi atualizado com sucesso.`,
+    );
+    return updated;
   }
 
   @Delete(":id")
@@ -144,27 +159,44 @@ export class DriversController {
 
   @Post()
   @RequirePermissions(PERMISSIONS.DRIVERS_CREATE)
-  create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateDriverDto) {
-    return this.fleetService.create(
+  async create(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreateDriverDto,
+  ) {
+    const created = await this.fleetService.create(
       "drivers",
       user.tenantId,
       dto as unknown as GenericBody,
     );
+    await this.fleetService.createNotification(
+      user.tenantId,
+      user.sub ?? "",
+      `Motorista ${created.name} cadastrado`,
+      `O motorista ${created.name} foi adicionado ao sistema.`,
+    );
+    return created;
   }
 
   @Patch(":id")
   @RequirePermissions(PERMISSIONS.DRIVERS_EDIT)
-  update(
+  async update(
     @CurrentUser() user: AuthenticatedUser,
     @Param("id") id: string,
     @Body() dto: UpdateDriverDto,
   ) {
-    return this.fleetService.update(
+    const updated = await this.fleetService.update(
       "drivers",
       user.tenantId,
       id,
       dto as unknown as GenericBody,
     );
+    await this.fleetService.createNotification(
+      user.tenantId,
+      user.sub ?? "",
+      `Motorista ${updated.name} atualizado`,
+      `O motorista ${updated.name} foi atualizado com sucesso.`,
+    );
+    return updated;
   }
 
   @Delete(":id")
@@ -370,6 +402,11 @@ export class FinanceController {
         file: {
           type: "string",
           format: "binary",
+        },
+        recalculateFuelTotal: {
+          type: "boolean",
+          description:
+            "Quando true, recalcula valor_total de abastecimentos usando litros x preco_litro.",
         },
       },
     },
@@ -599,7 +636,11 @@ export class ComplianceController {
     @Param("id") id: string,
     @UploadedFiles() files?: UploadedSpreadsheetFile[],
   ) {
-    return this.fleetService.attachComplianceCheckFiles(user.tenantId, id, files);
+    return this.fleetService.attachComplianceCheckFiles(
+      user.tenantId,
+      id,
+      files,
+    );
   }
 
   @Get("checks/:id/attachments/:fileName")
@@ -744,11 +785,61 @@ export class SettingsController {
   }
 }
 
+@ApiTags("notifications")
+@ApiBearerAuth()
+@Controller("notifications")
+export class NotificationsController {
+  constructor(private readonly fleetService: FleetService) {}
+
+  @Get()
+  @RequirePermissions(PERMISSIONS.DASHBOARD_VIEW)
+  list(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: PaginationQueryDto,
+  ) {
+    return this.fleetService.listNotifications(
+      user.tenantId,
+      user.sub ?? "",
+      query,
+    );
+  }
+
+  @Post(":id/read")
+  @RequirePermissions(PERMISSIONS.DASHBOARD_VIEW)
+  markRead(@CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
+    return this.fleetService.markNotificationRead(
+      user.tenantId,
+      id,
+      user.sub ?? "",
+    );
+  }
+}
+
 @ApiTags("imports")
 @ApiBearerAuth()
 @Controller("imports")
 export class ImportsController {
-  constructor(private readonly importsService: ImportsService) {}
+  constructor(
+    private readonly importsService: ImportsService,
+    private readonly templateGenerator: TemplateGeneratorService,
+  ) {}
+
+  @Get("template")
+  @RequirePermissions(PERMISSIONS.SETTINGS_MANAGE)
+  async downloadTemplate(
+    @CurrentUser() user: AuthenticatedUser,
+    @Res() res: Response,
+  ) {
+    const buffer = await this.templateGenerator.generateTemplate(user.tenantId);
+    res.set({
+      "Content-Type":
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition":
+        "attachment; filename=sette-log-importacao-template.xlsx",
+      "Content-Length": buffer.length,
+    });
+    res.send(buffer);
+  }
 
   @Post("spreadsheet")
   @ApiConsumes("multipart/form-data")
@@ -771,6 +862,11 @@ export class ImportsController {
           type: "string",
           format: "binary",
         },
+        recalculateFuelTotal: {
+          type: "boolean",
+          description:
+            "Quando true, recalcula valor_total de abastecimentos usando litros x preco_litro.",
+        },
       },
     },
   })
@@ -786,8 +882,48 @@ export class ImportsController {
   importSpreadsheet(
     @CurrentUser() user: AuthenticatedUser,
     @Body("resource") resource: string,
+    @Body("recalculateFuelTotal") recalculateFuelTotal?: string,
     @UploadedFile() file?: UploadedSpreadsheetFile,
   ) {
-    return this.importsService.importSpreadsheet(user.tenantId, resource, file);
+    return this.importsService.importSpreadsheet(user.tenantId, resource, file, {
+      recalculateFuelTotal: recalculateFuelTotal === "true",
+    });
+  }
+
+  @Post("spreadsheet/complete")
+  @ApiConsumes("multipart/form-data")
+  @ApiBody({
+    schema: {
+      type: "object",
+      required: ["file"],
+      properties: {
+        file: {
+          type: "string",
+          format: "binary",
+        },
+      },
+    },
+  })
+  @RequirePermissions(PERMISSIONS.SETTINGS_MANAGE)
+  @UseInterceptors(
+    FileInterceptor("file", {
+      storage: memoryStorage(),
+      limits: {
+        fileSize: 50 * 1024 * 1024,
+      },
+    }),
+  )
+  importCompleteLegacySpreadsheet(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body("recalculateFuelTotal") recalculateFuelTotal?: string,
+    @UploadedFile() file?: UploadedSpreadsheetFile,
+  ) {
+    return this.importsService.importCompleteLegacySpreadsheet(
+      user.tenantId,
+      file,
+      {
+        recalculateFuelTotal: recalculateFuelTotal === "true",
+      },
+    );
   }
 }

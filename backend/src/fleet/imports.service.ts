@@ -4,7 +4,12 @@ import { parse } from "csv-parse/sync";
 import ExcelJS from "exceljs";
 import { Connection } from "mongoose";
 import { FleetResource, FleetService } from "./fleet.service";
-import { Driver, Vehicle } from "./schemas/fleet.schemas";
+import {
+  Driver,
+  FuelRecord,
+  MaintenanceOrder,
+  Vehicle,
+} from "./schemas/fleet.schemas";
 
 type ImportResource =
   | "vehicles"
@@ -31,6 +36,10 @@ type ImportResult = {
   failed: number;
   errors: Array<{ row: number; message: string }>;
   sampleColumns: string[];
+};
+
+type ImportOptions = {
+  recalculateFuelTotal?: boolean;
 };
 
 const supportedResources: ImportResource[] = [
@@ -75,6 +84,14 @@ const columnAliases: Record<string, string[]> = {
     "odometer",
     "odometerkm",
   ],
+  initialOdometerKm: [
+    "odometro_base",
+    "odometro_base_consumo",
+    "km_base",
+    "km_inicial_consumo",
+    "initial_odometer",
+    "initialodometerkm",
+  ],
   tankCapacityLiters: [
     "tanque",
     "capacidade_tanque",
@@ -89,12 +106,28 @@ const columnAliases: Record<string, string[]> = {
     "costcenter",
     "operacao",
   ],
+  sector: ["setor", "sector", "departamento", "area"],
+  city: ["cidade", "city", "municipio"],
 
-  name: ["nome", "name", "motorista", "driver"],
+  name: ["nome", "nome_motorista", "name", "motorista", "driver"],
   cpf: ["cpf", "documento_motorista"],
   phone: ["telefone", "celular", "phone"],
   email: ["email", "e_mail"],
-  licenseNumber: ["cnh", "numero_cnh", "licenca", "license", "licensenumber"],
+  licenseNumber: [
+    "cnh",
+    "cnh_motorista",
+    "numero_cnh",
+    "numero_da_cnh",
+    "registro_cnh",
+    "registro",
+    "numero_registro",
+    "prontuario",
+    "licenca",
+    "license",
+    "licensenumber",
+    "driver_license",
+    "driverlicense",
+  ],
   licenseCategory: [
     "categoria_cnh",
     "categoria",
@@ -102,6 +135,7 @@ const columnAliases: Record<string, string[]> = {
     "licensecategory",
   ],
   licenseExpiresAt: [
+    "validade",
     "validade_cnh",
     "vencimento_cnh",
     "license_expires_at",
@@ -109,7 +143,15 @@ const columnAliases: Record<string, string[]> = {
   ],
 
   vehiclePlate: ["placa", "vehicle_plate", "vehicleplate", "placa_veiculo"],
-  driverLicense: ["cnh", "driver_license", "driverlicense", "cnh_motorista"],
+  driverLicense: [
+    "cnh",
+    "cnh_motorista",
+    "numero_cnh",
+    "numero_da_cnh",
+    "registro_cnh",
+    "driver_license",
+    "driverlicense",
+  ],
   liters: ["litros", "liters", "volume", "quantidade_litros"],
   totalCost: [
     "valor_total",
@@ -162,6 +204,7 @@ const columnAliases: Record<string, string[]> = {
   issuedAt: ["emissao", "data_emissao", "issued_at", "issuedat"],
   expiresAt: ["vencimento", "validade", "expires_at", "expiresat"],
   fileUrl: ["arquivo", "url", "file_url", "fileurl"],
+  description: ["descricao", "description", "observacao", "observacoes"],
 };
 
 @Injectable()
@@ -175,6 +218,7 @@ export class ImportsService {
     tenantId: string,
     resource: string,
     file?: UploadedSpreadsheetFile,
+    options: ImportOptions = {},
   ): Promise<ImportResult> {
     if (!file) {
       throw new BadRequestException('Envie um arquivo no campo "file".');
@@ -207,11 +251,18 @@ export class ImportsService {
       errors: [],
       sampleColumns: Object.keys(rows[0] ?? {}),
     };
+    const seenKeys = new Set<string>();
 
     for (const [index, rawRow] of rows.entries()) {
       const rowNumber = index + 2;
       try {
-        const payload = await this.mapRow(tenantId, importResource, rawRow);
+        const payload = await this.mapRow(
+          tenantId,
+          importResource,
+          rawRow,
+          options,
+        );
+        this.assertUniqueImportKey(importResource, payload, seenKeys);
         const upserted = await this.persist(tenantId, importResource, payload);
         if (upserted === "updated") {
           result.updated += 1;
@@ -230,6 +281,106 @@ export class ImportsService {
     return result;
   }
 
+  async importCompleteLegacySpreadsheet(
+    tenantId: string,
+    file?: UploadedSpreadsheetFile,
+    options: ImportOptions = {},
+  ): Promise<{
+    fileName: string;
+    totalResources: number;
+    results: ImportResult[];
+    summary: {
+      totalImported: number;
+      totalUpdated: number;
+      totalFailed: number;
+    };
+  }> {
+    if (!file) {
+      throw new BadRequestException('Envie um arquivo no campo "file".');
+    }
+
+    // Ordem de importação respeitando dependências
+    const importOrder: ImportResource[] = [
+      "vehicles",
+      "drivers",
+      "fuel-records",
+      "maintenance-orders",
+      "documents",
+    ];
+
+    const results: ImportResult[] = [];
+    let totalImported = 0;
+    let totalUpdated = 0;
+    let totalFailed = 0;
+
+    for (const resource of importOrder) {
+      try {
+        const rows = await this.parseSpreadsheet(file, resource);
+        if (rows.length === 0) {
+          continue;
+        }
+
+        const result: ImportResult = {
+          resource,
+          fileName: file.originalname,
+          totalRows: rows.length,
+          imported: 0,
+          updated: 0,
+          failed: 0,
+          errors: [],
+          sampleColumns: Object.keys(rows[0] ?? {}),
+        };
+        const seenKeys = new Set<string>();
+
+        for (const [index, rawRow] of rows.entries()) {
+          const rowNumber = index + 2;
+          try {
+            const payload = await this.mapRow(
+              tenantId,
+              resource,
+              rawRow,
+              options,
+            );
+            this.assertUniqueImportKey(resource, payload, seenKeys);
+            const upserted = await this.persist(tenantId, resource, payload);
+            if (upserted === "updated") {
+              result.updated += 1;
+              totalUpdated += 1;
+            } else {
+              result.imported += 1;
+              totalImported += 1;
+            }
+          } catch (error) {
+            result.failed += 1;
+            totalFailed += 1;
+            result.errors.push({
+              row: rowNumber,
+              message:
+                error instanceof Error ? error.message : "Erro desconhecido",
+            });
+          }
+        }
+
+        if (result.imported > 0 || result.updated > 0 || result.failed > 0) {
+          results.push(result);
+        }
+      } catch (error) {
+        // Se houver erro ao parsear uma aba, continua com as outras
+        console.error(
+          `Erro ao processar aba ${resource}:`,
+          error instanceof Error ? error.message : "Erro desconhecido",
+        );
+      }
+    }
+
+    return {
+      fileName: file.originalname,
+      totalResources: results.length,
+      results,
+      summary: { totalImported, totalUpdated, totalFailed },
+    };
+  }
+
   private async parseSpreadsheet(
     file: UploadedSpreadsheetFile,
     resource: ImportResource,
@@ -237,13 +388,14 @@ export class ImportsService {
     const extension = file.originalname.split(".").pop()?.toLowerCase();
     if (extension === "csv") {
       const content = this.decodeCsv(file.buffer);
-      return parse(content, {
+      const rows = parse(content, {
         columns: true,
         bom: true,
         delimiter: this.detectCsvDelimiter(content),
         skip_empty_lines: true,
         trim: true,
       }) as LegacyRow[];
+      return rows.filter((row) => this.isImportableDataRow(resource, row));
     }
 
     if (extension === "xlsx") {
@@ -257,8 +409,9 @@ export class ImportsService {
         return [];
       }
 
+      const headerRowNumber = this.findHeaderRow(worksheet, resource);
       const headers = new Map<number, string>();
-      worksheet.getRow(1).eachCell((cell, columnNumber) => {
+      worksheet.getRow(headerRowNumber).eachCell((cell, columnNumber) => {
         const value = this.cellToString(cell.value);
         if (value) {
           headers.set(columnNumber, value);
@@ -266,7 +419,11 @@ export class ImportsService {
       });
 
       const rows: LegacyRow[] = [];
-      for (let rowNumber = 2; rowNumber <= worksheet.rowCount; rowNumber += 1) {
+      for (
+        let rowNumber = headerRowNumber + 1;
+        rowNumber <= worksheet.rowCount;
+        rowNumber += 1
+      ) {
         const row = worksheet.getRow(rowNumber);
         const record: LegacyRow = {};
         headers.forEach((header, columnNumber) => {
@@ -278,7 +435,8 @@ export class ImportsService {
               value !== undefined &&
               value !== null &&
               String(value).trim() !== "",
-          )
+          ) &&
+          this.isImportableDataRow(resource, record)
         ) {
           rows.push(record);
         }
@@ -312,10 +470,38 @@ export class ImportsService {
     return worksheet;
   }
 
+  private findHeaderRow(worksheet: ExcelJS.Worksheet, resource: ImportResource) {
+    const expectedByResource: Record<ImportResource, string[]> = {
+      vehicles: ["plate", "brand", "model"],
+      drivers: ["name", "licenseNumber"],
+      "fuel-records": ["vehiclePlate", "liters", "totalCost"],
+      "maintenance-orders": ["vehiclePlate"],
+      documents: ["entityType", "entityReference", "documentType"],
+    };
+    const expected = expectedByResource[resource];
+    const maxRows = Math.min(20, worksheet.rowCount);
+    for (let rowNumber = 1; rowNumber <= maxRows; rowNumber += 1) {
+      const values: LegacyRow = {};
+      worksheet.getRow(rowNumber).eachCell((cell) => {
+        const value = this.cellToString(cell.value);
+        if (value) {
+          values[value] = value;
+        }
+      });
+      const normalized = this.normalizeRow(values);
+      const matches = expected.filter((key) => normalized[key] !== undefined);
+      if (matches.length >= Math.min(2, expected.length)) {
+        return rowNumber;
+      }
+    }
+    return 1;
+  }
+
   private async mapRow(
     tenantId: string,
     resource: ImportResource,
     row: LegacyRow,
+    options: ImportOptions = {},
   ) {
     const normalized = this.normalizeRow(row);
 
@@ -332,15 +518,23 @@ export class ImportsService {
           this.stringValue(normalized, "status"),
         ),
         odometerKm: this.numberValue(normalized, "odometerKm") ?? 0,
+        initialOdometerKm:
+          this.numberValue(normalized, "initialOdometerKm") ??
+          this.numberValue(normalized, "odometerKm") ??
+          0,
         tankCapacityLiters: this.numberValue(normalized, "tankCapacityLiters"),
         costCenter: this.stringValue(normalized, "costCenter"),
+        sector: this.stringValue(normalized, "sector"),
+        city: this.stringValue(normalized, "city"),
       };
     }
 
     if (resource === "drivers") {
       return {
         name: this.requiredString(normalized, "name", "nome"),
-        licenseNumber: this.requiredString(normalized, "licenseNumber", "CNH"),
+        licenseNumber: this.normalizeLicenseNumber(
+          this.requiredString(normalized, "licenseNumber", "CNH"),
+        ),
         licenseCategory: this.stringValue(normalized, "licenseCategory") ?? "B",
         licenseExpiresAt:
           this.dateValue(normalized, "licenseExpiresAt") ??
@@ -355,6 +549,14 @@ export class ImportsService {
     }
 
     if (resource === "fuel-records") {
+      const liters = this.requiredNumber(normalized, "liters", "litros");
+      const pricePerLiter = this.numberValue(normalized, "pricePerLiter");
+      const informedTotal = this.numberValue(normalized, "totalCost");
+      const totalCost =
+        options.recalculateFuelTotal && pricePerLiter
+          ? Number((liters * pricePerLiter).toFixed(2))
+          : this.requiredNumber(normalized, "totalCost", "valor total");
+
       const vehicleId = await this.vehicleIdByPlate(
         tenantId,
         this.requiredString(normalized, "vehiclePlate", "placa"),
@@ -366,9 +568,11 @@ export class ImportsService {
       return {
         vehicleId,
         driverId,
-        liters: this.requiredNumber(normalized, "liters", "litros"),
-        totalCost: this.requiredNumber(normalized, "totalCost", "valor total"),
-        pricePerLiter: this.numberValue(normalized, "pricePerLiter"),
+        liters,
+        totalCost,
+        pricePerLiter:
+          pricePerLiter ??
+          (informedTotal !== undefined ? informedTotal / liters : undefined),
         odometerKm: this.numberValue(normalized, "odometerKm"),
         filledAt: this.dateValue(normalized, "filledAt") ?? new Date(),
         station: this.stringValue(normalized, "station"),
@@ -397,6 +601,7 @@ export class ImportsService {
         scheduledAt: this.dateValue(normalized, "scheduledAt"),
         odometerKm: this.numberValue(normalized, "odometerKm"),
         totalCost: this.numberValue(normalized, "totalCost") ?? 0,
+        description: this.stringValue(normalized, "description"),
       };
     }
 
@@ -447,7 +652,9 @@ export class ImportsService {
     }
 
     if (resource === "drivers") {
-      payload.licenseNumber = String(payload.licenseNumber ?? "").trim();
+      payload.licenseNumber = this.normalizeLicenseNumber(
+        String(payload.licenseNumber ?? ""),
+      );
       const existing = await this.connection
         .model(Driver.name)
         .findOne({ tenantId, licenseNumber: payload.licenseNumber })
@@ -479,6 +686,54 @@ export class ImportsService {
       if (existing?._id) {
         await this.fleetService.update(
           "documents",
+          tenantId,
+          String(existing._id),
+          payload,
+        );
+        return "updated";
+      }
+    }
+
+    if (resource === "fuel-records") {
+      const existing = await this.connection
+        .model(FuelRecord.name)
+        .findOne({
+          tenantId,
+          vehicleId: payload.vehicleId,
+          filledAt: payload.filledAt,
+          odometerKm: payload.odometerKm,
+          liters: payload.liters,
+          totalCost: payload.totalCost,
+        })
+        .lean<{ _id: unknown }>()
+        .exec();
+      if (existing?._id) {
+        await this.fleetService.update(
+          "fuel-records",
+          tenantId,
+          String(existing._id),
+          payload,
+        );
+        return "updated";
+      }
+    }
+
+    if (resource === "maintenance-orders") {
+      const existing = await this.connection
+        .model(MaintenanceOrder.name)
+        .findOne({
+          tenantId,
+          vehicleId: payload.vehicleId,
+          type: payload.type,
+          scheduledAt: payload.scheduledAt,
+          odometerKm: payload.odometerKm,
+          totalCost: payload.totalCost,
+        })
+        .lean<{ _id: unknown }>()
+        .exec();
+      if (existing?._id) {
+        await this.fleetService.update(
+          "maintenance-orders",
           tenantId,
           String(existing._id),
           payload,
@@ -542,6 +797,88 @@ export class ImportsService {
     });
 
     return output;
+  }
+
+  private isImportableDataRow(resource: ImportResource, row: LegacyRow) {
+    const normalized = this.normalizeRow(row);
+    const requiredByResource: Record<ImportResource, string[]> = {
+      vehicles: ["plate"],
+      drivers: ["name", "licenseNumber"],
+      "fuel-records": ["vehiclePlate", "liters"],
+      "maintenance-orders": ["vehiclePlate"],
+      documents: ["entityReference", "documentType"],
+    };
+    const requiredValues = requiredByResource[resource]
+      .map((key) => this.stringValue(normalized, key))
+      .filter(Boolean) as string[];
+    if (requiredValues.length < requiredByResource[resource].length) {
+      return false;
+    }
+
+    const rowText = Object.values(row)
+      .map((value) => this.normalizeKey(String(value ?? "")))
+      .join(" ");
+    const instructionTerms = [
+      "campos_obrigatorios",
+      "campo_obrigatorio",
+      "marcados_com_asterisco",
+      "dica",
+      "atencao",
+      "importe_veiculos",
+      "importe_motoristas",
+      "deve_ser_de_veiculo",
+      "ja_cadastrado",
+      "se_o_numero",
+      "sera_atualizado",
+      "combustivel_gasolina",
+      "status_active",
+      "tipo_car",
+      "categoria_cnh",
+    ];
+    return !instructionTerms.some((term) => rowText.includes(term));
+  }
+
+  private assertUniqueImportKey(
+    resource: ImportResource,
+    payload: Record<string, unknown>,
+    seenKeys: Set<string>,
+  ) {
+    const key = this.importUniqueKey(resource, payload);
+    if (!key) {
+      return;
+    }
+    if (seenKeys.has(key)) {
+      throw new Error(
+        `Registro duplicado na planilha para ${this.resourceLabel(resource)} (${key.split(":")[1]}). Cada linha precisa ter uma chave unica.`,
+      );
+    }
+    seenKeys.add(key);
+  }
+
+  private importUniqueKey(
+    resource: ImportResource,
+    payload: Record<string, unknown>,
+  ) {
+    if (resource === "drivers") {
+      return `drivers:${this.normalizeLicenseNumber(
+        String(payload.licenseNumber ?? ""),
+      )}`;
+    }
+    if (resource === "vehicles") {
+      return `vehicles:${this.normalizePlate(String(payload.plate ?? ""))}`;
+    }
+    return undefined;
+  }
+
+  private resourceLabel(resource: ImportResource) {
+    const labels: Record<ImportResource, string> = {
+      vehicles: "veiculo",
+      drivers: "motorista",
+      "fuel-records": "abastecimento",
+      "maintenance-orders": "manutencao",
+      documents: "documento",
+    };
+    return labels[resource];
   }
 
   private normalizeKey(value: string) {
@@ -651,9 +988,10 @@ export class ImportsService {
     if (!licenseNumber) {
       return undefined;
     }
+    const normalizedLicenseNumber = this.normalizeLicenseNumber(licenseNumber);
     const driver = await this.connection
       .model(Driver.name)
-      .findOne({ tenantId, licenseNumber })
+      .findOne({ tenantId, licenseNumber: normalizedLicenseNumber })
       .lean<{ _id: unknown }>()
       .exec();
     return driver?._id ? String(driver._id) : undefined;
@@ -795,7 +1133,14 @@ export class ImportsService {
       return "in_progress";
     }
     if (
-      ["closed", "fechada", "fechado", "concluida", "concluido"].includes(
+      [
+        "closed",
+        "completed",
+        "fechada",
+        "fechado",
+        "concluida",
+        "concluido",
+      ].includes(
         normalized,
       )
     ) {
@@ -813,6 +1158,10 @@ export class ImportsService {
   }
 
   private normalizePlate(value: string) {
+    return value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  }
+
+  private normalizeLicenseNumber(value: string) {
     return value.toUpperCase().replace(/[^A-Z0-9]/g, "");
   }
 }

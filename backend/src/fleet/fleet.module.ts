@@ -5,6 +5,7 @@ import {
   ComplianceController,
   DashboardController,
   DriversController,
+  ExportsController,
   FinanceController,
   ImportsController,
   MaintenanceController,
@@ -23,6 +24,7 @@ import { fleetSchemaDefinitions } from "./schemas/fleet.schemas";
   imports: [MongooseModule.forFeature(fleetSchemaDefinitions)],
   controllers: [
     DashboardController,
+    ExportsController,
     VehiclesController,
     DriversController,
     TrackingController,

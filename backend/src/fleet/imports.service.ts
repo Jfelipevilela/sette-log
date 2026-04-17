@@ -57,13 +57,13 @@ const resourceSheetAliases: Record<ImportResource, string[]> = {
     "fuel-records",
     "fuel_records",
     "abastecimentos",
-    "combustivel",
+    "combustível",
   ],
   "maintenance-orders": [
     "maintenance-orders",
     "maintenance_orders",
-    "manutencoes",
-    "ordens_manutencao",
+    "manutenções",
+    "ordens_manutenção",
   ],
   documents: ["documents", "documentos"],
 };
@@ -73,9 +73,9 @@ const columnAliases: Record<string, string[]> = {
   brand: ["marca", "brand", "fabricante"],
   model: ["modelo", "model", "versao"],
   nickname: ["apelido", "nickname", "nome_veiculo", "nome_do_veiculo"],
-  year: ["ano", "year", "ano_modelo", "ano_fabricacao"],
+  year: ["ano", "year", "ano_modelo", "ano_fabricação"],
   type: ["tipo", "type", "tipo_veiculo", "categoria_veiculo"],
-  status: ["status", "situacao"],
+  status: ["status", "situação"],
   odometerKm: [
     "odometro",
     "hodometro",
@@ -104,7 +104,7 @@ const columnAliases: Record<string, string[]> = {
     "centro_de_custo",
     "cost_center",
     "costcenter",
-    "operacao",
+    "operação",
   ],
   sector: ["setor", "sector", "departamento", "area"],
   city: ["cidade", "city", "municipio"],
@@ -175,7 +175,7 @@ const columnAliases: Record<string, string[]> = {
     "data",
   ],
   station: ["posto", "station", "fornecedor"],
-  fuelType: ["combustivel", "tipo_combustivel", "fuel_type", "fueltype"],
+  fuelType: ["combustível", "tipo_combustível", "fuel_type", "fueltype"],
 
   priority: ["prioridade", "priority"],
   scheduledAt: [
@@ -204,7 +204,7 @@ const columnAliases: Record<string, string[]> = {
   issuedAt: ["emissao", "data_emissao", "issued_at", "issuedat"],
   expiresAt: ["vencimento", "validade", "expires_at", "expiresat"],
   fileUrl: ["arquivo", "url", "file_url", "fileurl"],
-  description: ["descricao", "description", "observacao", "observacoes"],
+  description: ["descricao", "description", "observação", "observações"],
 };
 
 @Injectable()
@@ -227,7 +227,7 @@ export class ImportsService {
     const importResource = resource as ImportResource;
     if (!supportedResources.includes(importResource)) {
       throw new BadRequestException(
-        `Tipo de importacao invalido. Use: ${supportedResources.join(", ")}.`,
+        `Tipo de importação invalido. Use: ${supportedResources.join(", ")}.`,
       );
     }
 
@@ -237,7 +237,7 @@ export class ImportsService {
     }
     if (rows.length > 5000) {
       throw new BadRequestException(
-        "Importacao limitada a 5000 linhas por arquivo.",
+        "Importação limitada a 5000 linhas por arquivo.",
       );
     }
 
@@ -830,7 +830,7 @@ export class ImportsService {
       "ja_cadastrado",
       "se_o_numero",
       "sera_atualizado",
-      "combustivel_gasolina",
+      "combustível_gasolina",
       "status_active",
       "tipo_car",
       "categoria_cnh",
@@ -849,7 +849,7 @@ export class ImportsService {
     }
     if (seenKeys.has(key)) {
       throw new Error(
-        `Registro duplicado na planilha para ${this.resourceLabel(resource)} (${key.split(":")[1]}). Cada linha precisa ter uma chave unica.`,
+        `Registro duplicado na planilha para ${this.resourceLabel(resource)} (${key.split(":")[1]}). Cada linha precisa ter uma chave única.`,
       );
     }
     seenKeys.add(key);
@@ -875,7 +875,7 @@ export class ImportsService {
       vehicles: "veiculo",
       drivers: "motorista",
       "fuel-records": "abastecimento",
-      "maintenance-orders": "manutencao",
+      "maintenance-orders": "manutenção",
       documents: "documento",
     };
     return labels[resource];
@@ -893,7 +893,7 @@ export class ImportsService {
   private requiredString(row: LegacyRow, key: string, label: string) {
     const value = this.stringValue(row, key);
     if (!value) {
-      throw new Error(`Campo obrigatorio ausente: ${label}.`);
+      throw new Error(`Campo obrigatório ausente: ${label}.`);
     }
     return value;
   }
@@ -910,7 +910,7 @@ export class ImportsService {
     const value = this.numberValue(row, key);
     if (value === undefined || Number.isNaN(value)) {
       throw new Error(
-        `Campo numerico obrigatorio ausente ou invalido: ${label}.`,
+        `Campo numérico obrigatório ausente ou inválido: ${label}.`,
       );
     }
     return value;
@@ -978,7 +978,7 @@ export class ImportsService {
       .exec();
     if (!vehicle?._id) {
       throw new Error(
-        `Veiculo Não encontrado para placa ${plate}. Importe os veiculos antes.`,
+        `Veículo não encontrado para placa ${plate}. Importe os veículos antes.`,
       );
     }
     return String(vehicle._id);
@@ -1044,7 +1044,7 @@ export class ImportsService {
   private normalizeVehicleStatus(value?: string) {
     const normalized = this.normalizeKey(value ?? "available");
     if (
-      ["available", "disponivel", "ativo", "operacional"].includes(normalized)
+      ["available", "disponível", "ativo", "operacional"].includes(normalized)
     ) {
       return "available";
     }
@@ -1054,7 +1054,7 @@ export class ImportsService {
     if (["stopped", "parado", "ocioso"].includes(normalized)) {
       return "stopped";
     }
-    if (["maintenance", "manutencao", "oficina"].includes(normalized)) {
+    if (["maintenance", "manutenção", "oficina"].includes(normalized)) {
       return "maintenance";
     }
     if (["inactive", "inativo"].includes(normalized)) {

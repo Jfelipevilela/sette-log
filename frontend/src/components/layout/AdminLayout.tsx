@@ -24,15 +24,15 @@ import { getNotifications, markNotificationRead } from "../../lib/api";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: Home },
-  { to: "/vehicles", label: "Veiculos", icon: Car },
+  { to: "/vehicles", label: "Veículos", icon: Car },
   // { to: "/tracking", label: "Rastreamento", icon: Map },
   { to: "/drivers", label: "Motoristas", icon: UserRound },
   { to: "/maintenance", label: "Manutenção", icon: Wrench },
   { to: "/fuel", label: "Abastecimentos", icon: Fuel },
   { to: "/finance", label: "Financeiro", icon: Gauge },
   { to: "/compliance", label: "Compliance", icon: ShieldCheck },
-  { to: "/reports", label: "BI e Relatorios", icon: BarChart3 },
-  { to: "/settings", label: "Configuracoes", icon: Settings },
+  { to: "/reports", label: "BI e Relatórios", icon: BarChart3 },
+  { to: "/settings", label: "Configurações", icon: Settings },
 ];
 
 export function AdminLayout() {

@@ -43,6 +43,20 @@ const financeResources: FleetResource[] = [
   "incidents",
   "insurances",
 ];
+const exportResources: FleetResource[] = [
+  "vehicles",
+  "drivers",
+  "fuel-records",
+  "maintenance-orders",
+  "expenses",
+  "fines",
+  "incidents",
+  "insurances",
+  "documents",
+  "compliance-checks",
+  "alerts",
+  "audit-logs",
+];
 type UploadedSpreadsheetFile = {
   originalname: string;
   mimetype: string;
@@ -63,6 +77,35 @@ export class DashboardController {
     @Query() query: DashboardQueryDto,
   ) {
     return this.fleetService.dashboard(user.tenantId, query.from, query.to);
+  }
+}
+
+@ApiTags("exports")
+@ApiBearerAuth()
+@Controller("exports")
+export class ExportsController {
+  constructor(private readonly fleetService: FleetService) {}
+
+  @Get(":resource")
+  @RequirePermissions(PERMISSIONS.REPORTS_EXPORT)
+  async exportResource(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("resource") resource: string,
+    @Res() response: Response,
+  ) {
+    if (!exportResources.includes(resource as FleetResource)) {
+      throw new BadRequestException("Recurso de exportação invalido.");
+    }
+    const csv = await this.fleetService.exportCsv(
+      resource as FleetResource,
+      user.tenantId,
+    );
+    const fileName = `${resource}-${new Date().toISOString().slice(0, 10)}.csv`;
+    response.set({
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": `attachment; filename="${fileName}"`,
+    });
+    response.send(`\ufeff${csv}`);
   }
 }
 
@@ -835,7 +878,7 @@ export class ImportsController {
       "Content-Type":
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "Content-Disposition":
-        "attachment; filename=sette-log-importacao-template.xlsx",
+        "attachment; filename=sette-log-importação-template.xlsx",
       "Content-Length": buffer.length,
     });
     res.send(buffer);

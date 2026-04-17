@@ -106,7 +106,7 @@ export function TrackingPage() {
         <Card className="overflow-hidden">
           <CardHeader>
             <div>
-              <CardTitle>Veiculos online</CardTitle>
+              <CardTitle>Veículos online</CardTitle>
               <p className="mt-1 text-sm text-zinc-500">
                 Atualizado em{" "}
                 {new Date(data.refreshedAt).toLocaleTimeString("pt-BR")}
@@ -158,7 +158,7 @@ export function TrackingPage() {
                     </span>
                   </div>
                   <p className="mt-3 text-xs text-zinc-500">
-                    {vehicle.lastPosition?.address ?? "Sem posicao"}
+                    {vehicle.lastPosition?.address ?? "Sem posição"}
                   </p>
                 </button>
               ))}
@@ -250,7 +250,7 @@ export function TrackingPage() {
                 <div className="leaflet-control rounded-md border border-fleet-line bg-white p-3 text-sm shadow-soft">
                   <span className="flex items-center gap-2">
                     <LocateFixed size={16} className="text-fleet-green" />
-                    {vehiclesWithPosition.length} veiculos com posicao
+                    {vehiclesWithPosition.length} veículos com posição
                   </span>
                 </div>
               </div>

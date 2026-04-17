@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
+  Download,
   Edit2,
   Eye,
   FilePlus2,
@@ -35,6 +36,7 @@ import {
   createDocument,
   deleteComplianceCheck,
   deleteDocument,
+  downloadResourceExport,
   downloadComplianceCheckAttachment,
   downloadExternalFile,
   fetchComplianceCheckAttachmentBlob,
@@ -111,7 +113,7 @@ const frontLightingItems = [
 
 const conservationOptions = [
   { value: "bom", label: "Bom" },
-  { value: "medio", label: "Medio" },
+  { value: "médio", label: "Medio" },
   { value: "ruim", label: "Ruim" },
 ];
 
@@ -123,8 +125,8 @@ const lightingOptions = [
 const checklistSteps = [
   "Identificação",
   "Condições de conservação",
-  "Iluminacao traseira",
-  "Iluminacao dianteira",
+  "Iluminação traseira",
+  "Iluminação dianteira",
   "Itens de segurança",
   "Motor e sistemas associados",
   "Danos e observações",
@@ -136,7 +138,7 @@ const requiredChecklistFieldsByStep: Record<
   Array<{ name: string; label: string }>
 > = {
   0: [
-    { name: "vehicleId", label: "Veiculo" },
+    { name: "vehicleId", label: "Veículo" },
     { name: "deliveryOdometerKm", label: "Km de entrega" },
     { name: "deliveredAt", label: "Data da entrega" },
   ],
@@ -291,7 +293,7 @@ export function CompliancePage() {
       setFormError(
         apiErrorMessage(
           error,
-          "Não foi possivel salvar o checklist ou enviar os anexos.",
+          "Não foi possível salvar o checklist ou enviar os anexos.",
         ),
       ),
   });
@@ -318,7 +320,7 @@ export function CompliancePage() {
       setFormError(
         apiErrorMessage(
           error,
-          "Não foi possivel editar o checklist ou enviar os anexos.",
+          "Não foi possível editar o checklist ou enviar os anexos.",
         ),
       ),
   });
@@ -330,7 +332,7 @@ export function CompliancePage() {
     },
     onError: (error) =>
       setDocumentError(
-        apiErrorMessage(error, "Não foi possivel criar o documento."),
+        apiErrorMessage(error, "Não foi possível criar o documento."),
       ),
   });
   const updateDocumentMutation = useMutation({
@@ -347,7 +349,7 @@ export function CompliancePage() {
     },
     onError: (error) =>
       setDocumentError(
-        apiErrorMessage(error, "Não foi possivel editar o documento."),
+        apiErrorMessage(error, "Não foi possível editar o documento."),
       ),
   });
   const deleteDocumentMutation = useMutation({
@@ -355,7 +357,7 @@ export function CompliancePage() {
     onSuccess: invalidateComplianceData,
     onError: (error) =>
       setDocumentError(
-        apiErrorMessage(error, "Não foi possivel excluir o documento."),
+        apiErrorMessage(error, "Não foi possível excluir o documento."),
       ),
   });
   const deleteCheckMutation = useMutation({
@@ -367,7 +369,7 @@ export function CompliancePage() {
     },
     onError: (error) =>
       setFormError(
-        apiErrorMessage(error, "Não foi possivel excluir o checklist."),
+        apiErrorMessage(error, "Não foi possível excluir o checklist."),
       ),
   });
 
@@ -483,16 +485,16 @@ export function CompliancePage() {
       selectedChecklistItemFromForm(
         form,
         item,
-        "Condicoes de conservacao",
+        "Condicoes de conservação",
         "bom",
       ),
     );
     const lightingResults = [
       ...rearLightingItems.map((item) =>
-        selectedChecklistItemFromForm(form, item, "Iluminacao traseira", "ok"),
+        selectedChecklistItemFromForm(form, item, "Iluminação traseira", "ok"),
       ),
       ...frontLightingItems.map((item) =>
-        selectedChecklistItemFromForm(form, item, "Iluminacao dianteira", "ok"),
+        selectedChecklistItemFromForm(form, item, "Iluminação dianteira", "ok"),
       ),
     ];
     const functionalItems = [
@@ -524,14 +526,14 @@ export function CompliancePage() {
         {
           key: "delivery_odometer_km",
           label: "Km de entrega",
-          section: "Identificacao",
+          section: "Identificação",
           result: "info",
           notes: deliveryOdometerKm ? `${deliveryOdometerKm} km` : "",
         },
         {
           key: "delivery_date",
           label: "Data da entrega",
-          section: "Identificacao",
+          section: "Identificação",
           result: "info",
           notes: deliveredAt,
         },
@@ -547,8 +549,8 @@ export function CompliancePage() {
         },
         {
           key: "maintenance_observations",
-          label: "Observacoes do veiculo",
-          section: "Observacoes",
+          label: "Observações do veículo",
+          section: "Observações",
           result: maintenanceNotes ? "reported" : "ok",
           notes: maintenanceNotes,
         },
@@ -632,6 +634,22 @@ export function CompliancePage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => downloadResourceExport("documents")}
+          >
+            <Download size={18} />
+            Documentos
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => downloadResourceExport("compliance-checks")}
+          >
+            <Download size={18} />
+            Checklists
+          </Button>
           <Button variant="secondary" onClick={openDocumentCreateModal}>
             <FilePlus2 size={18} />
             Novo documento
@@ -670,7 +688,7 @@ export function CompliancePage() {
                   <Th>Número</Th>
                   <Th>Vencimento</Th>
                   <Th>Status</Th>
-                  <Th>Acoes</Th>
+                  <Th>Ações</Th>
                 </tr>
               </thead>
               <tbody>
@@ -743,7 +761,7 @@ export function CompliancePage() {
             <div>
               <CardTitle>Checklists recentes</CardTitle>
               <p className="mt-1 text-sm text-zinc-500">
-                Entrega por veiculo, status, anexos e acoes rapidas.
+                Entrega por veículo, status, anexos e ações rapidas.
               </p>
             </div>
           </CardHeader>
@@ -806,7 +824,7 @@ export function CompliancePage() {
                         onClick: () => {
                           if (
                             window.confirm(
-                              `Excluir checklist do veiculo ${vehicleLabel(check.vehicleId)}?`,
+                              `Excluir checklist do veículo ${vehicleLabel(check.vehicleId)}?`,
                             )
                           ) {
                             deleteCheckMutation.mutate(check._id);
@@ -864,7 +882,7 @@ export function CompliancePage() {
                 value={documentEntityType}
                 onValueChange={setDocumentEntityType}
                 options={[
-                  { value: "vehicle", label: "Veiculo" },
+                  { value: "vehicle", label: "Veículo" },
                   { value: "driver", label: "Motorista" },
                 ]}
                 searchPlaceholder="Buscar entidade"
@@ -1042,7 +1060,7 @@ export function CompliancePage() {
         description="Itens avaliados, anexos e trilha de auditoria."
         onClose={() => setDetailCheck(undefined)}
         fields={[
-          { label: "Veiculo", value: vehicleLabel(detailCheck?.vehicleId) },
+          { label: "Veículo", value: vehicleLabel(detailCheck?.vehicleId) },
           { label: "Motorista", value: driverLabel(detailCheck?.driverId) },
           { label: "Status", value: labelFor(detailCheck?.status) },
           { label: "Versao", value: detailCheck?.checklistVersion },
@@ -1133,7 +1151,7 @@ export function CompliancePage() {
               if (
                 detailCheck &&
                 window.confirm(
-                  `Excluir checklist do veiculo ${vehicleLabel(detailCheck.vehicleId)}?`,
+                  `Excluir checklist do veículo ${vehicleLabel(detailCheck.vehicleId)}?`,
                 )
               ) {
                 deleteCheckMutation.mutate(detailCheck._id);
@@ -1221,7 +1239,7 @@ export function CompliancePage() {
             const payload = buildChecklistPayload(form);
             if (!payload.vehicleId) {
               setFormError(
-                "Selecione o veiculo pela placa para realizar o checklist.",
+                "Selecione o veículo pela placa para realizar o checklist.",
               );
               return;
             }
@@ -1238,12 +1256,12 @@ export function CompliancePage() {
             }
           >
             <label className="space-y-2 text-sm font-medium md:col-span-2">
-              Veiculo
+              Veículo
               <SearchableSelect
                 name="vehicleId"
                 defaultValue={editingCheck?.vehicleId ?? ""}
                 required
-                placeholder="Selecione o veiculo"
+                placeholder="Selecione o veículo"
                 searchPlaceholder="Buscar placa, modelo ou apelido"
                 options={vehicleOptions}
               />
@@ -1295,7 +1313,7 @@ export function CompliancePage() {
 
           <div className={checklistStep === 1 ? "block" : "hidden"}>
             <SelectChecklistSection
-              title="Condicoes de conservacao"
+              title="Condicoes de conservação"
               check={editingCheck}
               items={conservationItems}
               options={conservationOptions}
@@ -1305,7 +1323,7 @@ export function CompliancePage() {
           </div>
           <div className={checklistStep === 2 ? "block" : "hidden"}>
             <SelectChecklistSection
-              title="Iluminacao traseira"
+              title="Iluminação traseira"
               check={editingCheck}
               items={rearLightingItems}
               options={lightingOptions}
@@ -1315,7 +1333,7 @@ export function CompliancePage() {
           </div>
           <div className={checklistStep === 3 ? "block" : "hidden"}>
             <SelectChecklistSection
-              title="Iluminacao dianteira"
+              title="Iluminação dianteira"
               check={editingCheck}
               items={frontLightingItems}
               options={lightingOptions}
@@ -1352,14 +1370,14 @@ export function CompliancePage() {
               />
             </label>
             <label className="space-y-2 text-sm font-medium">
-              Observacoes do veiculo
+              Observações do veículo
               <Textarea
                 name="maintenanceNotes"
                 defaultValue={checkItemNotes(
                   editingCheck,
                   "maintenance_observations",
                 )}
-                placeholder="Descreva manutencoes necessarias ou observacoes da entrega."
+                placeholder="Descreva manutenções necessárias ou observações da entrega."
               />
             </label>
             <label className="space-y-2 text-sm font-medium">
@@ -1392,8 +1410,8 @@ export function CompliancePage() {
                     Anexos do checklist
                   </strong>
                   <p className="mt-1 text-sm text-zinc-500">
-                    Adicione fotos do veiculo, danos, documentos assinados ou
-                    comprovantes. E possivel selecionar mais de um arquivo.
+                    Adicione fotos do veículo, danos, documentos assinados ou
+                    comprovantes. É possível selecionar mais de um arquivo.
                   </p>
                 </div>
               </div>

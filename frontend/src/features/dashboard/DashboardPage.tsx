@@ -42,7 +42,7 @@ import { labelFor, maintenanceTypeLabels, severityLabels } from "../../lib/label
 import { formatCurrency, formatDate, formatPercent } from "../../lib/utils";
 
 const statusLabels: Record<string, string> = {
-  available: "Disponivel",
+  available: "Disponível",
   in_route: "Em rota",
   stopped: "Parado",
   maintenance: "Manutenção",
@@ -71,7 +71,7 @@ const fuelLabels: Record<string, string> = {
   diesel: "Diesel",
   gnv: "GNV",
   electric: "Eletrico",
-  unknown: "Nao informado",
+  unknown: "Não informado",
 };
 
 const fuelTypeColors = ["#0f8f63", "#027f9f", "#b7791f", "#c2413b", "#3b82f6", "#71717a"];
@@ -215,7 +215,7 @@ export function DashboardPage() {
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Veiculos"
+          label="Veículos"
           value={String(data.kpis.totalVehicles)}
           detail="Ativos no tenant"
           icon={Car}
@@ -248,12 +248,12 @@ export function DashboardPage() {
         <StatCard
           label="Custo total"
           value={formatCurrency(totalOperationalCost)}
-          detail="Combustivel, manutenção e despesas"
+          detail="Combustível, manutenção e despesas"
           icon={ReceiptText}
           tone="green"
         />
         <StatCard
-          label="Combustivel"
+          label="Combustível"
           value={formatCurrency(totalFuelCost)}
           detail={`${totalFuelLiters.toLocaleString("pt-BR")} L no periodo`}
           icon={Fuel}
@@ -287,7 +287,7 @@ export function DashboardPage() {
             <div className="flex flex-wrap gap-2">
               <Badge tone="green">Custo total</Badge>
               <Badge tone="cyan">Litros</Badge>
-              <Badge tone="amber">Atualizacao 30s</Badge>
+              <Badge tone="amber">Atualização 30s</Badge>
             </div>
           </CardHeader>
           <CardContent className="h-96 bg-white">
@@ -425,7 +425,7 @@ export function DashboardPage() {
         <Card className="overflow-hidden">
           <CardHeader className="border-b border-fleet-line bg-zinc-50/70">
             <div>
-              <CardTitle>Combustivel por tipo</CardTitle>
+              <CardTitle>Combustível por tipo</CardTitle>
               <p className="mt-1 text-sm text-zinc-500">
                 Valor em reais e total de litros no periodo selecionado.
               </p>
@@ -500,7 +500,7 @@ export function DashboardPage() {
         <Card className="overflow-hidden">
           <CardHeader className="border-b border-fleet-line bg-zinc-50/70">
             <div>
-              <CardTitle>Consumo medio por carro</CardTitle>
+              <CardTitle>Consumo médio por carro</CardTitle>
               <p className="mt-1 text-sm text-zinc-500">
                 Km/L calculado pela diferenca entre abastecimentos consecutivos.
               </p>
@@ -780,7 +780,7 @@ export function DashboardPage() {
             <div className="rounded-lg border border-fleet-line p-4">
               <div className="flex items-center gap-2 text-zinc-600">
                 <Fuel size={18} className="text-fleet-green" />
-                <span className="text-sm">Combustivel</span>
+                <span className="text-sm">Combustível</span>
               </div>
               <strong className="mt-2 block text-2xl">
                 {formatCurrency(totalFuelCost)}

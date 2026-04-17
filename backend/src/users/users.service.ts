@@ -80,7 +80,7 @@ export class UsersService {
       .findOne({ tenantId, email: dto.email.toLowerCase() })
       .lean();
     if (existing) {
-      throw new ConflictException("Ja existe um usuario com este email.");
+      throw new ConflictException("Já existe um usuário com este email.");
     }
 
     const roles = dto.roles?.length ? dto.roles : ["operator"];
@@ -113,21 +113,21 @@ export class UsersService {
       .lean()
       .exec();
     if (!user) {
-      throw new NotFoundException("Usuario não encontrado.");
+      throw new NotFoundException("Usuário não encontrado.");
     }
     return this.toPublic(user);
   }
 
   async remove(tenantId: string, id: string, currentUserId: string) {
     if (id === currentUserId) {
-      throw new BadRequestException("Voce não pode excluir o proprio usuario.");
+      throw new BadRequestException("Você não pode excluir o próprio usuário.");
     }
     const deleted = await this.userModel
       .findOneAndDelete({ _id: id, tenantId })
       .lean()
       .exec();
     if (!deleted) {
-      throw new NotFoundException("Usuario não encontrado.");
+      throw new NotFoundException("Usuário não encontrado.");
     }
     return { success: true, deletedId: id };
   }

@@ -48,7 +48,7 @@ function successMessage(method?: string, url?: string) {
     return undefined;
   }
   if (normalizedUrl.includes("/imports/spreadsheet")) {
-    return "Importacao processada";
+    return "Importação processada";
   }
   if (normalizedUrl.includes("/attachments")) {
     return "Arquivo anexado";
@@ -81,7 +81,7 @@ api.interceptors.response.use(
     const method = error?.config?.method?.toUpperCase?.();
     if (method && method !== "GET") {
       notify({
-        title: "Nao foi possivel concluir a acao",
+        title: "Não foi possível concluir a ação",
         description: apiErrorMessage(error, "Verifique os dados e tente novamente."),
         tone: "error",
       });
@@ -203,6 +203,28 @@ export async function getRoutePlayback(vehicleId: string) {
     }>
   >(`/tracking/vehicles/${vehicleId}/playback`);
   return data;
+}
+
+export async function downloadResourceExport(resource: string) {
+  try {
+    const response = await api.get(`/exports/${resource}`, {
+      responseType: "blob",
+      timeout: 60_000,
+    });
+    const url = window.URL.createObjectURL(response.data);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute(
+      "download",
+      `${resource}-${new Date().toISOString().slice(0, 10)}.csv`,
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    throw new Error(apiErrorMessage(error, "Não foi possível exportar CSV."));
+  }
 }
 
 export async function listResource<T>(path: string) {
@@ -499,7 +521,7 @@ export async function uploadLegacySpreadsheet(
     return data;
   } catch (error) {
     throw new Error(
-      apiErrorMessage(error, "Não foi possivel importar a planilha."),
+      apiErrorMessage(error, "Não foi possível importar a planilha."),
     );
   }
 }
@@ -507,17 +529,17 @@ export async function uploadLegacySpreadsheet(
 export async function downloadImportTemplate() {
   try {
     const response = await fetch(
-      `/templates/sette-log-importacao-template.xlsx?v=${Date.now()}`,
+      `/templates/sette-log-importação-template.xlsx?v=${Date.now()}`,
     );
     if (!response.ok) {
-      throw new Error("Template nao encontrado.");
+      throw new Error("Template não encontrado.");
     }
 
     const blob = await response.blob();
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", "sette-log-importacao-template.xlsx");
+    link.setAttribute("download", "sette-log-importação-template.xlsx");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

@@ -65,7 +65,7 @@ export function DetailModal({ open, title, description, entityId, fields, childr
         {children}
 
         <div>
-          <strong className="block text-sm text-fleet-ink">Historico de auditoria</strong>
+          <strong className="block text-sm text-fleet-ink">Histórico de auditoria</strong>
           <div className="mt-3 space-y-2">
             {auditTrail.length === 0 && <p className="text-sm text-zinc-500">Nenhum evento de auditoria encontrado para este registro.</p>}
             {auditTrail.map((item) => (

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarDays,
   ClipboardList,
+  Download,
   Edit2,
   Eye,
   Paperclip,
@@ -37,6 +38,7 @@ import {
   apiErrorMessage,
   createMaintenanceOrder,
   deleteMaintenanceOrder,
+  downloadResourceExport,
   downloadExternalFile,
   getVehicles,
   listResource,
@@ -59,7 +61,7 @@ const maintenanceTypeOptions = [
 
 const priorityOptions = [
   { value: "low", label: "Baixa" },
-  { value: "medium", label: "Media" },
+  { value: "medium", label: "Média" },
   { value: "high", label: "Alta" },
   { value: "critical", label: "Critica" },
 ];
@@ -67,7 +69,7 @@ const priorityOptions = [
 const maintenanceStatusOptions = [
   { value: "open", label: "Aberta" },
   { value: "scheduled", label: "Agendada" },
-  { value: "in_progress", label: "Em execucao" },
+  { value: "in_progress", label: "Em execução" },
   { value: "closed", label: "Fechada" },
   { value: "cancelled", label: "Cancelada" },
 ];
@@ -98,7 +100,7 @@ export function MaintenancePage() {
       await queryClient.invalidateQueries({ queryKey: ["vehicles"] });
       await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
-    onError: () => setFormError("Não foi possivel criar a ordem de servico."),
+    onError: () => setFormError("Não foi possível criar a ordem de serviço."),
   });
   const updateOrderMutation = useMutation({
     mutationFn: ({
@@ -114,7 +116,7 @@ export function MaintenancePage() {
     },
     onError: (error) =>
       setFormError(
-        apiErrorMessage(error, "Não foi possivel editar a ordem de servico."),
+        apiErrorMessage(error, "Não foi possível editar a ordem de serviço."),
       ),
   });
   const deleteOrderMutation = useMutation({
@@ -122,7 +124,7 @@ export function MaintenancePage() {
     onSuccess: invalidateMaintenanceData,
     onError: (error) =>
       setFormError(
-        apiErrorMessage(error, "Não foi possivel excluir a ordem de servico."),
+        apiErrorMessage(error, "Não foi possível excluir a ordem de serviço."),
       ),
   });
 
@@ -180,20 +182,30 @@ export function MaintenancePage() {
         <div>
           <h2 className="text-2xl font-semibold">Manutenção</h2>
           <p className="mt-1 text-sm text-zinc-500">
-            Preventivas, corretivas, historico de custos, anexos e ordens de
-            servico.
+            Preventivas, corretivas, histórico de custos, anexos e ordens de
+            serviço.
           </p>
         </div>
-        <Button onClick={openCreateModal}>
-          <Wrench size={18} />
-          Nova OS
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => downloadResourceExport("maintenance-orders")}
+          >
+            <Download size={18} />
+            Exportar CSV
+          </Button>
+          <Button onClick={openCreateModal}>
+            <Wrench size={18} />
+            Nova OS
+          </Button>
+        </div>
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[1fr_420px]">
         <Card>
           <CardHeader>
-            <CardTitle>Ordens de servico</CardTitle>
+            <CardTitle>Ordens de serviço</CardTitle>
           </CardHeader>
           <CardContent className="overflow-x-auto">
             <Table>
@@ -205,7 +217,7 @@ export function MaintenancePage() {
                   <Th>Agendamento</Th>
                   <Th>Custo</Th>
                   <Th>Anexos</Th>
-                  <Th>Acoes</Th>
+                  <Th>Ações</Th>
                 </tr>
               </thead>
               <tbody>
@@ -258,7 +270,7 @@ export function MaintenancePage() {
                             disabled: deleteOrderMutation.isPending,
                             onClick: () => {
                               if (
-                                window.confirm("Excluir esta ordem de servico?")
+                                window.confirm("Excluir esta ordem de serviço?")
                               ) {
                                 deleteOrderMutation.mutate(order._id);
                               }
@@ -322,9 +334,9 @@ export function MaintenancePage() {
       <Modal
         open={isModalOpen}
         title={
-          editingOrder ? "Editar ordem de servico" : "Nova ordem de servico"
+          editingOrder ? "Editar ordem de serviço" : "Nova ordem de serviço"
         }
-        description="Abra uma manutenção preventiva, corretiva ou preditiva para um veiculo."
+        description="Abra uma manutenção preventiva, corretiva ou preditiva para um veículo."
         onClose={closeModal}
       >
         <form
@@ -335,7 +347,7 @@ export function MaintenancePage() {
             const form = new FormData(event.currentTarget);
             const vehicleId = String(form.get("vehicleId") ?? "");
             if (!vehicleId) {
-              setFormError("Selecione o veiculo da ordem de servico.");
+              setFormError("Selecione o veículo da ordem de serviço.");
               return;
             }
             const payload = {
@@ -356,7 +368,7 @@ export function MaintenancePage() {
         >
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-2 text-sm font-medium md:col-span-2">
-              Veiculo
+              Veículo
               <SearchableSelect
                 name="vehicleId"
                 required
@@ -405,7 +417,7 @@ export function MaintenancePage() {
               />
             </label>
             <label className="space-y-2 text-sm font-medium">
-              Odometro
+              Odômetro
               <Input
                 name="odometerKm"
                 type="number"
@@ -450,12 +462,12 @@ export function MaintenancePage() {
       <DetailModal
         open={Boolean(detailOrder)}
         entityId={detailOrder?._id}
-        title="Detalhes da ordem de servico"
-        description="Dados da manutenção, custo e historico de auditoria."
+        title="Detalhes da ordem de serviço"
+        description="Dados da manutenção, custo e histórico de auditoria."
         onClose={() => setDetailOrder(undefined)}
         fields={[
           {
-            label: "Veiculo",
+            label: "Veículo",
             value: detailOrder?.vehicleId
               ? (vehicles.find(
                   (vehicle) => vehicle._id === detailOrder.vehicleId,
@@ -476,7 +488,7 @@ export function MaintenancePage() {
           },
           { label: "Agendamento", value: formatDate(detailOrder?.scheduledAt) },
           {
-            label: "Odometro",
+            label: "Odômetro",
             value: detailOrder?.odometerKm
               ? `${detailOrder.odometerKm.toLocaleString("pt-BR")} km`
               : "-",

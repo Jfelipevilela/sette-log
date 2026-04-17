@@ -9,6 +9,7 @@ import { RolesGuard } from './common/guards/roles.guard';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 import { FleetModule } from './fleet/fleet.module';
 import { UsersModule } from './users/users.module';
+import { BackupModule } from './backup/backup.module';
 
 @Module({
   imports: [
@@ -32,7 +33,8 @@ import { UsersModule } from './users/users.module';
     }),
     UsersModule,
     AuthModule,
-    FleetModule
+    FleetModule,
+    BackupModule
   ],
   providers: [
     {

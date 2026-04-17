@@ -53,13 +53,13 @@ import { formatDateTime } from "../../lib/utils";
 const settings = [
   {
     icon: UsersRound,
-    title: "Usuarios e perfis",
+    title: "Usuários e perfis",
     detail: "RBAC por papel e permissao granular",
     status: "ativo",
   },
   {
     icon: PlugZap,
-    title: "Integracoes",
+    title: "Integrações",
     detail: "ERP, TMS, WMS, mapas e rastreadores",
     status: "preparado",
   },
@@ -72,13 +72,13 @@ const settings = [
   {
     icon: KeyRound,
     title: "Tokens de API",
-    detail: "Credenciais para clientes e servicos externos",
+    detail: "Credenciais para clientes e serviços externos",
     status: "preparado",
   },
 ];
 
 const importResources = [
-  { value: "vehicles", label: "Veiculos" },
+  { value: "vehicles", label: "Veículos" },
   { value: "drivers", label: "Motoristas" },
   { value: "fuel-records", label: "Abastecimentos" },
   { value: "maintenance-orders", label: "Ordens de Manutenção" },
@@ -113,7 +113,7 @@ const resourceMeta: Record<string, ResourceMeta> = {
       "capacidade_tanque",
       "centro_custo",
     ],
-    hint: "Se a placa ja existir, o veiculo sera atualizado. Preencha odometro_base_consumo para calcular o primeiro km/L.",
+    hint: "Se a placa já existir, o veículo será atualizado. Preencha odômetro_base_consumo para calcular o primeiro km/L.",
   },
   drivers: {
     step: 2,
@@ -136,7 +136,7 @@ const resourceMeta: Record<string, ResourceMeta> = {
       "odometro",
       "data_abastecimento",
       "posto",
-      "combustivel",
+      "combustível",
     ],
     hint: "Sempre inserido como novo registro. Preencha o odômetro para calcular km/litro automaticamente.",
     depends: "Requer veículos (e opcionalmente motoristas) já importados.",
@@ -166,7 +166,7 @@ const resourceMeta: Record<string, ResourceMeta> = {
     borderColor: "border-purple-200",
     required: ["entidade", "referencia", "documento"],
     optional: ["numero", "emissao", "vencimento", "url"],
-    hint: "entidade = veiculo ou motorista | referencia = placa ou CNH | documento = crlv, ipva, cnh, seguro...",
+    hint: "entidade = veículo ou motorista | referencia = placa ou CNH | documento = crlv, ipva, cnh, seguro...",
     depends: "Requer veículos e/ou motoristas já importados.",
   },
 };
@@ -175,7 +175,7 @@ const roleOptions = [
   { value: "super_admin", label: "Super Admin" },
   { value: "fleet_manager", label: "Gestor de Frota" },
   { value: "operator", label: "Operador" },
-  { value: "maintenance_analyst", label: "Analista de Manutencao" },
+  { value: "maintenance_analyst", label: "Analista de Manutenção" },
   { value: "finance", label: "Financeiro" },
   { value: "driver", label: "Motorista" },
   { value: "auditor", label: "Auditor / Visualizador" },
@@ -240,10 +240,10 @@ export function SettingsPage() {
       ]);
     },
     onSuccess: async () => {
-      setMessage("Parametros salvos com sucesso.");
+      setMessage("Parâmetros salvos com sucesso.");
       await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
-    onError: () => setMessage("Não foi possivel salvar os parametros."),
+    onError: () => setMessage("Não foi possível salvar os parâmetros."),
   });
 
   const importMutation = useMutation({
@@ -258,7 +258,7 @@ export function SettingsPage() {
     onSuccess: async (result) => {
       setImportResult(result);
       setMessage(
-        `Importacao concluida: ${result.imported} inseridos, ${result.updated} atualizados, ${result.failed} falhas.`,
+        `Importação concluída: ${result.imported} inseridos, ${result.updated} atualizados, ${result.failed} falhas.`,
       );
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
@@ -276,7 +276,7 @@ export function SettingsPage() {
       setMessage(
         error instanceof Error
           ? error.message
-          : "Não foi possivel importar a planilha.",
+          : "Não foi possível importar a planilha.",
       );
     },
   });
@@ -296,7 +296,7 @@ export function SettingsPage() {
       const totalUpdated = result.summary.totalUpdated;
       const totalFailed = result.summary.totalFailed;
       setMessage(
-        `✅ Importacao completa concluida: ${totalImported} inseridos, ${totalUpdated} atualizados, ${totalFailed} falhas.`,
+        `✅ Importação completa concluida: ${totalImported} inseridos, ${totalUpdated} atualizados, ${totalFailed} falhas.`,
       );
       setImportFile(undefined);
       fileInputRef.current?.removeAttribute("value");
@@ -316,7 +316,7 @@ export function SettingsPage() {
       setMessage(
         error instanceof Error
           ? error.message
-          : "Não foi possivel importar a planilha completa.",
+          : "Não foi possível importar a planilha completa.",
       );
     },
   });
@@ -325,11 +325,11 @@ export function SettingsPage() {
     mutationFn: createUser,
     onSuccess: async () => {
       closeUserModal();
-      setMessage("Usuario criado com sucesso.");
+      setMessage("Usuário criado com sucesso.");
       await queryClient.invalidateQueries({ queryKey: ["users"] });
     },
     onError: (error) =>
-      setUserError(apiErrorMessage(error, "Não foi possivel criar o usuario.")),
+      setUserError(apiErrorMessage(error, "Não foi possível criar o usuário.")),
   });
 
   const updateUserMutation = useMutation({
@@ -342,23 +342,23 @@ export function SettingsPage() {
     }) => updateUser(id, payload),
     onSuccess: async () => {
       closeUserModal();
-      setMessage("Usuario atualizado com sucesso.");
+      setMessage("Usuário atualizado com sucesso.");
       await queryClient.invalidateQueries({ queryKey: ["users"] });
     },
     onError: (error) =>
       setUserError(
-        apiErrorMessage(error, "Não foi possivel atualizar o usuario."),
+        apiErrorMessage(error, "Não foi possível atualizar o usuário."),
       ),
   });
 
   const deleteUserMutation = useMutation({
     mutationFn: deleteUser,
     onSuccess: async () => {
-      setMessage("Usuario excluido com sucesso.");
+      setMessage("Usuário excluido com sucesso.");
       await queryClient.invalidateQueries({ queryKey: ["users"] });
     },
     onError: (error) =>
-      setMessage(apiErrorMessage(error, "Não foi possivel excluir o usuario.")),
+      setMessage(apiErrorMessage(error, "Não foi possível excluir o usuário.")),
   });
 
   function handleSaveSettings(event: FormEvent<HTMLFormElement>) {
@@ -405,7 +405,7 @@ export function SettingsPage() {
       payload.password = password;
     }
     if (!editingUser && !password) {
-      setUserError("Informe uma senha inicial para o novo usuario.");
+      setUserError("Informe uma senha inicial para o novo usuário.");
       return;
     }
     if (editingUser) {
@@ -424,13 +424,13 @@ export function SettingsPage() {
         <div className="relative flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div>
             <span className="mb-2 inline-flex rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold uppercase text-emerald-700">
-              Administracao
+              Administração
             </span>
             <h2 className="text-2xl font-semibold text-fleet-ink">
-              Configuracoes
+              Configurações
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
-              Usuarios, perfis, filiais, alertas, integracoes, webhooks e
+              Usuários, perfis, filiais, alertas, integrações, webhooks e
               tokens.
             </p>
           </div>
@@ -440,7 +440,7 @@ export function SettingsPage() {
           disabled={saveSettingsMutation.isPending}
         >
           <ShieldCheck size={18} />
-          {saveSettingsMutation.isPending ? "Salvando..." : "Salvar parametros"}
+          {saveSettingsMutation.isPending ? "Salvando..." : "Salvar parâmetros"}
         </Button>
         </div>
       </section>
@@ -477,15 +477,15 @@ export function SettingsPage() {
       <Card className="overflow-hidden">
         <CardHeader className="bg-gradient-to-r from-zinc-50 via-white to-emerald-50">
           <div>
-            <CardTitle>Usuarios</CardTitle>
+            <CardTitle>Usuários</CardTitle>
             <p className="mt-1 text-sm text-zinc-500">
-              Crie acessos, altere perfis, inative ou exclua usuarios da
+              Crie acessos, altere perfis, inative ou exclua usuários da
               plataforma.
             </p>
           </div>
           <Button type="button" onClick={openCreateUserModal}>
             <UserPlus size={18} />
-            Novo usuario
+            Novo usuário
           </Button>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -515,7 +515,7 @@ export function SettingsPage() {
           </div>
 
           {usersLoading ? (
-            <LoadingState label="Carregando usuarios..." />
+            <LoadingState label="Carregando usuários..." />
           ) : (
             <div className="space-y-4 overflow-x-auto">
               <Table>
@@ -526,7 +526,7 @@ export function SettingsPage() {
                     <Th>Perfil</Th>
                     <Th>Status</Th>
                     <Th>Criado em</Th>
-                    <Th>Acoes</Th>
+                    <Th>Ações</Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -584,7 +584,7 @@ export function SettingsPage() {
                               onClick: () => {
                                 if (
                                   window.confirm(
-                                    `Excluir o usuario ${user.name}?`,
+                                    `Excluir o usuário ${user.name}?`,
                                   )
                                 ) {
                                   deleteUserMutation.mutate(user._id);
@@ -1123,7 +1123,7 @@ export function SettingsPage() {
       <Card className="overflow-hidden">
         <CardHeader className="bg-gradient-to-r from-amber-50 via-white to-emerald-50">
           <div>
-            <CardTitle>Parametros de alerta</CardTitle>
+            <CardTitle>Parâmetros de alerta</CardTitle>
             <p className="mt-1 text-sm text-zinc-500">
               Limites usados para alertas operacionais e vencimentos.
             </p>
@@ -1155,7 +1155,7 @@ export function SettingsPage() {
                   defaultValue="30"
                 />
                 <span className="mt-2 block text-xs font-normal text-zinc-500">
-                  Janela para documentos e CNHs proximos do prazo.
+                  Janela para documentos e CNHs próximos do prazo.
                 </span>
               </label>
               <label className="rounded-lg border border-zinc-200 bg-zinc-50/60 p-4 text-sm font-medium">
@@ -1185,7 +1185,7 @@ export function SettingsPage() {
 
       <Modal
         open={isUserModalOpen}
-        title={editingUser ? "Editar usuario" : "Novo usuario"}
+        title={editingUser ? "Editar usuário" : "Novo usuário"}
         description={
           editingUser
             ? "Atualize dados, perfil e status de acesso."
@@ -1264,7 +1264,7 @@ export function SettingsPage() {
             >
               {createUserMutation.isPending || updateUserMutation.isPending
                 ? "Salvando..."
-                : "Salvar usuario"}
+                : "Salvar usuário"}
             </Button>
           </div>
         </form>

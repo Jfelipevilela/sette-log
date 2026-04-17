@@ -11,7 +11,7 @@ const vehicleTypeConfig: Record<string, { label: string; icon: LucideIcon; tone:
 };
 
 export function vehicleTypeLabel(type?: string) {
-  return vehicleTypeConfig[type ?? '']?.label ?? type ?? 'Veiculo';
+  return vehicleTypeConfig[type ?? '']?.label ?? type ?? 'Veículo';
 }
 
 type VehicleTypeIconProps = {

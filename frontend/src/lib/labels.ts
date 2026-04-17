@@ -3,13 +3,13 @@ export const statusLabels: Record<string, string> = {
   inactive: 'Inativo',
   blocked: 'Bloqueado',
   vacation: 'Ferias',
-  available: 'Disponivel',
+  available: 'Disponível',
   in_route: 'Em rota',
   stopped: 'Parado',
-  maintenance: 'Manutencao',
+  maintenance: 'Manutenção',
   open: 'Aberto',
   scheduled: 'Agendado',
-  in_progress: 'Em execucao',
+  in_progress: 'Em execução',
   closed: 'Fechado',
   cancelled: 'Cancelado',
   valid: 'Valido',
@@ -23,10 +23,10 @@ export const statusLabels: Record<string, string> = {
   reported: 'Informado',
   info: 'Informativo',
   bom: 'Bom',
-  medio: 'Medio',
+  médio: 'Medio',
   ruim: 'Ruim',
   low: 'Baixa',
-  medium: 'Media',
+  medium: 'Média',
   high: 'Alta',
   critical: 'Critica',
   warning: 'Alerta',
@@ -35,10 +35,10 @@ export const statusLabels: Record<string, string> = {
 };
 
 export const vehicleStatusLabels: Record<string, string> = {
-  available: 'Disponivel',
+  available: 'Disponível',
   in_route: 'Em rota',
   stopped: 'Parado',
-  maintenance: 'Manutencao',
+  maintenance: 'Manutenção',
   inactive: 'Inativo',
   blocked: 'Bloqueado'
 };
@@ -46,14 +46,14 @@ export const vehicleStatusLabels: Record<string, string> = {
 export const maintenanceStatusLabels: Record<string, string> = {
   open: 'Aberta',
   scheduled: 'Agendada',
-  in_progress: 'Em execucao',
+  in_progress: 'Em execução',
   closed: 'Fechada',
   cancelled: 'Cancelada'
 };
 
 export const priorityLabels: Record<string, string> = {
   low: 'Baixa',
-  medium: 'Media',
+  medium: 'Média',
   high: 'Alta',
   critical: 'Critica'
 };
@@ -80,7 +80,7 @@ export const documentTypeLabels: Record<string, string> = {
 };
 
 export const entityTypeLabels: Record<string, string> = {
-  vehicle: 'Veiculo',
+  vehicle: 'Veículo',
   driver: 'Motorista'
 };
 

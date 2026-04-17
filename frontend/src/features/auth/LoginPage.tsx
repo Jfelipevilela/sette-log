@@ -40,7 +40,7 @@ export function LoginPage() {
       setSession(session);
       navigate('/');
     } catch {
-      setError('Não foi possivel autenticar. Verifique API, seed e credenciais.');
+      setError('Não foi possível autenticar. Verifique API, seed e credenciais.');
     }
   }
 
@@ -112,7 +112,7 @@ export function LoginPage() {
             <button
               type="button"
               className="w-full text-center text-sm text-fleet-green hover:text-emerald-800"
-              onClick={() => setError('Recuperacao de senha preparada para integracao de email. Use o admin inicial para acessar.')}
+              onClick={() => setError('Recuperação de senha preparada para integração de email. Use o admin inicial para acessar.')}
             >
               Recuperar senha
             </button>

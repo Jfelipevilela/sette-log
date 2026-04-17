@@ -170,6 +170,21 @@ export class FleetService {
     };
   }
 
+  async exportCsv(resource: FleetResource, tenantId: string) {
+    const model = this.model(resource);
+    const data = await model
+      .find({ tenantId })
+      .sort({ createdAt: -1 })
+      .limit(10000)
+      .lean<AnyRecord[]>()
+      .exec();
+    const rows =
+      resource === "fuel-records"
+        ? await this.enrichFuelRecordsWithEfficiency(tenantId, data)
+        : data.map((record) => this.serialize(record));
+    return this.toCsv(rows.map((row) => this.flattenForExport(row)));
+  }
+
   async listNotifications(
     tenantId: string,
     userId: string,
@@ -304,6 +319,43 @@ export class FleetService {
       }),
     );
     return enriched;
+  }
+
+  private flattenForExport(record: AnyRecord) {
+    const output: AnyRecord = {};
+    Object.entries(record).forEach(([key, value]) => {
+      if (key === "__v") {
+        return;
+      }
+      if (value instanceof Date) {
+        output[key] = value.toISOString();
+        return;
+      }
+      if (value && typeof value === "object") {
+        output[key] = JSON.stringify(value);
+        return;
+      }
+      output[key] = value;
+    });
+    return output;
+  }
+
+  private toCsv(rows: AnyRecord[]) {
+    if (rows.length === 0) {
+      return "";
+    }
+    const headers = Array.from(
+      rows.reduce((set, row) => {
+        Object.keys(row).forEach((key) => set.add(key));
+        return set;
+      }, new Set<string>()),
+    );
+    const escape = (value: unknown) =>
+      `"${String(value ?? "").replace(/"/g, '""')}"`;
+    return [
+      headers.join(";"),
+      ...rows.map((row) => headers.map((header) => escape(row[header])).join(";")),
+    ].join("\n");
   }
 
   private fillDailySeries(
@@ -1720,7 +1772,7 @@ export class FleetService {
       const initialOdometerKm = Number(payload.initialOdometerKm);
       if (!Number.isFinite(initialOdometerKm) || initialOdometerKm < 0) {
         throw new BadRequestException(
-          "Odometro base de consumo precisa ser maior ou igual a zero.",
+          "Odômetro base de consumo precisa ser maior ou igual a zero.",
         );
       }
       payload.initialOdometerKm = initialOdometerKm;
@@ -1739,7 +1791,7 @@ export class FleetService {
         .exec();
       if (existing) {
         throw new ConflictException(
-          "Motorista ja esta vinculado como principal a outro veiculo.",
+          "Motorista já esta vinculado como principal a outro veículo.",
         );
       }
     }
@@ -1762,7 +1814,7 @@ export class FleetService {
         .exec();
       if (existing) {
         throw new ConflictException(
-          "Veiculo ja possui outro motorista principal vinculado.",
+          "Veículo já possui outro motorista principal vinculado.",
         );
       }
     }
@@ -2156,7 +2208,7 @@ export class FleetService {
           tenantId,
           vehicleId: order.vehicleId,
           orderId: order._id,
-          description: `Ordem ${order.type ?? "manutencao"} encerrada`,
+          description: `Ordem ${order.type ?? "manutenção"} encerrada`,
           cost: Number(order.totalCost ?? 0),
           performedAt: order.closedAt ?? new Date(),
         });

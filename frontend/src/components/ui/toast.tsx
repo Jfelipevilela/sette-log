@@ -72,7 +72,7 @@ export function ToastViewport() {
               <button
                 type="button"
                 className="rounded-md p-1 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700"
-                aria-label="Fechar notificacao"
+                aria-label="Fechar notificação"
                 onClick={() =>
                   setItems((current) =>
                     current.filter((currentItem) => currentItem.id !== item.id),

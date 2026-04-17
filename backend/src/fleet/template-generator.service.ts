@@ -22,13 +22,13 @@ type TemplateSheet = {
 const DATA_SHEETS: TemplateSheet[] = [
   {
     name: "veiculos",
-    title: "Veiculos",
+    title: "Veículos",
     columns: [
-      { label: "placa *", description: "Placa unica do veiculo.", required: true, width: 16 },
-      { label: "marca *", description: "Fabricante do veiculo.", required: true, width: 20 },
-      { label: "modelo *", description: "Modelo do veiculo.", required: true, width: 24 },
+      { label: "placa *", description: "Placa única do veículo.", required: true, width: 16 },
+      { label: "marca *", description: "Fabricante do veículo.", required: true, width: 20 },
+      { label: "modelo *", description: "Modelo do veículo.", required: true, width: 24 },
       { label: "apelido", description: "Nome interno opcional.", required: false, width: 22 },
-      { label: "ano", description: "Ano do veiculo.", required: false, width: 10 },
+      { label: "ano", description: "Ano do veículo.", required: false, width: 10 },
       { label: "tipo", description: "car, van, truck, bus, motorcycle, equipment.", required: false, width: 18 },
       { label: "status", description: "available, in_route, stopped, maintenance, inactive, blocked.", required: false, width: 18 },
       { label: "odometro", description: "Km atual acumulado.", required: false, width: 14 },
@@ -36,16 +36,16 @@ const DATA_SHEETS: TemplateSheet[] = [
       { label: "capacidade_tanque", description: "Capacidade do tanque em litros.", required: false, width: 20 },
       { label: "centro_custo", description: "Centro de custo.", required: false, width: 20 },
       { label: "setor", description: "Setor responsavel.", required: false, width: 18 },
-      { label: "cidade", description: "Cidade de operacao.", required: false, width: 18 },
+      { label: "cidade", description: "Cidade de operação.", required: false, width: 18 },
     ],
     examples: [
-      ["ABC1D23", "Fiat", "Mobi", "Mobi Movida", 2026, "car", "available", 1200, 0, 47, "Operacao", "Logistica", "Manaus"],
+      ["ABC1D23", "Fiat", "Mobi", "Mobi Movida", 2026, "car", "available", 1200, 0, 47, "Operação", "Logistica", "Manaus"],
       ["LOG7B88", "Volkswagen", "Delivery", "Caminhao 01", 2022, "truck", "available", 61200, 58000, 120, "Distribuicao", "Entrega", "Sao Paulo"],
     ],
     rules: [
-      "A placa e a chave unica. Se ja existir, o veiculo sera atualizado.",
-      "Linhas sem placa nao sao importadas.",
-      "Veiculo inativo ou bloqueado nao deve ser usado como disponivel na operacao.",
+      "A placa e a chave única. Se já existir, o veículo será atualizado.",
+      "Linhas sem placa não sao importadas.",
+      "Veículo inativo ou bloqueado não deve ser usado como disponível na operação.",
     ],
   },
   {
@@ -53,7 +53,7 @@ const DATA_SHEETS: TemplateSheet[] = [
     title: "Motoristas",
     columns: [
       { label: "nome *", description: "Nome completo.", required: true, width: 28 },
-      { label: "cnh *", description: "CNH unica do motorista.", required: true, width: 18 },
+      { label: "cnh *", description: "CNH única do motorista.", required: true, width: 18 },
       { label: "categoria_cnh *", description: "A, B, C, D, E, AB, AC, AD, AE.", required: true, width: 18 },
       { label: "validade_cnh *", description: "Validade em DD/MM/AAAA.", required: true, width: 18 },
       { label: "cpf", description: "CPF opcional.", required: false, width: 18 },
@@ -66,16 +66,16 @@ const DATA_SHEETS: TemplateSheet[] = [
       ["Maria Santos", "CNH002", "D", "31/12/2028", "222.333.444-55", "11999990002", "maria@example.com", "active"],
     ],
     rules: [
-      "A CNH e a chave unica. Se ja existir, o motorista sera atualizado.",
+      "A CNH e a chave única. Se já existir, o motorista será atualizado.",
       "CNHs duplicadas dentro da mesma planilha sao bloqueadas.",
-      "Linhas sem nome ou sem CNH nao sao importadas.",
+      "Linhas sem nome ou sem CNH não sao importadas.",
     ],
   },
   {
     name: "abastecimentos",
     title: "Abastecimentos",
     columns: [
-      { label: "placa *", description: "Placa de veiculo ja cadastrado.", required: true, width: 16 },
+      { label: "placa *", description: "Placa de veículo já cadastrado.", required: true, width: 16 },
       { label: "litros *", description: "Quantidade abastecida.", required: true, width: 12 },
       { label: "valor_total *", description: "Total pago.", required: true, width: 14 },
       { label: "cnh", description: "CNH do motorista, opcional.", required: false, width: 18 },
@@ -83,7 +83,7 @@ const DATA_SHEETS: TemplateSheet[] = [
       { label: "odometro", description: "Km no abastecimento.", required: false, width: 14 },
       { label: "data_abastecimento", description: "Data em DD/MM/AAAA.", required: false, width: 20 },
       { label: "posto", description: "Local do abastecimento.", required: false, width: 24 },
-      { label: "combustivel", description: "gasoline, ethanol, diesel, cng, electric.", required: false, width: 16 },
+      { label: "combustível", description: "gasoline, ethanol, diesel, cng, electric.", required: false, width: 16 },
     ],
     examples: [
       ["ABC1D23", 70, 434, "CNH001", 6.2, 1300, "16/04/2026", "Posto Amazonas", "ethanol"],
@@ -91,33 +91,33 @@ const DATA_SHEETS: TemplateSheet[] = [
       ["LOG7B88", 280, 1610, "CNH002", 5.75, 62100, "16/04/2026", "Posto Rota BR", "diesel"],
     ],
     rules: [
-      "A placa precisa existir na aba veiculos ou no banco.",
+      "A placa precisa existir na aba veículos ou no banco.",
       "Se informar CNH, ela precisa existir na aba motoristas ou no banco.",
       "Por padrao, litros x preco_litro precisa bater com valor_total. Na tela ha opcao para recalcular valor_total automaticamente.",
-      "Para km/l por abastecimento, informe odometro em abastecimentos consecutivos do mesmo veiculo.",
+      "Para km/l por abastecimento, informe odômetro em abastecimentos consecutivos do mesmo veículo.",
     ],
   },
   {
-    name: "manutencoes",
-    title: "Manutencoes",
+    name: "manutenções",
+    title: "Manutenções",
     columns: [
-      { label: "placa *", description: "Placa de veiculo ja cadastrado.", required: true, width: 16 },
+      { label: "placa *", description: "Placa de veículo já cadastrado.", required: true, width: 16 },
       { label: "tipo", description: "preventive, corrective, predictive.", required: false, width: 16 },
       { label: "prioridade", description: "low, medium, high, critical.", required: false, width: 14 },
       { label: "status", description: "open, scheduled, in_progress, closed, cancelled.", required: false, width: 18 },
       { label: "agendamento", description: "Data em DD/MM/AAAA.", required: false, width: 18 },
-      { label: "odometro", description: "Km da manutencao.", required: false, width: 14 },
+      { label: "odometro", description: "Km da manutenção.", required: false, width: 14 },
       { label: "valor_total", description: "Custo total.", required: false, width: 14 },
-      { label: "descricao", description: "Descricao do servico.", required: false, width: 42 },
+      { label: "descricao", description: "Descricao do serviço.", required: false, width: 42 },
     ],
     examples: [
       ["ABC1D23", "preventive", "medium", "scheduled", "30/04/2026", 1800, 780, "Troca de oleo e filtros"],
       ["LOG7B88", "corrective", "high", "closed", "05/03/2026", 61500, 1450, "Revisao de freios"],
     ],
     rules: [
-      "A placa precisa existir na aba veiculos ou no banco.",
-      "Se valor_total ficar vazio, sera gravado como zero.",
-      "Manutencoes entram nos custos acumulados da dashboard.",
+      "A placa precisa existir na aba veículos ou no banco.",
+      "Se valor_total ficar vazio, será gravado como zero.",
+      "Manutenções entram nos custos acumulados da dashboard.",
     ],
   },
   {
@@ -125,7 +125,7 @@ const DATA_SHEETS: TemplateSheet[] = [
     title: "Documentos",
     columns: [
       { label: "entidade *", description: "vehicle ou driver.", required: true, width: 14 },
-      { label: "referencia *", description: "Placa do veiculo ou CNH do motorista.", required: true, width: 20 },
+      { label: "referencia *", description: "Placa do veículo ou CNH do motorista.", required: true, width: 20 },
       { label: "documento *", description: "Tipo do documento.", required: true, width: 18 },
       { label: "numero", description: "Numero do documento.", required: false, width: 24 },
       { label: "emissao", description: "Data em DD/MM/AAAA.", required: false, width: 16 },
@@ -137,7 +137,7 @@ const DATA_SHEETS: TemplateSheet[] = [
       ["driver", "CNH001", "cnh", "CNH-CNH001", "01/01/2022", "31/12/2027", ""],
     ],
     rules: [
-      "entidade aceita vehicle/driver ou veiculo/motorista.",
+      "entidade aceita vehicle/driver ou veículo/motorista.",
       "referencia precisa existir: placa para vehicle, CNH para driver.",
       "Documento vencido alimenta compliance e alertas.",
     ],
@@ -177,21 +177,21 @@ export class TemplateGeneratorService {
   private buildInstructions(workbook: ExcelJS.Workbook) {
     const sheet = workbook.addWorksheet("instrucoes");
     sheet.columns = [{ width: 34 }, { width: 95 }];
-    this.title(sheet, "Template de importacao Sette Log", 2);
+    this.title(sheet, "Template de importação Sette Log", 2);
     [
-      ["Ordem correta", "1 veiculos, 2 motoristas, 3 abastecimentos, 4 manutencoes, 5 documentos."],
-      ["Abas importaveis", "Preencha apenas veiculos, motoristas, abastecimentos, manutencoes e documentos."],
-      ["Cabecalho", "Nao altere a primeira linha das abas importaveis."],
+      ["Ordem correta", "1 veículos, 2 motoristas, 3 abastecimentos, 4 manutenções, 5 documentos."],
+      ["Abas importáveis", "Preencha apenas veículos, motoristas, abastecimentos, manutenções e documentos."],
+      ["Cabeçalho", "Não altere a primeira linha das abas importáveis."],
       ["Exemplos", "Apague ou substitua os exemplos antes de importar dados reais."],
       ["Datas", "Use DD/MM/AAAA ou AAAA-MM-DD."],
       ["Valores", "Use numeros sem simbolo de moeda. Ex: 434 ou 434,50."],
-      ["Recalculo de combustivel", "Na tela de importacao, marque a opcao de recalcular valor_total quando quiser usar litros x preco_litro."],
+      ["Recalculo de combustível", "Na tela de importação, marque a opcao de recalcular valor_total quando quiser usar litros x preco_litro."],
     ].forEach((row) => sheet.addRow(row));
     this.styleReferenceSheet(sheet);
   }
 
   private buildRules(workbook: ExcelJS.Workbook) {
-    const sheet = workbook.addWorksheet("regras-importacao");
+    const sheet = workbook.addWorksheet("regras-importação");
     sheet.columns = [{ width: 22 }, { width: 32 }, { width: 95 }];
     this.title(sheet, "Regras e campos aceitos", 3);
     sheet.addRow(["Aba", "Campo", "Regra"]);

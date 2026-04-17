@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Award,
   CalendarDays,
+  Download,
   Edit2,
   Eye,
   Plus,
@@ -28,6 +29,7 @@ import {
   apiErrorMessage,
   createDriver,
   deleteDriver,
+  downloadResourceExport,
   getDrivers,
   getVehicles,
   updateDriver,
@@ -74,7 +76,7 @@ export function DriversPage() {
     },
     onError: () =>
       setFormError(
-        "Não foi possivel criar o motorista. Verifique CNH e vinculo com veiculo.",
+        "Não foi possível criar o motorista. Verifique CNH e vínculo com veículo.",
       ),
   });
   const updateDriverMutation = useMutation({
@@ -86,7 +88,7 @@ export function DriversPage() {
     },
     onError: (error) =>
       setFormError(
-        apiErrorMessage(error, "Não foi possivel editar o motorista."),
+        apiErrorMessage(error, "Não foi possível editar o motorista."),
       ),
   });
   const deleteDriverMutation = useMutation({
@@ -94,7 +96,7 @@ export function DriversPage() {
     onSuccess: invalidateDriverData,
     onError: (error) =>
       setFormError(
-        apiErrorMessage(error, "Não foi possivel excluir o motorista."),
+        apiErrorMessage(error, "Não foi possível excluir o motorista."),
       ),
   });
 
@@ -174,10 +176,20 @@ export function DriversPage() {
             CNH, associação com veículo, ocorrencias e score de condução.
           </p>
         </div>
-        <Button onClick={openCreateModal}>
-          <Plus size={18} />
-          Novo motorista
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => downloadResourceExport("drivers")}
+          >
+            <Download size={18} />
+            Exportar CSV
+          </Button>
+          <Button onClick={openCreateModal}>
+            <Plus size={18} />
+            Novo motorista
+          </Button>
+        </div>
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[1fr_360px]">
@@ -212,7 +224,7 @@ export function DriversPage() {
                     <Th>Validade</Th>
                     <Th>Score</Th>
                     <Th>Status</Th>
-                    <Th>Acoes</Th>
+                    <Th>Ações</Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -323,7 +335,7 @@ export function DriversPage() {
       <Modal
         open={isModalOpen}
         title={editingDriver ? "Editar motorista" : "Novo motorista"}
-        description="Cadastre CNH, contato e opcionalmente vincule um veiculo principal."
+        description="Cadastre CNH, contato e opcionalmente vincule um veículo principal."
         onClose={closeModal}
       >
         <form className="space-y-4" onSubmit={handleCreateDriver}>
@@ -365,14 +377,14 @@ export function DriversPage() {
               />
             </label>
             <label className="space-y-2 text-sm font-medium">
-              Veiculo principal
+              Veículo principal
               <SearchableSelect
                 name="assignedVehicleId"
                 defaultValue={editingDriver?.assignedVehicleId ?? ""}
-                placeholder="Sem vinculo"
+                placeholder="Sem vínculo"
                 searchPlaceholder="Buscar placa, modelo ou apelido"
                 options={[
-                  { value: "", label: "Sem vinculo" },
+                  { value: "", label: "Sem vínculo" },
                   ...vehicleOptions,
                 ]}
               />
@@ -446,7 +458,7 @@ export function DriversPage() {
           { label: "Status", value: labelFor(detailDriver?.status) },
           { label: "Score", value: detailDriver?.score },
           {
-            label: "Veiculo vinculado",
+            label: "Veículo vinculado",
             value: detailDriver?.assignedVehicleId
               ? (vehicles.find(
                   (vehicle) => vehicle._id === detailDriver.assignedVehicleId,

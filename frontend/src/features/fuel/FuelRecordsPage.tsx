@@ -2,6 +2,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CircleDollarSign,
+  Download,
   Droplets,
   Edit2,
   Eye,
@@ -33,6 +34,7 @@ import {
   apiErrorMessage,
   createFuelRecord,
   deleteFuelRecord,
+  downloadResourceExport,
   downloadFuelRecordAttachment,
   fetchFuelRecordAttachmentBlob,
   getDrivers,
@@ -117,7 +119,7 @@ export function FuelRecordsPage() {
     },
     onError: (error) =>
       setFormError(
-        apiErrorMessage(error, "Não foi possivel registrar o abastecimento."),
+        apiErrorMessage(error, "Não foi possível registrar o abastecimento."),
       ),
   });
   const updateMutation = useMutation({
@@ -140,7 +142,7 @@ export function FuelRecordsPage() {
     },
     onError: (error) =>
       setFormError(
-        apiErrorMessage(error, "Não foi possivel editar o abastecimento."),
+        apiErrorMessage(error, "Não foi possível editar o abastecimento."),
       ),
   });
   const deleteMutation = useMutation({
@@ -148,7 +150,7 @@ export function FuelRecordsPage() {
     onSuccess: invalidateFuelData,
     onError: (error) =>
       setFormError(
-        apiErrorMessage(error, "Não foi possivel excluir o abastecimento."),
+        apiErrorMessage(error, "Não foi possível excluir o abastecimento."),
       ),
   });
 
@@ -187,7 +189,7 @@ export function FuelRecordsPage() {
     {
       label: "Lancamentos",
       value: summary.count.toLocaleString("pt-BR"),
-      detail: "Registros nesta pagina",
+      detail: "Registros nesta página",
       icon: ReceiptText,
       accent: "from-emerald-500 to-teal-500",
       iconClass: "bg-emerald-50 text-emerald-700",
@@ -209,7 +211,7 @@ export function FuelRecordsPage() {
       iconClass: "bg-amber-50 text-amber-700",
     },
     {
-      label: "Preco medio por litro",
+      label: "Preço médio por litro",
       value: formatCurrency(summary.averagePrice),
       detail: "Total dividido por litros",
       icon: Fuel,
@@ -217,7 +219,7 @@ export function FuelRecordsPage() {
       iconClass: "bg-lime-50 text-lime-700",
     },
     {
-      label: "Km/L medio",
+      label: "Km/L médio",
       value: formatKmPerLiter(summary.averageKmPerLiter),
       detail: `${summary.distanceKm.toLocaleString("pt-BR")} km analisados`,
       icon: Gauge,
@@ -288,7 +290,7 @@ export function FuelRecordsPage() {
     const vehicleId = String(form.get("vehicleId") ?? "");
     const vehicle = vehicles.find((item) => item._id === vehicleId);
     if (!vehicleId) {
-      setFormError("Selecione o veiculo do abastecimento.");
+      setFormError("Selecione o veículo do abastecimento.");
       return;
     }
     if (vehicle?.tankCapacityLiters && liters > vehicle.tankCapacityLiters) {
@@ -355,20 +357,30 @@ export function FuelRecordsPage() {
         <div className="relative flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div>
           <span className="mb-2 inline-flex rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold uppercase text-emerald-700">
-            Controle de combustivel
+            Controle de combustível
           </span>
           <h2 className="text-2xl font-semibold text-fleet-ink">
             Abastecimentos
           </h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
-            Lançamentos por veículo, litros, custo e odometro para alimentar os
+            Lançamentos por veículo, litros, custo e odômetro para alimentar os
             indicadores.
           </p>
         </div>
-          <Button onClick={openCreateModal}>
-            <Plus size={18} />
-            Novo abastecimento
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => downloadResourceExport("fuel-records")}
+            >
+              <Download size={18} />
+              Exportar CSV
+            </Button>
+            <Button onClick={openCreateModal}>
+              <Plus size={18} />
+              Novo abastecimento
+            </Button>
+          </div>
         </div>
       </section>
 
@@ -435,7 +447,7 @@ export function FuelRecordsPage() {
         </Card>
         <Card className="p-5">
           <Gauge className="text-fleet-green" />
-          <span className="mt-4 block text-sm text-zinc-500">Km/L medio</span>
+          <span className="mt-4 block text-sm text-zinc-500">Km/L médio</span>
           <strong className="mt-2 block text-3xl text-fleet-ink">
             {formatKmPerLiter(summary.averageKmPerLiter)}
           </strong>
@@ -448,10 +460,10 @@ export function FuelRecordsPage() {
       <Card className="overflow-hidden">
         <CardHeader className="border-b border-fleet-line bg-zinc-50/70">
           <div>
-            <CardTitle>Historico de abastecimentos</CardTitle>
+            <CardTitle>Histórico de abastecimentos</CardTitle>
             <p className="mt-1 text-sm text-zinc-500">
-              O km/L usa o odometro deste lancamento contra o abastecimento
-              anterior do mesmo veiculo.
+              O km/L usa o odômetro deste lancamento contra o abastecimento
+              anterior do mesmo veículo.
             </p>
           </div>
         </CardHeader>
@@ -464,15 +476,15 @@ export function FuelRecordsPage() {
                 <thead>
                   <tr>
                     <Th>Data</Th>
-                    <Th>Veiculo</Th>
+                    <Th>Veículo</Th>
                     <Th>Motorista</Th>
-                    <Th>Combustivel</Th>
+                    <Th>Combustível</Th>
                     <Th>Litros</Th>
                     <Th>R$/L</Th>
                     <Th>Total</Th>
                     <Th>Km/L</Th>
                     <Th>Anexos</Th>
-                    <Th>Acoes</Th>
+                    <Th>Ações</Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -556,13 +568,13 @@ export function FuelRecordsPage() {
       <Modal
         open={isModalOpen}
         title={editingRecord ? "Editar abastecimento" : "Novo abastecimento"}
-        description="Informe veiculo, combustivel, litros, valor e odometro. O km/L sera calculado com o abastecimento anterior do mesmo veiculo."
+        description="Informe veículo, combustível, litros, valor e odômetro. O km/L será calculado com o abastecimento anterior do mesmo veículo."
         onClose={closeModal}
       >
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-2 text-sm font-medium md:col-span-2">
-              Veiculo
+              Veículo
               <SearchableSelect
                 name="vehicleId"
                 required
@@ -586,12 +598,12 @@ export function FuelRecordsPage() {
               />
             </label>
             <label className="space-y-2 text-sm font-medium">
-              Combustivel
+              Combustível
               <SearchableSelect
                 name="fuelType"
                 defaultValue={editingRecord?.fuelType ?? "gasoline"}
                 options={fuelOptions}
-                searchPlaceholder="Buscar combustivel"
+                searchPlaceholder="Buscar combustível"
                 searchable={false}
               />
             </label>
@@ -635,7 +647,7 @@ export function FuelRecordsPage() {
               />
             </label>
             <label className="space-y-2 text-sm font-medium">
-              Odometro
+              Odômetro
               <Input
                 name="odometerKm"
                 type="number"
@@ -701,7 +713,7 @@ export function FuelRecordsPage() {
         onClose={() => setDetailRecord(undefined)}
         fields={[
           {
-            label: "Veiculo",
+            label: "Veículo",
             value: detailRecord
               ? vehicleLabel(detailRecord.vehicleId)
               : undefined,
@@ -718,7 +730,7 @@ export function FuelRecordsPage() {
             value: formatDateTime(detailRecord?.filledAt),
           },
           {
-            label: "Combustivel",
+            label: "Combustível",
             value: detailRecord
               ? (fuelLabels[detailRecord.fuelType] ?? detailRecord.fuelType)
               : undefined,
@@ -736,13 +748,13 @@ export function FuelRecordsPage() {
               : undefined,
           },
           {
-            label: "Preco por litro",
+            label: "Preço por litro",
             value: detailRecord
               ? formatCurrency(Number(detailRecord.pricePerLiter ?? 0))
               : undefined,
           },
           {
-            label: "Odometro",
+            label: "Odômetro",
             value: detailRecord
               ? `${Number(detailRecord.odometerKm ?? 0).toLocaleString("pt-BR")} km`
               : undefined,

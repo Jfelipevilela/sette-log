@@ -32,7 +32,7 @@ export class RolesGuard implements CanActivate {
     const user = request.user;
 
     if (!user) {
-      throw new ForbiddenException("Usuario não autenticado.");
+      throw new ForbiddenException("Usuário não autenticado.");
     }
 
     if (user.roles.includes("super_admin")) {
@@ -47,7 +47,7 @@ export class RolesGuard implements CanActivate {
 
     if (!hasRole || !hasPermission) {
       throw new ForbiddenException(
-        "Permissao insuficiente para executar esta acao.",
+        "Permissao insuficiente para executar esta ação.",
       );
     }
 

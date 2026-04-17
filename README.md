@@ -1,18 +1,18 @@
 # Sette Log
 
-Plataforma corporativa de gestao de frotas com frontend administrativo, API REST, MongoDB, autenticacao JWT, RBAC, auditoria, telemetria, rastreamento, manutencao, financeiro, compliance, BI e base preparada para IoT/eventos.
+Plataforma corporativa de gestão de frotas com frontend administrativo, API REST, MongoDB, autenticação JWT, RBAC, auditoria, telemetria, rastreamento, manutenção, financeiro, compliance, BI e base preparada para IoT/eventos.
 
 ## ETAPA 1 - Arquitetura proposta
 
-O projeto nasce como monorepo com separacao clara entre `backend` e `frontend`.
+O projeto nasce como monorepo com separação clara entre `backend` e `frontend`.
 
 - API NestJS em camadas: controllers, services, DTOs, guards, interceptors e schemas.
 - Banco MongoDB com Mongoose, colecoes operacionais e historicas.
-- Autenticacao JWT com access token e refresh token hash no usuario.
+- Autenticação JWT com access token e refresh token hash no usuário.
 - RBAC com perfis e permissoes granulares.
-- Auditoria global para acoes de escrita.
+- Auditoria global para ações de escrita.
 - Frontend React com layout administrativo, rotas protegidas, React Query e componentes reutilizaveis.
-- Redis preparado no Docker Compose para filas/cache e evolucao para ingestao assincrona.
+- Redis preparado no Docker Compose para filas/cache e evolucao para ingestão assincrona.
 - Swagger/OpenAPI em `/api/v1/docs`.
 
 ## ETAPA 2 - Stack final
@@ -60,11 +60,11 @@ Colecoes criadas com timestamps, status e indices:
 
 Principais indices:
 
-- `tenantId + plate` unico em veiculos.
-- `tenantId + licenseNumber` unico em motoristas.
-- `tenantId + email` unico em usuarios.
+- `tenantId + plate` único em veículos.
+- `tenantId + licenseNumber` único em motoristas.
+- `tenantId + email` único em usuários.
 - `tenantId + vehicleId + occurredAt` em telemetria e GPS.
-- `2dsphere` em posicoes e geocercas.
+- `2dsphere` em posições e geocercas.
 - `tenantId + status + triggeredAt` em alertas.
 - `tenantId + actorUserId + createdAt` em auditoria.
 
@@ -73,26 +73,26 @@ Principais indices:
 Modulos implementados na base:
 
 - Plataforma central: dashboard, KPIs, alertas e saude operacional.
-- Rastreamento: snapshot ao vivo, posicoes, geocercas e playback.
-- Telemetria: ingestao de eventos, atualizacao de veiculo e alertas.
-- Manutencao: planos, ordens e historico.
-- Motoristas: cadastro, CNH, score e vinculo com veiculo.
+- Rastreamento: snapshot ao vivo, posições, geocercas e playback.
+- Telemetria: ingestão de eventos, atualização de veículo e alertas.
+- Manutenção: planos, ordens e histórico.
+- Motoristas: cadastro, CNH, score e vínculo com veículo.
 - Financeiro: abastecimentos, despesas, multas, sinistros e seguros.
 - Compliance: documentos, checklists e auditoria.
-- Integracoes: providers, webhooks e parametros.
+- Integrações: providers, webhooks e parâmetros.
 
-Regras ja codificadas:
+Regras já codificadas:
 
-- Motorista principal não pode ficar vinculado a dois veiculos.
-- Veiculo não pode receber motorista principal ja associado a outro veiculo.
-- Documento vencido ou proximo do vencimento gera alerta.
-- Abastecimento atualiza custo e litros acumulados do veiculo.
-- Despesas, multas e sinistros impactam resumo financeiro do veiculo.
-- Telemetria atualiza ultima posicao, status, resumo e GPS historico.
+- Motorista principal não pode ficar vinculado a dois veículos.
+- Veículo não pode receber motorista principal já associado a outro veículo.
+- Documento vencido ou próximo do vencimento gera alerta.
+- Abastecimento atualiza custo e litros acumulados do veículo.
+- Despesas, multas e sinistros impactam resumo financeiro do veículo.
+- Telemetria atualiza ultima posição, status, resumo e GPS histórico.
 - Excesso de velocidade e bateria baixa geram alerta.
 - Entrada/saida de geocerca circular gera alerta.
-- Ordem em execucao move veiculo para manutencao; ordem fechada libera veiculo e registra historico.
-- Acoes criticas geram log de auditoria.
+- Ordem em execução move veículo para manutenção; ordem fechada libera veículo e registra histórico.
+- Ações críticas geram log de auditoria.
 
 ## ETAPA 6 - Backend base
 
@@ -123,17 +123,51 @@ Endpoints principais:
 - `GET|POST /api/v1/settings/webhooks`
 - `GET|POST /api/v1/settings/parameters`
 - `POST /api/v1/imports/spreadsheet`
+- `GET /api/v1/exports/:resource`
 
-## Importacao de planilhas antigas
+## Backup diario
 
-A tela `Configuracoes` permite subir planilhas de sistemas anteriores para migrar dados historicos. O backend tambem expoe o endpoint `POST /api/v1/imports/spreadsheet` com `multipart/form-data`.
+O backend agenda automaticamente um backup diario do MongoDB quando a API sobe.
+O arquivo e salvo em JSON compactado (`.json.gz`) na pasta configurada.
+
+Variaveis:
+
+- `BACKUP_ENABLED=true`
+- `BACKUP_HOUR=2`
+- `BACKUP_RETENTION_DAYS=30`
+- `BACKUP_DIR=../backups/mongodb`
+
+Padrao atual: gera um backup todos os dias as 02:00 e remove arquivos mais antigos que 30 dias.
+
+## Exportação CSV
+
+As telas principais possuem botão de exportação CSV. O backend exporta todos os registros do recurso, não apenas a página atual.
+
+Recursos exportaveis:
+
+- `vehicles`
+- `drivers`
+- `fuel-records`
+- `maintenance-orders`
+- `expenses`
+- `fines`
+- `incidents`
+- `insurances`
+- `documents`
+- `compliance-checks`
+- `alerts`
+- `audit-logs`
+
+## Importação de planilhas antigas
+
+A tela `Configurações` permite subir planilhas de sistemas anteriores para migrar dados históricos. O backend tambem expoe o endpoint `POST /api/v1/imports/spreadsheet` com `multipart/form-data`.
 
 Template pronto:
 
-- Arquivo local: `templates/sette-log-importacao-template.xlsx`
-- Download pela aplicacao: `http://localhost:5173/templates/sette-log-importacao-template.xlsx`
+- Arquivo local: `templates/sette-log-importação-template.xlsx`
+- Download pela aplicação: `http://localhost:5173/templates/sette-log-importação-template.xlsx`
 
-O template possui abas separadas: `veiculos`, `motoristas`, `abastecimentos`, `manutencoes` e `documentos`. Ao importar um XLSX com varias abas, o sistema usa a aba correspondente ao tipo selecionado na tela.
+O template possui abas separadas: `veiculos`, `motoristas`, `abastecimentos`, `manutenções` e `documentos`. Ao importar um XLSX com várias abas, o sistema usa a aba correspondente ao tipo selecionado na tela.
 
 Formatos aceitos:
 
@@ -142,7 +176,7 @@ Formatos aceitos:
 
 CSV pode usar separador por virgula, ponto e virgula ou tab. O importador tambem aceita datas em formato brasileiro, ISO ou serial numerico do Excel.
 
-Tipos de importacao aceitos no campo `resource`:
+Tipos de importação aceitos no campo `resource`:
 
 - `vehicles`
 - `drivers`
@@ -160,15 +194,15 @@ Ordem recomendada:
 
 A primeira linha da planilha precisa conter cabecalhos. O importador aceita nomes comuns em portugues e ingles. Exemplos:
 
-- Veiculos: `placa`, `marca`, `modelo`, `ano`, `tipo`, `odometro`, `centro_custo`
+- Veículos: `placa`, `marca`, `modelo`, `ano`, `tipo`, `odometro`, `centro_custo`
 - Motoristas: `nome`, `cnh`, `categoria_cnh`, `validade_cnh`, `cpf`, `telefone`, `email`
-- Abastecimentos: `placa`, `cnh`, `litros`, `valor_total`, `preco_litro`, `odometro`, `data_abastecimento`, `posto`, `combustivel`
-- Manutencoes: `placa`, `tipo`, `prioridade`, `status`, `agendamento`, `odometro`, `valor`
+- Abastecimentos: `placa`, `cnh`, `litros`, `valor_total`, `preco_litro`, `odometro`, `data_abastecimento`, `posto`, `combustível`
+- Manutenções: `placa`, `tipo`, `prioridade`, `status`, `agendamento`, `odometro`, `valor`
 - Documentos: `entidade`, `referencia`, `documento`, `numero`, `emissao`, `vencimento`, `url`
 
-Planilhas de abastecimento, manutencao e documentos usam `placa` ou `cnh` para vincular os historicos aos cadastros ja importados. O limite atual e de 5000 linhas por arquivo para manter a importacao previsivel no ambiente inicial.
+Planilhas de abastecimento, manutenção e documentos usam `placa` ou `cnh` para vincular os históricos aos cadastros já importados. O limite atual e de 5000 linhas por arquivo para manter a importação previsível no ambiente inicial.
 
-Reimportar veiculos, motoristas e documentos atualiza registros existentes quando encontra a mesma placa, CNH ou chave documental.
+Reimportar veículos, motoristas e documentos atualiza registros existentes quando encontra a mesma placa, CNH ou chave documental.
 
 ## ETAPA 7 - Frontend base
 
@@ -176,16 +210,16 @@ Telas criadas:
 
 - Login.
 - Dashboard principal.
-- Gestao de veiculos.
+- Gestão de veículos.
 - Rastreamento em tempo real com mapa.
-- Gestao de motoristas.
-- Manutencao.
+- Gestão de motoristas.
+- Manutenção.
 - Financeiro.
 - Compliance.
 - Analytics e BI.
-- Configuracoes.
+- Configurações.
 
-## ETAPA 8 - Autenticacao e permissoes
+## ETAPA 8 - Autenticação e permissoes
 
 Perfis seedados:
 
@@ -203,15 +237,15 @@ Cada perfil expande permissoes via `ROLE_PERMISSIONS`. O guard global aceita `su
 
 O dashboard agrega:
 
-- Total de veiculos.
+- Total de veículos.
 - Disponibilidade.
 - Motoristas ativos.
 - Alertas abertos.
-- Custo de combustivel.
+- Custo de combustível.
 - Despesas.
-- Preco medio por litro.
+- Preço médio por litro.
 - Status operacional.
-- Manutencao proxima.
+- Manutenção proxima.
 - Documentos vencendo.
 
 ## ETAPA 10 - Como rodar
@@ -286,7 +320,7 @@ Para o ambiente Docker local, o valor padrao e:
 MONGODB_URI=mongodb://root:root@localhost:27017/sette_log?authSource=admin
 ```
 
-Tambem existem estes pontos relacionados:
+Também existem estes pontos relacionados:
 
 - `.env.example`: modelo de variaveis para outros ambientes.
 - `docker-compose.yml`: banco MongoDB local do Docker e nome do database inicial.
@@ -294,20 +328,20 @@ Tambem existem estes pontos relacionados:
 
 Em producao, não altere `app.module.ts`; configure `MONGODB_URI` no ambiente do servidor, container, CI/CD ou painel de deploy.
 
-Tambem e possivel subir tudo com Docker:
+Também é possível subir tudo com Docker:
 
 ```bash
 docker compose up --build
 ```
 
-## Evolucao planejada
+## Evolução planejada
 
-A base ja considera `tenantId`, `branchId`, eventos de telemetria, historicos temporais, webhooks, integracoes e Redis. Isso deixa o sistema preparado para:
+A base já considera `tenantId`, `branchId`, eventos de telemetria, históricos temporais, webhooks, integrações e Redis. Isso deixa o sistema preparado para:
 
 - App mobile do motorista.
-- Ingestao MQTT/HTTP de rastreadores.
+- Ingestão MQTT/HTTP de rastreadores.
 - Filas com BullMQ/Redis.
 - Processamento assincrono de eventos.
 - Scoring avancado de direcao.
-- Modelos preditivos de manutencao.
+- Modelos preditivos de manutenção.
 - Multiempresa e SaaS.

@@ -6,8 +6,8 @@ import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { StatCard } from '../../components/ui/stat-card';
 import { Table, Td, Th } from '../../components/ui/table';
-import { getDashboard, getVehicles, listResource } from '../../lib/api';
-import { downloadTextFile, formatCurrency, toCsv } from '../../lib/utils';
+import { downloadResourceExport, getDashboard, getVehicles, listResource } from '../../lib/api';
+import { formatCurrency } from '../../lib/utils';
 
 type ArrayItemWithAmount = {
   amount?: number;
@@ -60,7 +60,7 @@ export function FinancePage() {
   const finesAndIncidentsTotal = [...fines, ...incidents].reduce((total, item) => total + Number(item.amount ?? 0), 0);
 
   const pieData = [
-    { name: 'Combustivel', value: data.kpis.totalFuelCost, color: '#0f8f63' },
+    { name: 'Combustível', value: data.kpis.totalFuelCost, color: '#0f8f63' },
     { name: 'Manutenção e despesas', value: data.kpis.totalExpenseCost, color: '#027f9f' },
     { name: 'Multas e sinistros', value: finesAndIncidentsTotal, color: '#c2413b' }
   ];
@@ -72,32 +72,34 @@ export function FinancePage() {
           <h2 className="text-2xl font-semibold">Financeiro da frota</h2>
           <p className="mt-1 text-sm text-zinc-500">Abastecimentos, multas, seguros, impostos, pedagios e custo por km.</p>
         </div>
-        <Button
-          variant="secondary"
-          onClick={() =>
-            downloadTextFile(
-              'financeiro-frota.csv',
-              toCsv(
-                vehicles.map((vehicle) => ({
-                  placa: vehicle.plate,
-                  centro_custo: vehicle.costCenter,
-                  combustivel: vehicle.financialSummary?.totalFuelCost ?? 0,
-                  despesas: vehicle.financialSummary?.totalExpenses ?? 0,
-                  custo_km: vehicle.financialSummary?.costPerKm ?? 0
-                }))
-              )
-            )
-          }
-        >
-          <Download size={18} />
-          Exportar CSV
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={() => downloadResourceExport('fuel-records')}>
+            <Download size={18} />
+            Abastecimentos
+          </Button>
+          <Button variant="secondary" onClick={() => downloadResourceExport('expenses')}>
+            <Download size={18} />
+            Despesas
+          </Button>
+          <Button variant="secondary" onClick={() => downloadResourceExport('fines')}>
+            <Download size={18} />
+            Multas
+          </Button>
+          <Button variant="secondary" onClick={() => downloadResourceExport('incidents')}>
+            <Download size={18} />
+            Sinistros
+          </Button>
+          <Button variant="secondary" onClick={() => downloadResourceExport('insurances')}>
+            <Download size={18} />
+            Seguros
+          </Button>
+        </div>
       </section>
 
       <section className="grid gap-6 lg:grid-cols-3">
-        <StatCard label="Combustivel" value={formatCurrency(data.kpis.totalFuelCost)} detail={`${data.kpis.totalFuelLiters.toLocaleString('pt-BR')} L registrados`} icon={Fuel} tone="green" />
+        <StatCard label="Combustível" value={formatCurrency(data.kpis.totalFuelCost)} detail={`${data.kpis.totalFuelLiters.toLocaleString('pt-BR')} L registrados`} icon={Fuel} tone="green" />
         <StatCard label="Despesas gerais" value={formatCurrency(data.kpis.totalExpenseCost)} detail="Custos operacionais extras" icon={Receipt} tone="cyan" />
-        <StatCard label="Preco medio litro" value={formatCurrency(data.kpis.averageFuelCost)} detail="Media dos abastecimentos" icon={CreditCard} tone="amber" />
+        <StatCard label="Preço médio litro" value={formatCurrency(data.kpis.averageFuelCost)} detail="Média dos abastecimentos" icon={CreditCard} tone="amber" />
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
@@ -121,7 +123,7 @@ export function FinancePage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Custo por veiculo</CardTitle>
+            <CardTitle>Custo por veículo</CardTitle>
           </CardHeader>
           <CardContent className="overflow-x-auto">
             <Table>
@@ -129,7 +131,7 @@ export function FinancePage() {
                 <tr>
                   <Th>Placa</Th>
                   <Th>Centro de custo</Th>
-                  <Th>Combustivel</Th>
+                  <Th>Combustível</Th>
                   <Th>Despesas</Th>
                   <Th>Custo/km</Th>
                 </tr>

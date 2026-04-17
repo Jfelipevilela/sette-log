@@ -67,7 +67,7 @@ export function AttachmentPreviewModal({
           {!url && (
             <div className="flex min-h-[420px] flex-col items-center justify-center p-6 text-center text-sm text-zinc-500">
               <FileText className="mb-3 text-zinc-400" />
-              Arquivo indisponivel para previsualizacao.
+              Arquivo indisponível para previsualização.
             </div>
           )}
           {url && kind === "image" && (
@@ -107,10 +107,10 @@ export function AttachmentPreviewModal({
             <div className="flex min-h-[420px] flex-col items-center justify-center p-6 text-center">
               <FileText className="mb-3 text-zinc-400" size={36} />
               <strong className="text-fleet-ink">
-                Previa não disponivel para este formato.
+                Previa não disponível para este formato.
               </strong>
               <p className="mt-2 max-w-md text-sm text-zinc-500">
-                Voce ainda pode abrir em uma nova guia ou baixar o arquivo.
+                Você ainda pode abrir em uma nova guia ou baixar o arquivo.
               </p>
             </div>
           )}

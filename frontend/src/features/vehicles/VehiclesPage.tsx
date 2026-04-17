@@ -1,6 +1,6 @@
 import { FormEvent, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Edit2, Eye, Filter, Plus, Search, Trash2 } from "lucide-react";
+import { Download, Edit2, Eye, Filter, Plus, Search, Trash2 } from "lucide-react";
 import { Badge } from "../../components/ui/badge";
 import { ActionMenu } from "../../components/ui/action-menu";
 import { Button } from "../../components/ui/button";
@@ -25,6 +25,7 @@ import {
   apiErrorMessage,
   createVehicle,
   deleteVehicle,
+  downloadResourceExport,
   getVehiclesPage,
   updateVehicle,
 } from "../../lib/api";
@@ -54,10 +55,10 @@ const vehicleTypeOptions = [
 ];
 
 const vehicleStatusOptions = [
-  { value: "available", label: "Disponivel" },
+  { value: "available", label: "Disponível" },
   { value: "in_route", label: "Em rota" },
   { value: "stopped", label: "Parado" },
-  { value: "maintenance", label: "Manutencao" },
+  { value: "maintenance", label: "Manutenção" },
   { value: "inactive", label: "Inativo" },
   { value: "blocked", label: "Bloqueado" },
 ];
@@ -97,7 +98,7 @@ export function VehiclesPage() {
     },
     onError: () =>
       setFormError(
-        "Não foi possivel criar o veiculo. Verifique placa e campos obrigatórios.",
+        "Não foi possível criar o veículo. Verifique placa e campos obrigatórios.",
       ),
   });
   const updateVehicleMutation = useMutation({
@@ -109,7 +110,7 @@ export function VehiclesPage() {
     },
     onError: (error) =>
       setFormError(
-        apiErrorMessage(error, "Não foi possivel editar o veiculo."),
+        apiErrorMessage(error, "Não foi possível editar o veículo."),
       ),
   });
   const deleteVehicleMutation = useMutation({
@@ -117,7 +118,7 @@ export function VehiclesPage() {
     onSuccess: invalidateVehicleData,
     onError: (error) =>
       setFormError(
-        apiErrorMessage(error, "Não foi possivel excluir o veiculo."),
+        apiErrorMessage(error, "Não foi possível excluir o veículo."),
       ),
   });
 
@@ -195,15 +196,25 @@ export function VehiclesPage() {
     <div className="space-y-6">
       <section className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
         <div>
-          <h2 className="text-2xl font-semibold">Gestao de veiculos</h2>
+          <h2 className="text-2xl font-semibold">Gestão de veículos</h2>
           <p className="mt-1 text-sm text-zinc-500">
             Cadastro, status operacional, documentos e indicadores por placa.
           </p>
         </div>
-        <Button onClick={openCreateModal}>
-          <Plus size={18} />
-          Novo veiculo
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => downloadResourceExport("vehicles")}
+          >
+            <Download size={18} />
+            Exportar CSV
+          </Button>
+          <Button onClick={openCreateModal}>
+            <Plus size={18} />
+            Novo veículo
+          </Button>
+        </div>
       </section>
 
       <Card>
@@ -227,7 +238,7 @@ export function VehiclesPage() {
             <Input
               placeholder="Unidade"
               disabled
-              title="Filial sera ligada ao cadastro multiunidade"
+              title="Filial será ligada ao cadastro multiunidade"
             />
             <SearchableSelect
               value={status}
@@ -256,19 +267,19 @@ export function VehiclesPage() {
         </CardHeader>
         <CardContent className="overflow-x-auto">
           {vehiclesLoading ? (
-            <LoadingState label="Carregando veiculos..." />
+            <LoadingState label="Carregando veículos..." />
           ) : (
             <div className="space-y-4">
               <Table>
                 <thead>
                   <tr>
                     <Th>Placa</Th>
-                    <Th>Veiculo</Th>
+                    <Th>Veículo</Th>
                     <Th>Status</Th>
-                    <Th>Odometro</Th>
+                    <Th>Odômetro</Th>
                     <Th>Custo/km</Th>
-                    <Th>Ultima posicao</Th>
-                    <Th>Acoes</Th>
+                    <Th>Ultima posição</Th>
+                    <Th>Ações</Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -325,7 +336,7 @@ export function VehiclesPage() {
                               onClick: () => {
                                 if (
                                   window.confirm(
-                                    `Excluir o veiculo ${vehicle.plate}?`,
+                                    `Excluir o veículo ${vehicle.plate}?`,
                                   )
                                 ) {
                                   deleteVehicleMutation.mutate(vehicle._id);
@@ -411,7 +422,7 @@ export function VehiclesPage() {
               />
             </label>
             <label className="space-y-2 text-sm font-medium">
-              Odometro inicial
+              Odômetro inicial
               <Input
                 name="odometerKm"
                 type="number"
@@ -420,7 +431,7 @@ export function VehiclesPage() {
               />
             </label>
             <label className="space-y-2 text-sm font-medium">
-              Odometro base de consumo
+              Odômetro base de consumo
               <Input
                 name="initialOdometerKm"
                 type="number"
@@ -501,7 +512,7 @@ export function VehiclesPage() {
               {createVehicleMutation.isPending ||
               updateVehicleMutation.isPending
                 ? "Salvando..."
-                : "Salvar veiculo"}
+                : "Salvar veículo"}
             </Button>
           </div>
         </form>
@@ -510,7 +521,7 @@ export function VehiclesPage() {
       <DetailModal
         open={Boolean(detailVehicle)}
         entityId={detailVehicle?._id}
-        title="Detalhes do veiculo"
+        title="Detalhes do veículo"
         description="Informacoes operacionais, financeiras e auditoria do cadastro."
         onClose={() => setDetailVehicle(undefined)}
         fields={[
@@ -525,13 +536,13 @@ export function VehiclesPage() {
             value: labelFor(detailVehicle?.status, vehicleStatusLabels),
           },
           {
-            label: "Odometro",
+            label: "Odômetro",
             value: detailVehicle
               ? `${detailVehicle.odometerKm.toLocaleString("pt-BR")} km`
               : undefined,
           },
           {
-            label: "Odometro base de consumo",
+            label: "Odômetro base de consumo",
             value:
               detailVehicle?.initialOdometerKm !== undefined
                 ? `${Number(detailVehicle.initialOdometerKm).toLocaleString("pt-BR")} km`
@@ -547,7 +558,7 @@ export function VehiclesPage() {
           { label: "Setor", value: detailVehicle?.sector },
           { label: "Cidade", value: detailVehicle?.city },
           {
-            label: "Custo de combustivel",
+            label: "Custo de combustível",
             value: detailVehicle
               ? formatCurrency(
                   detailVehicle.financialSummary?.totalFuelCost ?? 0,
@@ -575,7 +586,7 @@ export function VehiclesPage() {
               : undefined,
           },
           {
-            label: "Ultima posicao",
+            label: "Ultima posição",
             value: detailVehicle?.lastPosition?.address,
           },
         ]}

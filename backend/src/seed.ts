@@ -141,7 +141,7 @@ async function seed() {
       type: 'truck',
       status: 'in_route',
       odometerKm: 84210,
-      costCenter: 'Operacao Sudeste',
+      costCenter: 'Operação Sudeste',
       primaryDriverId: driverA._id.toString(),
       lastPosition: {
         type: 'Point',

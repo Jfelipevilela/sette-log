@@ -69,7 +69,7 @@ export function ReportsPage() {
           </Button>
           <Button
             variant="secondary"
-            onClick={() => downloadTextFile('relatorio-bi.csv', toCsv(utilization))}
+            onClick={() => downloadTextFile('relatório-bi.csv', toCsv(utilization))}
           >
             <FileSpreadsheet size={18} />
             Excel
@@ -79,13 +79,13 @@ export function ReportsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Filtros de relatorio</CardTitle>
+          <CardTitle>Filtros de relatório</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 md:grid-cols-[180px_180px_1fr_auto]">
             <Input type="date" id="report-from" />
             <Input type="date" id="report-to" />
-            <Input id="report-scope" placeholder="Operacao, filial ou centro de custo" />
+            <Input id="report-scope" placeholder="Operação, filial ou centro de custo" />
             <Button onClick={() => setFilterMessage('Filtros aplicados ao painel atual.')}>
               <SlidersHorizontal size={18} />
               Aplicar
@@ -99,8 +99,8 @@ export function ReportsPage() {
         <Card>
           <CardHeader>
             <div>
-              <CardTitle>Utilizacao e score</CardTitle>
-              <p className="mt-1 text-sm text-zinc-500">Comparativo por veiculo com indicador do motorista principal.</p>
+              <CardTitle>Utilização e score</CardTitle>
+              <p className="mt-1 text-sm text-zinc-500">Comparativo por veículo com indicador do motorista principal.</p>
             </div>
           </CardHeader>
           <CardContent className="h-96">
@@ -110,7 +110,7 @@ export function ReportsPage() {
                 <XAxis dataKey="plate" tickLine={false} axisLine={false} />
                 <YAxis tickLine={false} axisLine={false} />
                 <Tooltip />
-                <Bar dataKey="utilization" fill="#027f9f" name="Utilizacao" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="utilization" fill="#027f9f" name="Utilização" radius={[6, 6, 0, 0]} />
                 <Bar dataKey="score" fill="#0f8f63" name="Score" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -125,13 +125,13 @@ export function ReportsPage() {
             <div className="rounded-lg border border-fleet-line p-4">
               <LineChart className="text-fleet-green" />
               <strong className="mt-3 block">Manutenção preditiva</strong>
-              <p className="mt-1 text-sm text-zinc-500">Telemetria historica, odometro, custos e falhas alimentam modelos futuros.</p>
+              <p className="mt-1 text-sm text-zinc-500">Telemetria histórica, odômetro, custos e falhas alimentam modelos futuros.</p>
             </div>
             <div className="relative overflow-hidden rounded-lg border border-cyan-100 bg-white p-4 shadow-sm">
               <span className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-cyan-500 to-cyan-300" />
               <strong className="block text-xs font-semibold uppercase text-zinc-500">Disponibilidade</strong>
               <span className="mt-2 block text-3xl font-semibold text-fleet-ink">{dashboard.kpis.availability}%</span>
-              <p className="mt-2 text-sm text-zinc-500">Frota liberada para operacao</p>
+              <p className="mt-2 text-sm text-zinc-500">Frota liberada para operação</p>
             </div>
           </CardContent>
         </Card>

@@ -35,8 +35,8 @@ function MenuButton({
     <button
       type="button"
       className={cn(
-        "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition hover:bg-zinc-50 disabled:pointer-events-none disabled:opacity-50",
-        danger ? "text-red-700 hover:bg-red-50" : "text-fleet-ink",
+        "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium transition disabled:pointer-events-none disabled:opacity-50",
+        danger ? "text-red-700 hover:bg-red-50" : "text-fleet-ink hover:bg-emerald-50/70 hover:text-fleet-green",
         className,
       )}
       {...props}
@@ -107,7 +107,7 @@ export function ActionMenu({ items }: ActionMenuProps) {
       <button
         ref={buttonRef}
         type="button"
-        className="flex h-9 w-9 items-center justify-center rounded-md border border-fleet-line bg-white text-fleet-ink shadow-sm transition hover:border-zinc-300 hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-fleet-green"
+        className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 bg-white text-fleet-ink shadow-[0_8px_20px_rgba(15,23,42,0.06)] transition hover:-translate-y-px hover:border-emerald-200 hover:bg-emerald-50/45 focus:outline-none focus:ring-2 focus:ring-fleet-green"
         aria-label="Abrir acoes"
         aria-expanded={open}
         onClick={() => {
@@ -122,7 +122,7 @@ export function ActionMenu({ items }: ActionMenuProps) {
         createPortal(
           <div
             ref={menuRef}
-            className="fixed z-[9999] min-w-48 rounded-lg border border-fleet-line bg-white p-1 shadow-2xl"
+            className="fixed z-[9999] min-w-48 rounded-lg border border-white/80 bg-white/95 p-1.5 shadow-[0_22px_60px_rgba(15,23,42,0.20)] ring-1 ring-slate-200/80 backdrop-blur-xl"
             style={{ top: position.top, left: position.left }}
           >
             {items.map((item) => (

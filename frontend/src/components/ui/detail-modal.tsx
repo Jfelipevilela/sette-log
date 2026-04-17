@@ -43,7 +43,7 @@ export function DetailModal({ open, title, description, entityId, fields, childr
     <Modal open={open} title={title} description={description} onClose={onClose}>
       <div className="space-y-5">
         {createdBy && (
-          <div className="rounded-lg border border-fleet-line bg-zinc-50 p-4">
+          <div className="rounded-lg border border-emerald-100 bg-gradient-to-r from-emerald-50 to-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
             <span className="block text-sm text-zinc-500">Inserido por</span>
             <strong className="mt-1 block">{createdBy.actorName ?? 'Sistema'}</strong>
             <span className="text-sm text-zinc-500">
@@ -55,7 +55,7 @@ export function DetailModal({ open, title, description, entityId, fields, childr
 
         <dl className="grid gap-3 md:grid-cols-2">
           {fields.map((field) => (
-            <div key={field.label} className="rounded-lg border border-fleet-line p-3">
+            <div key={field.label} className="rounded-lg border border-slate-200 bg-white p-3 shadow-[0_8px_20px_rgba(15,23,42,0.04)]">
               <dt className="text-xs uppercase text-zinc-500">{field.label}</dt>
               <dd className="mt-1 font-medium text-fleet-ink">{field.value === undefined || field.value === null || field.value === '' ? '-' : field.value}</dd>
             </div>
@@ -69,7 +69,7 @@ export function DetailModal({ open, title, description, entityId, fields, childr
           <div className="mt-3 space-y-2">
             {auditTrail.length === 0 && <p className="text-sm text-zinc-500">Nenhum evento de auditoria encontrado para este registro.</p>}
             {auditTrail.map((item) => (
-              <div key={item._id} className="flex items-start justify-between gap-3 rounded-lg border border-fleet-line p-3">
+              <div key={item._id} className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3 shadow-[0_8px_20px_rgba(15,23,42,0.04)]">
                 <div>
                   <div className="flex items-center gap-2">
                     <Badge tone={item.action === 'DELETE' ? 'red' : item.action === 'POST' ? 'green' : 'cyan'}>

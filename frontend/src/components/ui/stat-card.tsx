@@ -14,22 +14,22 @@ const toneClasses = {
   green: {
     icon: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
     accent: 'from-emerald-500 to-emerald-300',
-    glow: 'bg-emerald-500/8'
+    glow: ''
   },
   cyan: {
     icon: 'bg-cyan-50 text-cyan-700 ring-cyan-100',
     accent: 'from-cyan-500 to-cyan-300',
-    glow: 'bg-cyan-500/8'
+    glow: ''
   },
   amber: {
     icon: 'bg-amber-50 text-amber-700 ring-amber-100',
     accent: 'from-amber-500 to-amber-300',
-    glow: 'bg-amber-500/10'
+    glow: ''
   },
   red: {
     icon: 'bg-red-50 text-red-700 ring-red-100',
     accent: 'from-red-500 to-red-300',
-    glow: 'bg-red-500/8'
+    glow: ''
   }
 };
 
@@ -37,9 +37,8 @@ export function StatCard({ label, value, detail, icon: Icon, tone, className, ..
   const styles = toneClasses[tone];
 
   return (
-    <Card className={`group relative overflow-hidden p-5 transition duration-200 hover:-translate-y-0.5 hover:shadow-md ${className ?? ''}`} {...props}>
+    <Card className={`group relative overflow-hidden p-5 transition duration-200 hover:-translate-y-0.5 ${className ?? ''}`} {...props}>
       <span className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${styles.accent}`} />
-      <span className={`absolute -right-8 -top-8 h-24 w-24 rounded-full blur-2xl ${styles.glow}`} />
       <div className="relative flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase text-zinc-500">{label}</p>

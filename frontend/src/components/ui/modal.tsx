@@ -18,23 +18,24 @@ export function Modal({ open, title, description, children, size = 'md', onClose
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-fleet-ink/55 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-md"
       onMouseDown={onClose}
     >
       <div
-        className={`max-h-[92vh] w-full overflow-y-auto rounded-lg border border-white/70 bg-white shadow-soft ring-1 ring-fleet-line/70 ${size === 'xl' ? 'max-w-5xl' : 'max-w-2xl'}`}
+        className={`max-h-[92vh] w-full overflow-hidden rounded-lg border border-white/80 bg-white shadow-[0_28px_90px_rgba(15,23,42,0.28)] ring-1 ring-slate-200/80 ${size === 'xl' ? 'max-w-5xl' : 'max-w-2xl'}`}
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-fleet-line bg-zinc-50/80 p-5">
-          <div>
+        <div className="relative flex items-start justify-between gap-4 border-b border-slate-200 bg-gradient-to-r from-white via-emerald-50/45 to-cyan-50/45 p-5">
+          <span className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-fleet-green via-fleet-cyan to-fleet-amber" />
+          <div className="min-w-0 pt-1">
             <h2 className="text-lg font-semibold text-fleet-ink">{title}</h2>
             {description && <p className="mt-1 text-sm text-zinc-500">{description}</p>}
           </div>
-          <Button type="button" variant="ghost" size="sm" onClick={onClose} aria-label="Fechar">
+          <Button type="button" variant="ghost" size="sm" className="h-9 w-9 shrink-0 p-0" onClick={onClose} aria-label="Fechar">
             <X size={18} />
           </Button>
         </div>
-        <div className="p-5">{children}</div>
+        <div className="max-h-[calc(92vh-5.25rem)] overflow-y-auto p-5">{children}</div>
       </div>
     </div>
   );

@@ -2,7 +2,6 @@ import {
   BarChart3,
   Bell,
   Car,
-  ClipboardCheck,
   Fuel,
   Gauge,
   Home,
@@ -63,13 +62,17 @@ export function AdminLayout() {
   return (
     <div className="min-h-screen text-fleet-ink">
       <aside
-        className="fixed inset-y-0 left-0 z-30 hidden w-72 border-r border-black/10 bg-[linear-gradient(180deg,#151916_0%,#1f2a24_55%,#16201b_100%)] text-white shadow-[12px_0_35px_rgba(22,24,22,0.12)] lg:flex lg:flex-col"
+        className="fixed inset-y-0 left-0 z-30 hidden w-72 border-r border-white/10 bg-[linear-gradient(180deg,#111714_0%,#1b2a23_52%,#111b17_100%)] text-white shadow-[16px_0_45px_rgba(15,23,42,0.18)] lg:flex lg:flex-col"
         // className="fixed inset-y-0 left-0 z-30 hidden w-72 border-r border-black/10 bg-fleet-ink text-white lg:block flex flex-col h-full"
       >
         <div className="flex flex-col gap-3 border-b border-white/10 p-4 flex-none">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-gradient-to-b from-fleet-green to-emerald-700 shadow-lg shadow-emerald-950/20">
-              <ClipboardCheck size={22} />
+            <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg bg-white/8 shadow-lg shadow-emerald-950/25 ring-1 ring-white/15">
+              <img
+                src="/brand/logo-sette-log.png"
+                alt="SETTE Log"
+                className="h-full w-full object-contain p-0.5"
+              />
             </div>
             <div>
               <strong className="block text-lg font-semibold">SETTE Log</strong>
@@ -86,9 +89,9 @@ export function AdminLayout() {
               to={item.to}
               className={({ isActive }) =>
                 cn(
-                  "flex h-11 items-center gap-3 rounded-md px-3 text-sm text-zinc-300 transition hover:bg-white/10 hover:text-white",
+                  "flex h-11 items-center gap-3 rounded-md px-3 text-sm font-medium text-zinc-300 transition hover:bg-white/10 hover:text-white",
                   isActive &&
-                    "bg-white text-fleet-ink shadow-sm hover:bg-white hover:text-fleet-ink",
+                    "bg-white text-fleet-ink shadow-[0_12px_28px_rgba(0,0,0,0.18)] hover:bg-white hover:text-fleet-ink",
                 )
               }
             >
@@ -128,7 +131,7 @@ export function AdminLayout() {
       </aside>
 
       <div className="lg:ml-72">
-        <header className="sticky top-0 z-20 flex h-20 items-center justify-between border-b border-white/70 bg-white/80 px-4 shadow-sm backdrop-blur-xl lg:px-8">
+        <header className="sticky top-0 z-20 flex h-20 items-center justify-between border-b border-white/80 bg-white/85 px-4 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur-xl lg:px-8">
           <div className="flex items-center gap-3">
             <Button
               variant="secondary"
@@ -149,7 +152,7 @@ export function AdminLayout() {
           <div className="flex items-center gap-3">
             <button
               type="button"
-              className="relative flex h-10 w-10 items-center justify-center rounded-md border border-fleet-line bg-white text-zinc-700 shadow-sm transition hover:bg-zinc-50"
+              className="relative flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 bg-white text-zinc-700 shadow-[0_8px_20px_rgba(15,23,42,0.06)] transition hover:-translate-y-px hover:border-emerald-200 hover:bg-emerald-50/40"
               onClick={() => setNotificationsOpen((current) => !current)}
             >
               <Bell size={18} />
@@ -160,7 +163,7 @@ export function AdminLayout() {
               )}
             </button>
             {notificationsOpen && (
-              <div className="absolute right-4 top-16 z-50 w-[min(360px,calc(100vw-2rem))] rounded-lg border border-fleet-line bg-white p-2 shadow-2xl lg:right-8">
+              <div className="absolute right-4 top-16 z-50 w-[min(360px,calc(100vw-2rem))] rounded-lg border border-white/80 bg-white/95 p-2 shadow-[0_22px_60px_rgba(15,23,42,0.20)] ring-1 ring-slate-200/80 backdrop-blur-xl lg:right-8">
                 <strong className="block px-2 py-2 text-sm">
                   Notificações
                 </strong>
@@ -208,8 +211,12 @@ export function AdminLayout() {
           <aside className="fixed inset-y-0 left-0 z-30 flex w-72 flex-col border-r border-black/10 bg-[linear-gradient(180deg,#151916_0%,#1f2a24_55%,#16201b_100%)] text-white shadow-[12px_0_35px_rgba(22,24,22,0.18)]">
             <div className="flex flex-col gap-3 p-4 border-b border-white/10 flex-none">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-fleet-green">
-                  <ClipboardCheck size={22} />
+                <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg bg-white/8 shadow-lg shadow-emerald-950/25 ring-1 ring-white/15">
+                  <img
+                    src="/brand/logo-sette-log.png"
+                    alt="SETTE Log"
+                    className="h-full w-full object-contain p-0.5"
+                  />
                 </div>
                 <div>
                   <strong className="block text-lg font-semibold">
@@ -229,7 +236,7 @@ export function AdminLayout() {
                   onClick={() => setMobileOpen(false)}
                   className={({ isActive }) =>
                     cn(
-                      "flex h-11 items-center gap-3 rounded-md px-3 text-sm text-zinc-300 transition hover:bg-white/10 hover:text-white",
+                      "flex h-11 items-center gap-3 rounded-md px-3 text-sm font-medium text-zinc-300 transition hover:bg-white/10 hover:text-white",
                       isActive &&
                         "bg-white text-fleet-ink hover:bg-white hover:text-fleet-ink",
                     )

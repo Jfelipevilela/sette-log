@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Check, ChevronDown, Search } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -39,9 +40,16 @@ export function SearchableSelect({
   onValueChange
 }: SearchableSelectProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [internalValue, setInternalValue] = useState(defaultValue);
+  const [dropdownRect, setDropdownRect] = useState({
+    left: 0,
+    top: 0,
+    width: 0,
+    maxHeight: 256,
+  });
   const selectedValue = value ?? internalValue;
   const selectedOption = options.find((option) => option.value === selectedValue);
 
@@ -53,7 +61,8 @@ export function SearchableSelect({
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {
-      if (!wrapperRef.current?.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (!wrapperRef.current?.contains(target) && !dropdownRef.current?.contains(target)) {
         setOpen(false);
         setQuery('');
       }
@@ -62,6 +71,42 @@ export function SearchableSelect({
     document.addEventListener('mousedown', handlePointerDown);
     return () => document.removeEventListener('mousedown', handlePointerDown);
   }, []);
+
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+
+    function updateDropdownPosition() {
+      const trigger = wrapperRef.current?.getBoundingClientRect();
+      if (!trigger) {
+        return;
+      }
+
+      const margin = 8;
+      const viewportGap = 12;
+      const availableBelow = window.innerHeight - trigger.bottom - viewportGap;
+      const availableAbove = trigger.top - viewportGap;
+      const preferredHeight = 288;
+      const openAbove = availableBelow < 180 && availableAbove > availableBelow;
+      const maxHeight = Math.max(160, Math.min(preferredHeight, openAbove ? availableAbove - margin : availableBelow - margin));
+
+      setDropdownRect({
+        left: Math.max(viewportGap, Math.min(trigger.left, window.innerWidth - trigger.width - viewportGap)),
+        top: openAbove ? trigger.top - maxHeight - margin : trigger.bottom + margin,
+        width: trigger.width,
+        maxHeight,
+      });
+    }
+
+    updateDropdownPosition();
+    window.addEventListener('resize', updateDropdownPosition);
+    window.addEventListener('scroll', updateDropdownPosition, true);
+    return () => {
+      window.removeEventListener('resize', updateDropdownPosition);
+      window.removeEventListener('scroll', updateDropdownPosition, true);
+    };
+  }, [open]);
 
   const filteredOptions = useMemo(() => {
     if (!searchable) {
@@ -91,7 +136,7 @@ export function SearchableSelect({
       <button
         type="button"
         className={cn(
-          'flex h-10 w-full items-center justify-between gap-3 rounded-md border border-fleet-line bg-white/95 px-3 text-left text-sm text-fleet-ink shadow-sm outline-none transition hover:border-zinc-300 focus:border-fleet-green focus:bg-white focus:ring-2 focus:ring-emerald-100',
+          'flex h-10 w-full items-center justify-between gap-3 rounded-md border border-slate-200 bg-white/95 px-3 text-left text-sm text-fleet-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_6px_16px_rgba(15,23,42,0.04)] outline-none transition hover:border-emerald-200 focus:border-fleet-green focus:bg-white focus:ring-2 focus:ring-emerald-100',
           !selectedOption && 'text-zinc-400',
           disabled && 'cursor-not-allowed bg-zinc-100 text-zinc-400'
         )}
@@ -106,15 +151,23 @@ export function SearchableSelect({
         <ChevronDown size={16} className={cn('shrink-0 text-zinc-400 transition', open && 'rotate-180')} />
       </button>
 
-      {open && (
-        <div className="absolute z-50 mt-2 w-full overflow-hidden rounded-md border border-fleet-line bg-white shadow-xl">
+      {open && createPortal(
+        <div
+          ref={dropdownRef}
+          className="fixed z-[9998] overflow-hidden rounded-lg border border-white/80 bg-white/95 shadow-[0_22px_60px_rgba(15,23,42,0.22)] ring-1 ring-slate-200/80 backdrop-blur-xl"
+          style={{
+            left: dropdownRect.left,
+            top: dropdownRect.top,
+            width: dropdownRect.width,
+          }}
+        >
           {searchable && (
-            <div className="border-b border-fleet-line p-2">
+            <div className="border-b border-slate-200 p-2">
               <div className="relative">
                 <Search className="absolute left-3 top-2.5 text-zinc-400" size={16} />
                 <input
                   autoFocus
-                  className="h-9 w-full rounded-md border border-fleet-line bg-white pl-9 pr-3 text-sm outline-none focus:border-fleet-green focus:ring-2 focus:ring-emerald-100"
+                  className="h-9 w-full rounded-md border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-fleet-green focus:ring-2 focus:ring-emerald-100"
                   placeholder={searchPlaceholder}
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
@@ -122,7 +175,7 @@ export function SearchableSelect({
               </div>
             </div>
           )}
-          <div className="max-h-64 overflow-y-auto p-1">
+          <div className="overflow-y-auto p-1" style={{ maxHeight: searchable ? dropdownRect.maxHeight - 54 : dropdownRect.maxHeight }}>
             {filteredOptions.length === 0 && <p className="px-3 py-2 text-sm text-zinc-500">{emptyMessage}</p>}
             {filteredOptions.map((option) => (
               <button
@@ -130,7 +183,7 @@ export function SearchableSelect({
                 type="button"
                 disabled={option.disabled}
                 className={cn(
-                  'flex w-full items-center justify-between gap-3 rounded px-3 py-2 text-left text-sm text-fleet-ink transition hover:bg-emerald-50',
+                  'flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm text-fleet-ink transition hover:bg-emerald-50/80',
                   selectedValue === option.value && 'bg-emerald-50 font-medium text-fleet-green',
                   option.disabled && 'cursor-not-allowed text-zinc-400 hover:bg-transparent'
                 )}
@@ -141,7 +194,8 @@ export function SearchableSelect({
               </button>
             ))}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

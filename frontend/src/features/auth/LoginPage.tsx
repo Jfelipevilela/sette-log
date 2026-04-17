@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Lock, Mail, Route } from 'lucide-react';
+import { Lock, Mail } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
@@ -70,14 +70,13 @@ export function LoginPage() {
 
       <section className="flex min-h-screen items-center justify-center px-5 py-10">
         <Card className="w-full max-w-md border-white/10 bg-white p-6 text-fleet-ink shadow-soft">
-          <div className="mb-8 flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-fleet-green text-white">
-              <Route size={24} />
-            </div>
-            <div>
-              <strong className="block text-xl font-semibold">SETTE Log</strong>
-              <span className="text-sm text-zinc-500">Acesso administrativo</span>
-            </div>
+          <div className="mb-8">
+            <img
+              src="/brand/logo_sette_log_nome2.png"
+              alt="SETTE Log"
+              className="h-16 w-auto max-w-full object-contain"
+            />
+            <span className="mt-3 block text-sm text-zinc-500">Acesso administrativo</span>
           </div>
 
           <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>

@@ -39,6 +39,7 @@ import {
   fetchFuelRecordAttachmentBlob,
   getDrivers,
   getVehicles,
+  listAllResourcePages,
   listResourcePage,
   updateFuelRecord,
   uploadFuelRecordAttachment,
@@ -92,6 +93,14 @@ export function FuelRecordsPage() {
       listResourcePage<FuelRecord>("/finance/fuel-records", {
         page,
         limit: 10,
+        sortBy: "filledAt",
+        sortDir: "desc",
+      }),
+  });
+  const { data: allFuelRecords = [] } = useQuery({
+    queryKey: ["fuel-records-all"],
+    queryFn: () =>
+      listAllResourcePages<FuelRecord>("/finance/fuel-records", {
         sortBy: "filledAt",
         sortDir: "desc",
       }),
@@ -156,25 +165,26 @@ export function FuelRecordsPage() {
 
   const records = recordsPage?.data ?? [];
   const summary = useMemo(() => {
-    const liters = records.reduce(
+    const source = allFuelRecords.length > 0 ? allFuelRecords : records;
+    const liters = source.reduce(
       (total, record) => total + Number(record.liters ?? 0),
       0,
     );
-    const totalCost = records.reduce(
+    const totalCost = source.reduce(
       (total, record) => total + Number(record.totalCost ?? 0),
       0,
     );
-    const distanceKm = records.reduce(
+    const distanceKm = source.reduce(
       (total, record) => total + Number(record.distanceKm ?? 0),
       0,
     );
-    const efficiencyLiters = records.reduce(
+    const efficiencyLiters = source.reduce(
       (total, record) =>
         record.kmPerLiter ? total + Number(record.liters ?? 0) : total,
       0,
     );
     return {
-      count: records.length,
+      count: source.length,
       liters,
       totalCost,
       distanceKm,
@@ -183,13 +193,13 @@ export function FuelRecordsPage() {
       averageKmPerLiter:
         efficiencyLiters > 0 ? distanceKm / efficiencyLiters : 0,
     };
-  }, [records]);
+  }, [allFuelRecords, records]);
 
   const fuelKpis = [
     {
       label: "Lancamentos",
       value: summary.count.toLocaleString("pt-BR"),
-      detail: "Registros nesta página",
+      detail: "Total cadastrado",
       icon: ReceiptText,
       accent: "from-emerald-500 to-teal-500",
       iconClass: "bg-emerald-50 text-emerald-700",
@@ -230,6 +240,7 @@ export function FuelRecordsPage() {
 
   async function invalidateFuelData() {
     await queryClient.invalidateQueries({ queryKey: ["fuel-records"] });
+    await queryClient.invalidateQueries({ queryKey: ["fuel-records-all"] });
     await queryClient.invalidateQueries({ queryKey: ["vehicles"] });
     await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     await queryClient.invalidateQueries({ queryKey: ["finance-dashboard"] });

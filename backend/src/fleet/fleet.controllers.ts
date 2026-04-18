@@ -407,6 +407,12 @@ export class FinanceController {
     return this.fleetService.list("fuel-records", user.tenantId, query);
   }
 
+  @Get("fuel-records/summary")
+  @RequirePermissions(PERMISSIONS.FINANCE_VIEW)
+  fuelRecordsSummary(@CurrentUser() user: AuthenticatedUser) {
+    return this.fleetService.fuelRecordsSummary(user.tenantId);
+  }
+
   @Post("fuel-records")
   @RequirePermissions(PERMISSIONS.FINANCE_MANAGE)
   createFuelRecord(

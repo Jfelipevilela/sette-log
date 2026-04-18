@@ -6,6 +6,7 @@ export type ApiPage<T> = {
     total: number;
     totalPages: number;
   };
+  summary?: FuelRecordsSummary;
 };
 
 export type AuthUser = {
@@ -129,6 +130,16 @@ export type FuelRecord = {
     size: number;
     uploadedAt: string;
   }>;
+};
+
+export type FuelRecordsSummary = {
+  count: number;
+  liters: number;
+  totalCost: number;
+  distanceKm: number;
+  efficiencyLiters: number;
+  averagePrice: number;
+  averageKmPerLiter: number;
 };
 
 export type DocumentRecord = {

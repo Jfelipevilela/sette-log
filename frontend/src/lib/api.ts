@@ -6,6 +6,7 @@ import type {
   AuthUser,
   Dashboard,
   Driver,
+  FuelRecordsSummary,
   FuelRecord,
   MaintenanceOrder,
   AppNotification,
@@ -250,6 +251,35 @@ export async function listResourcePage<T>(
     },
   });
   return data;
+}
+
+export async function listAllResourcePages<T>(
+  path: string,
+  params?: {
+    sortBy?: string;
+    sortDir?: "asc" | "desc";
+  },
+) {
+  const limit = 100;
+  const firstPage = await listResourcePage<T>(path, {
+    page: 1,
+    limit,
+    sortBy: params?.sortBy,
+    sortDir: params?.sortDir,
+  });
+  const allItems = [...firstPage.data];
+
+  for (let page = 2; page <= firstPage.meta.totalPages; page += 1) {
+    const nextPage = await listResourcePage<T>(path, {
+      page,
+      limit,
+      sortBy: params?.sortBy,
+      sortDir: params?.sortDir,
+    });
+    allItems.push(...nextPage.data);
+  }
+
+  return allItems;
 }
 
 export async function getAuditTrail(entityId: string) {

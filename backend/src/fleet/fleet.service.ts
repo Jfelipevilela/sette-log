@@ -159,7 +159,7 @@ export class FleetService {
         ? await this.enrichFuelRecordsWithEfficiency(tenantId, data)
         : data.map((record) => this.serialize(record));
 
-    return {
+    const response: PaginatedResponse<AnyRecord> & { summary?: unknown } = {
       data: serializedData,
       meta: {
         page,
@@ -168,6 +168,12 @@ export class FleetService {
         totalPages: Math.ceil(total / limit),
       },
     };
+
+    if (resource === "fuel-records") {
+      response.summary = await this.fuelRecordsSummary(tenantId);
+    }
+
+    return response;
   }
 
   async exportCsv(resource: FleetResource, tenantId: string) {
@@ -183,6 +189,79 @@ export class FleetService {
         ? await this.enrichFuelRecordsWithEfficiency(tenantId, data)
         : data.map((record) => this.serialize(record));
     return this.toCsv(rows.map((row) => this.flattenForExport(row)));
+  }
+
+  async fuelRecordsSummary(tenantId: string) {
+    const fuelModel = this.model("fuel-records");
+    const [summary, range, vehicleRows] = await Promise.all([
+      fuelModel
+        .aggregate([
+          { $match: { tenantId } },
+          {
+            $addFields: {
+              numericLiters: {
+                $convert: { input: "$liters", to: "double", onError: 0, onNull: 0 },
+              },
+              numericTotalCost: {
+                $convert: { input: "$totalCost", to: "double", onError: 0, onNull: 0 },
+              },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              count: { $sum: 1 },
+              liters: { $sum: "$numericLiters" },
+              totalCost: { $sum: "$numericTotalCost" },
+            },
+          },
+        ])
+        .exec(),
+      fuelModel
+        .aggregate([
+          { $match: { tenantId, filledAt: { $exists: true } } },
+          {
+            $group: {
+              _id: null,
+              from: { $min: "$filledAt" },
+              to: { $max: "$filledAt" },
+            },
+          },
+        ])
+        .exec(),
+      fuelModel.distinct("vehicleId", { tenantId }),
+    ]);
+
+    const count = Number(summary[0]?.count ?? 0);
+    const liters = Number(summary[0]?.liters ?? 0);
+    const totalCost = Number(summary[0]?.totalCost ?? 0);
+    const from = range[0]?.from ? new Date(range[0].from) : new Date(0);
+    const to = range[0]?.to ? new Date(range[0].to) : new Date();
+    const vehicleIds = vehicleRows.map((id) => String(id)).filter(Boolean);
+    const efficiencyStats = await this.calculateFuelEfficiencyStats(
+      tenantId,
+      vehicleIds,
+      from,
+      to,
+    );
+    const efficiency = [...efficiencyStats.values()].reduce(
+      (total, item) => ({
+        distanceKm: total.distanceKm + Number(item.distanceKm ?? 0),
+        liters: total.liters + Number(item.liters ?? 0),
+      }),
+      { distanceKm: 0, liters: 0 },
+    );
+
+    return {
+      count,
+      liters,
+      totalCost,
+      distanceKm: efficiency.distanceKm,
+      efficiencyLiters: efficiency.liters,
+      averagePrice: liters > 0 ? totalCost / liters : 0,
+      averageKmPerLiter:
+        efficiency.liters > 0 ? efficiency.distanceKm / efficiency.liters : 0,
+    };
   }
 
   async listNotifications(

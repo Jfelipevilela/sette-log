@@ -6,6 +6,7 @@ import {
   Download,
   Edit2,
   Eye,
+  Filter,
   Plus,
   Search,
   Trash2,
@@ -57,6 +58,9 @@ export function DriversPage() {
   const [editingDriver, setEditingDriver] = useState<Driver>();
   const [detailDriver, setDetailDriver] = useState<Driver>();
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [vehicleFilter, setVehicleFilter] = useState("");
   const [formError, setFormError] = useState<string>();
   const { data: drivers = [] } = useQuery({
     queryKey: ["drivers"],
@@ -126,16 +130,17 @@ export function DriversPage() {
 
   const filteredDrivers = useMemo(() => {
     const term = search.toLowerCase();
-    if (!term) {
-      return drivers;
-    }
     return drivers.filter(
       (driver) =>
-        driver.name.toLowerCase().includes(term) ||
-        driver.licenseNumber.toLowerCase().includes(term) ||
-        driver.licenseCategory.toLowerCase().includes(term),
+        (!term ||
+          driver.name.toLowerCase().includes(term) ||
+          driver.licenseNumber.toLowerCase().includes(term) ||
+          driver.licenseCategory.toLowerCase().includes(term)) &&
+        (!statusFilter || driver.status === statusFilter) &&
+        (!categoryFilter || driver.licenseCategory === categoryFilter) &&
+        (!vehicleFilter || driver.assignedVehicleId === vehicleFilter),
     );
-  }, [drivers, search]);
+  }, [drivers, search, statusFilter, categoryFilter, vehicleFilter]);
 
   const vehicleOptions = vehicles.map((vehicle) => ({
     value: vehicle._id,
@@ -203,17 +208,26 @@ export function DriversPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="relative mb-4">
-              <Search
-                className="absolute left-3 top-2.5 text-zinc-400"
-                size={18}
-              />
-              <Input
-                className="pl-10"
-                placeholder="Buscar por nome, CNH ou categoria"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-              />
+            <div className="mb-4 grid gap-3 lg:grid-cols-[1.2fr_170px_150px_220px_auto]">
+              <div className="relative">
+                <Search
+                  className="absolute left-3 top-2.5 text-zinc-400"
+                  size={18}
+                />
+                <Input
+                  className="pl-10"
+                  placeholder="Buscar por nome, CNH ou categoria"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                />
+              </div>
+              <SearchableSelect value={statusFilter} onValueChange={setStatusFilter} placeholder="Status" options={[{ value: "", label: "Todos" }, ...driverStatusOptions]} />
+              <SearchableSelect value={categoryFilter} onValueChange={setCategoryFilter} placeholder="Categoria" options={[{ value: "", label: "Todas" }, ...licenseCategoryOptions]} />
+              <SearchableSelect value={vehicleFilter} onValueChange={setVehicleFilter} placeholder="Veículo" searchPlaceholder="Buscar veículo" options={[{ value: "", label: "Todos os veículos" }, ...vehicleOptions]} />
+              <Button variant="secondary" onClick={() => { setSearch(""); setStatusFilter(""); setCategoryFilter(""); setVehicleFilter(""); }}>
+                <Filter size={18} />
+                Limpar
+              </Button>
             </div>
             <div className="overflow-x-auto">
               <Table>

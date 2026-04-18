@@ -114,6 +114,7 @@ export async function getVehiclesPage(params?: {
   page?: number;
   limit?: number;
   search?: string;
+  filters?: Record<string, string | number | boolean | undefined>;
   sortBy?: string;
   sortDir?: "asc" | "desc";
 }) {
@@ -122,6 +123,7 @@ export async function getVehiclesPage(params?: {
       page: params?.page ?? 1,
       limit: params?.limit ?? 50,
       search: params?.search,
+      filters: params?.filters ? JSON.stringify(params.filters) : undefined,
       sortBy: params?.sortBy ?? "updatedAt",
       sortDir: params?.sortDir ?? "desc",
     },
@@ -238,6 +240,8 @@ export async function listResourcePage<T>(
   params?: {
     page?: number;
     limit?: number;
+    search?: string;
+    filters?: Record<string, string | number | boolean | undefined>;
     sortBy?: string;
     sortDir?: "asc" | "desc";
   },
@@ -246,6 +250,8 @@ export async function listResourcePage<T>(
     params: {
       page: params?.page ?? 1,
       limit: params?.limit ?? 20,
+      search: params?.search,
+      filters: params?.filters ? JSON.stringify(params.filters) : undefined,
       sortBy: params?.sortBy,
       sortDir: params?.sortDir,
     },
@@ -256,6 +262,8 @@ export async function listResourcePage<T>(
 export async function listAllResourcePages<T>(
   path: string,
   params?: {
+    search?: string;
+    filters?: Record<string, string | number | boolean | undefined>;
     sortBy?: string;
     sortDir?: "asc" | "desc";
   },
@@ -264,6 +272,8 @@ export async function listAllResourcePages<T>(
   const firstPage = await listResourcePage<T>(path, {
     page: 1,
     limit,
+    search: params?.search,
+    filters: params?.filters,
     sortBy: params?.sortBy,
     sortDir: params?.sortDir,
   });
@@ -273,6 +283,8 @@ export async function listAllResourcePages<T>(
     const nextPage = await listResourcePage<T>(path, {
       page,
       limit,
+      search: params?.search,
+      filters: params?.filters,
       sortBy: params?.sortBy,
       sortDir: params?.sortDir,
     });

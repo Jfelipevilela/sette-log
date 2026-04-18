@@ -6,11 +6,13 @@ import {
   Droplets,
   Edit2,
   Eye,
+  Filter,
   Fuel,
   Gauge,
   Paperclip,
   Plus,
   ReceiptText,
+  Search,
   Trash2,
 } from "lucide-react";
 import { Badge } from "../../components/ui/badge";
@@ -78,6 +80,14 @@ export function FuelRecordsPage() {
   const [detailRecord, setDetailRecord] = useState<FuelRecord>();
   const [formError, setFormError] = useState<string>();
   const [page, setPage] = useState(1);
+  const [filters, setFilters] = useState({
+    search: "",
+    vehicleId: "",
+    driverId: "",
+    fuelType: "",
+    from: "",
+    to: "",
+  });
   const [attachmentFile, setAttachmentFile] = useState<File>();
   const [previewAttachment, setPreviewAttachment] = useState<{
     recordId: string;
@@ -163,9 +173,30 @@ export function FuelRecordsPage() {
       ),
   });
 
-  const records = recordsPage?.data ?? [];
+  const filteredFuelRecords = useMemo(() => {
+    const term = filters.search.trim().toLowerCase();
+    return allFuelRecords.filter((record) => {
+      const vehicleText = vehicleLabel(record.vehicleId).toLowerCase();
+      const driverText = driverLabel(record.driverId).toLowerCase();
+      const filledAt = record.filledAt?.slice(0, 10) ?? "";
+      const matchesSearch =
+        !term ||
+        vehicleText.includes(term) ||
+        driverText.includes(term) ||
+        String(record.station ?? "").toLowerCase().includes(term);
+      return (
+        matchesSearch &&
+        (!filters.vehicleId || record.vehicleId === filters.vehicleId) &&
+        (!filters.driverId || record.driverId === filters.driverId) &&
+        (!filters.fuelType || record.fuelType === filters.fuelType) &&
+        (!filters.from || filledAt >= filters.from) &&
+        (!filters.to || filledAt <= filters.to)
+      );
+    });
+  }, [allFuelRecords, filters, vehicles, drivers]);
+  const records = filteredFuelRecords.slice((page - 1) * 10, page * 10);
   const summary = useMemo(() => {
-    const source = allFuelRecords.length > 0 ? allFuelRecords : records;
+    const source = filteredFuelRecords;
     const liters = source.reduce(
       (total, record) => total + Number(record.liters ?? 0),
       0,
@@ -193,7 +224,7 @@ export function FuelRecordsPage() {
       averageKmPerLiter:
         efficiencyLiters > 0 ? distanceKm / efficiencyLiters : 0,
     };
-  }, [allFuelRecords, records]);
+  }, [filteredFuelRecords]);
 
   const fuelKpis = [
     {
@@ -468,6 +499,58 @@ export function FuelRecordsPage() {
         </Card>
       </section>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Filtros</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.2fr_220px_220px_170px_150px_150px_auto]">
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 text-zinc-400" size={18} />
+              <Input
+                className="pl-10"
+                placeholder="Buscar placa, motorista ou posto"
+                value={filters.search}
+                onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
+              />
+            </div>
+            <SearchableSelect
+              value={filters.vehicleId}
+              onValueChange={(value) => setFilters((current) => ({ ...current, vehicleId: value }))}
+              placeholder="Todos os veículos"
+              searchPlaceholder="Buscar veículo"
+              options={[{ value: "", label: "Todos os veículos" }, ...vehicleOptions]}
+            />
+            <SearchableSelect
+              value={filters.driverId}
+              onValueChange={(value) => setFilters((current) => ({ ...current, driverId: value }))}
+              placeholder="Todos os motoristas"
+              searchPlaceholder="Buscar motorista"
+              options={[{ value: "", label: "Todos os motoristas" }, ...driverOptions]}
+            />
+            <SearchableSelect
+              value={filters.fuelType}
+              onValueChange={(value) => setFilters((current) => ({ ...current, fuelType: value }))}
+              placeholder="Combustível"
+              searchPlaceholder="Buscar combustível"
+              options={[{ value: "", label: "Todos" }, ...fuelOptions]}
+            />
+            <Input type="date" value={filters.from} onChange={(event) => setFilters((current) => ({ ...current, from: event.target.value }))} />
+            <Input type="date" value={filters.to} onChange={(event) => setFilters((current) => ({ ...current, to: event.target.value }))} />
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setPage(1);
+                setFilters({ search: "", vehicleId: "", driverId: "", fuelType: "", from: "", to: "" });
+              }}
+            >
+              <Filter size={18} />
+              Limpar
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card className="overflow-hidden">
         <CardHeader className="border-b border-fleet-line bg-zinc-50/70">
           <div>
@@ -566,9 +649,9 @@ export function FuelRecordsPage() {
                 </tbody>
               </Table>
               <Pagination
-                page={recordsPage?.meta.page ?? page}
-                totalPages={recordsPage?.meta.totalPages ?? 1}
-                total={recordsPage?.meta.total ?? 0}
+                page={page}
+                totalPages={Math.max(1, Math.ceil(filteredFuelRecords.length / 10))}
+                total={filteredFuelRecords.length}
                 onPageChange={setPage}
               />
             </div>

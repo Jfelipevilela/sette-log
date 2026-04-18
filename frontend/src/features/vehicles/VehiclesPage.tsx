@@ -70,19 +70,31 @@ export function VehiclesPage() {
   const [detailVehicle, setDetailVehicle] = useState<Vehicle>();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
+  const [type, setType] = useState("");
+  const [sector, setSector] = useState("");
+  const [city, setCity] = useState("");
   const [appliedFilters, setAppliedFilters] = useState({
     search: "",
     status: "",
+    type: "",
+    sector: "",
+    city: "",
   });
   const [formError, setFormError] = useState<string>();
   const [page, setPage] = useState(1);
   const { data: vehiclesPage, isLoading: vehiclesLoading } = useQuery({
-    queryKey: ["vehicles", page, appliedFilters.search],
+    queryKey: ["vehicles", page, appliedFilters],
     queryFn: () =>
       getVehiclesPage({
         page,
         limit: 10,
         search: appliedFilters.search,
+        filters: {
+          status: appliedFilters.status || undefined,
+          type: appliedFilters.type || undefined,
+          sector: appliedFilters.sector || undefined,
+          city: appliedFilters.city || undefined,
+        },
         sortBy: "updatedAt",
         sortDir: "desc",
       }),
@@ -157,9 +169,7 @@ export function VehiclesPage() {
         vehicle.costCenter?.toLowerCase().includes(term) ||
         vehicle.sector?.toLowerCase().includes(term) ||
         vehicle.city?.toLowerCase().includes(term);
-      const matchesStatus =
-        !appliedFilters.status || vehicle.status === appliedFilters.status;
-      return matchesSearch && matchesStatus;
+      return matchesSearch;
     });
   }, [appliedFilters, vehicles]);
 
@@ -222,7 +232,7 @@ export function VehiclesPage() {
           <CardTitle>Filtros avancados</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-3 md:grid-cols-[1fr_180px_180px_auto]">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.3fr_180px_180px_160px_160px_auto]">
             <div className="relative">
               <Search
                 className="absolute left-3 top-2.5 text-zinc-400"
@@ -235,11 +245,6 @@ export function VehiclesPage() {
                 onChange={(event) => setSearch(event.target.value)}
               />
             </div>
-            <Input
-              placeholder="Unidade"
-              disabled
-              title="Filial será ligada ao cadastro multiunidade"
-            />
             <SearchableSelect
               value={status}
               onValueChange={setStatus}
@@ -247,11 +252,28 @@ export function VehiclesPage() {
               searchPlaceholder="Buscar status"
               options={[{ value: "", label: "Todos os status" }, ...vehicleStatusOptions]}
             />
+            <SearchableSelect
+              value={type}
+              onValueChange={setType}
+              placeholder="Todos os tipos"
+              searchPlaceholder="Buscar tipo"
+              options={[{ value: "", label: "Todos os tipos" }, ...vehicleTypeOptions]}
+            />
+            <Input
+              placeholder="Setor"
+              value={sector}
+              onChange={(event) => setSector(event.target.value)}
+            />
+            <Input
+              placeholder="Cidade"
+              value={city}
+              onChange={(event) => setCity(event.target.value)}
+            />
             <Button
               variant="secondary"
               onClick={() => {
                 setPage(1);
-                setAppliedFilters({ search, status });
+                setAppliedFilters({ search, status, type, sector, city });
               }}
             >
               <Filter size={18} />

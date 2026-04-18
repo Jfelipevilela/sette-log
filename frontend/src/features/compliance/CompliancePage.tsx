@@ -7,9 +7,11 @@ import {
   Download,
   Edit2,
   Eye,
+  Filter,
   FilePlus2,
   FileWarning,
   Paperclip,
+  Search,
   ShieldAlert,
   Trash2,
 } from "lucide-react";
@@ -42,6 +44,7 @@ import {
   fetchComplianceCheckAttachmentBlob,
   getDrivers,
   getVehicles,
+  listAllResourcePages,
   listResource,
   listResourcePage,
   updateComplianceCheck,
@@ -247,6 +250,14 @@ export function CompliancePage() {
   }>();
   const [checklistStep, setChecklistStep] = useState(0);
   const [checklistAttachments, setChecklistAttachments] = useState<File[]>([]);
+  const [filters, setFilters] = useState({
+    search: "",
+    entityType: "",
+    documentStatus: "",
+    documentType: "",
+    checkStatus: "",
+    vehicleId: "",
+  });
   const { data: documents = [] } = useQuery({
     queryKey: ["compliance-documents"],
     queryFn: () => listResource<DocumentRecord>("/compliance/documents"),
@@ -257,6 +268,14 @@ export function CompliancePage() {
       listResourcePage<ComplianceCheckRecord>("/compliance/checks", {
         page: 1,
         limit: 10,
+        sortBy: "performedAt",
+        sortDir: "desc",
+      }),
+  });
+  const { data: allComplianceChecks = [] } = useQuery({
+    queryKey: ["compliance-checks-all"],
+    queryFn: () =>
+      listAllResourcePages<ComplianceCheckRecord>("/compliance/checks", {
         sortBy: "performedAt",
         sortDir: "desc",
       }),
@@ -284,6 +303,7 @@ export function CompliancePage() {
     onSuccess: async () => {
       closeChecklistModal();
       await queryClient.invalidateQueries({ queryKey: ["compliance-checks"] });
+      await queryClient.invalidateQueries({ queryKey: ["compliance-checks-all"] });
       await queryClient.invalidateQueries({
         queryKey: ["compliance-documents"],
       });
@@ -314,6 +334,7 @@ export function CompliancePage() {
     onSuccess: async () => {
       closeChecklistModal();
       await queryClient.invalidateQueries({ queryKey: ["compliance-checks"] });
+      await queryClient.invalidateQueries({ queryKey: ["compliance-checks-all"] });
       await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
     onError: (error) =>
@@ -365,6 +386,7 @@ export function CompliancePage() {
     onSuccess: async () => {
       setDetailCheck(undefined);
       await queryClient.invalidateQueries({ queryKey: ["compliance-checks"] });
+      await queryClient.invalidateQueries({ queryKey: ["compliance-checks-all"] });
       await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
     onError: (error) =>
@@ -457,6 +479,8 @@ export function CompliancePage() {
     label: `${driver.name}${driver.licenseNumber ? ` - CNH ${driver.licenseNumber}` : ""}`,
     searchText: `${driver.name} ${driver.licenseNumber} ${driver.licenseCategory}`,
   }));
+  const documentTypeOptions = Object.entries(documentTypeLabels).map(([value, label]) => ({ value, label }));
+  const entityTypeOptions = Object.entries(entityTypeLabels).map(([value, label]) => ({ value, label }));
 
   function vehicleLabel(vehicleId?: string) {
     if (!vehicleId) {
@@ -572,13 +596,33 @@ export function CompliancePage() {
     };
   }
 
-  const complianceChecks = checksPage?.data ?? [];
+  const filteredDocuments = useMemo(() => {
+    const term = filters.search.trim().toLowerCase();
+    return documents.filter((document) => {
+      const entityLabel = document.entityType === "driver" ? driverLabel(document.entityId) : vehicleLabel(document.entityId);
+      return (
+        (!term || `${document.type} ${document.number ?? ""} ${entityLabel}`.toLowerCase().includes(term)) &&
+        (!filters.entityType || document.entityType === filters.entityType) &&
+        (!filters.documentStatus || document.status === filters.documentStatus) &&
+        (!filters.documentType || document.type === filters.documentType)
+      );
+    });
+  }, [documents, filters, vehicles, drivers]);
+  const complianceChecks = useMemo(() => {
+    const source = allComplianceChecks.length > 0 ? allComplianceChecks : (checksPage?.data ?? []);
+    const term = filters.search.trim().toLowerCase();
+    return source.filter((check) => (
+      (!term || `${vehicleLabel(check.vehicleId)} ${driverLabel(check.driverId)} ${check.checklistVersion}`.toLowerCase().includes(term)) &&
+      (!filters.checkStatus || check.status === filters.checkStatus) &&
+      (!filters.vehicleId || check.vehicleId === filters.vehicleId)
+    ));
+  }, [allComplianceChecks, checksPage, filters, vehicles, drivers]);
   const complianceKpis = useMemo(() => {
-    const validDocuments = documents.filter(
+    const validDocuments = filteredDocuments.filter(
       (document) => document.status === "valid",
     ).length;
-    const documentCoverage = documents.length
-      ? Math.round((validDocuments / documents.length) * 100)
+    const documentCoverage = filteredDocuments.length
+      ? Math.round((validDocuments / filteredDocuments.length) * 100)
       : 0;
     const failedChecks = complianceChecks.filter(
       (check) => check.status === "failed",
@@ -596,8 +640,8 @@ export function CompliancePage() {
     return [
       {
         label: "Documentos validos",
-        value: documents.length ? `${documentCoverage}%` : "0%",
-        detail: `${validDocuments} de ${documents.length} em conformidade`,
+        value: filteredDocuments.length ? `${documentCoverage}%` : "0%",
+        detail: `${validDocuments} de ${filteredDocuments.length} em conformidade`,
         icon: CheckCircle2,
         tone:
           documentCoverage >= 90
@@ -622,7 +666,7 @@ export function CompliancePage() {
         tone: "cyan",
       },
     ] as const;
-  }, [complianceChecks, documents]);
+  }, [complianceChecks, filteredDocuments]);
 
   return (
     <div className="space-y-6">
@@ -674,6 +718,29 @@ export function CompliancePage() {
         ))}
       </section>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Filtros</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.2fr_180px_180px_180px_180px_220px_auto]">
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 text-zinc-400" size={18} />
+              <Input className="pl-10" placeholder="Buscar documento, veículo ou motorista" value={filters.search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))} />
+            </div>
+            <SearchableSelect value={filters.entityType} onValueChange={(value) => setFilters((current) => ({ ...current, entityType: value }))} placeholder="Entidade" options={[{ value: "", label: "Todas" }, ...entityTypeOptions]} />
+            <SearchableSelect value={filters.documentType} onValueChange={(value) => setFilters((current) => ({ ...current, documentType: value }))} placeholder="Tipo doc." searchPlaceholder="Buscar tipo" options={[{ value: "", label: "Todos" }, ...documentTypeOptions]} />
+            <SearchableSelect value={filters.documentStatus} onValueChange={(value) => setFilters((current) => ({ ...current, documentStatus: value }))} placeholder="Status doc." options={[{ value: "", label: "Todos" }, { value: "valid", label: "Válido" }, { value: "expiring", label: "Vencendo" }, { value: "expired", label: "Vencido" }]} />
+            <SearchableSelect value={filters.checkStatus} onValueChange={(value) => setFilters((current) => ({ ...current, checkStatus: value }))} placeholder="Status checklist" options={[{ value: "", label: "Todos" }, { value: "passed", label: "Aprovado" }, { value: "failed", label: "Reprovado" }, { value: "pending", label: "Pendente" }]} />
+            <SearchableSelect value={filters.vehicleId} onValueChange={(value) => setFilters((current) => ({ ...current, vehicleId: value }))} placeholder="Veículo do checklist" searchPlaceholder="Buscar veículo" options={[{ value: "", label: "Todos os veículos" }, ...vehicleOptions]} />
+            <Button variant="secondary" onClick={() => setFilters({ search: "", entityType: "", documentStatus: "", documentType: "", checkStatus: "", vehicleId: "" })}>
+              <Filter size={18} />
+              Limpar
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       <section className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_minmax(560px,680px)]">
         <Card>
           <CardHeader>
@@ -692,7 +759,7 @@ export function CompliancePage() {
                 </tr>
               </thead>
               <tbody>
-                {documents.map((document) => (
+                {filteredDocuments.map((document) => (
                   <tr key={document._id}>
                     <Td>
                       <div className="flex items-center gap-2">

@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarDays,
@@ -6,7 +6,9 @@ import {
   Download,
   Edit2,
   Eye,
+  Filter,
   Paperclip,
+  Search,
   Trash2,
   Wrench,
 } from "lucide-react";
@@ -80,6 +82,15 @@ export function MaintenancePage() {
   const [editingOrder, setEditingOrder] = useState<MaintenanceOrder>();
   const [detailOrder, setDetailOrder] = useState<MaintenanceOrder>();
   const [formError, setFormError] = useState<string>();
+  const [filters, setFilters] = useState({
+    search: "",
+    vehicleId: "",
+    type: "",
+    priority: "",
+    status: "",
+    from: "",
+    to: "",
+  });
   const [previewAttachment, setPreviewAttachment] = useState<{
     fileName: string;
     url: string;
@@ -152,29 +163,46 @@ export function MaintenancePage() {
     setFormError(undefined);
   }
 
-  const chartData = [
-    {
-      status: "Aberta",
-      total: orders.filter((order) => order.status === "open").length,
-    },
-    {
-      status: "Agendada",
-      total: orders.filter((order) => order.status === "scheduled").length,
-    },
-    {
-      status: "Execucao",
-      total: orders.filter((order) => order.status === "in_progress").length,
-    },
-    {
-      status: "Fechada",
-      total: orders.filter((order) => order.status === "closed").length,
-    },
-  ];
   const vehicleOptions = vehicles.map((vehicle) => ({
     value: vehicle._id,
     label: `${vehicle.plate} - ${vehicle.nickname ?? vehicle.model}`,
     searchText: `${vehicle.plate} ${vehicle.nickname ?? ""} ${vehicle.brand} ${vehicle.model}`,
   }));
+  const filteredOrders = useMemo(() => {
+    const term = filters.search.trim().toLowerCase();
+    return orders.filter((order) => {
+      const vehicleText = vehicleOptions.find((vehicle) => vehicle.value === order.vehicleId)?.searchText?.toLowerCase() ?? "";
+      const scheduledAt = order.scheduledAt?.slice(0, 10) ?? "";
+      return (
+        (!term || vehicleText.includes(term) || String(order.type).toLowerCase().includes(term)) &&
+        (!filters.vehicleId || order.vehicleId === filters.vehicleId) &&
+        (!filters.type || order.type === filters.type) &&
+        (!filters.priority || order.priority === filters.priority) &&
+        (!filters.status || order.status === filters.status) &&
+        (!filters.from || scheduledAt >= filters.from) &&
+        (!filters.to || scheduledAt <= filters.to)
+      );
+    });
+  }, [orders, filters, vehicleOptions]);
+
+  const chartData = [
+    {
+      status: "Aberta",
+      total: filteredOrders.filter((order) => order.status === "open").length,
+    },
+    {
+      status: "Agendada",
+      total: filteredOrders.filter((order) => order.status === "scheduled").length,
+    },
+    {
+      status: "Execucao",
+      total: filteredOrders.filter((order) => order.status === "in_progress").length,
+    },
+    {
+      status: "Fechada",
+      total: filteredOrders.filter((order) => order.status === "closed").length,
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -202,6 +230,30 @@ export function MaintenancePage() {
         </div>
       </section>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Filtros</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.2fr_220px_160px_160px_160px_150px_150px_auto]">
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 text-zinc-400" size={18} />
+              <Input className="pl-10" placeholder="Buscar veículo ou tipo" value={filters.search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))} />
+            </div>
+            <SearchableSelect value={filters.vehicleId} onValueChange={(value) => setFilters((current) => ({ ...current, vehicleId: value }))} placeholder="Veículo" searchPlaceholder="Buscar veículo" options={[{ value: "", label: "Todos os veículos" }, ...vehicleOptions]} />
+            <SearchableSelect value={filters.type} onValueChange={(value) => setFilters((current) => ({ ...current, type: value }))} placeholder="Tipo" options={[{ value: "", label: "Todos" }, ...maintenanceTypeOptions]} />
+            <SearchableSelect value={filters.priority} onValueChange={(value) => setFilters((current) => ({ ...current, priority: value }))} placeholder="Prioridade" options={[{ value: "", label: "Todas" }, ...priorityOptions]} />
+            <SearchableSelect value={filters.status} onValueChange={(value) => setFilters((current) => ({ ...current, status: value }))} placeholder="Status" options={[{ value: "", label: "Todos" }, ...maintenanceStatusOptions]} />
+            <Input type="date" value={filters.from} onChange={(event) => setFilters((current) => ({ ...current, from: event.target.value }))} />
+            <Input type="date" value={filters.to} onChange={(event) => setFilters((current) => ({ ...current, to: event.target.value }))} />
+            <Button variant="secondary" onClick={() => setFilters({ search: "", vehicleId: "", type: "", priority: "", status: "", from: "", to: "" })}>
+              <Filter size={18} />
+              Limpar
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       <section className="grid gap-6 xl:grid-cols-[1fr_420px]">
         <Card>
           <CardHeader>
@@ -221,7 +273,7 @@ export function MaintenancePage() {
                 </tr>
               </thead>
               <tbody>
-                {orders.map((order) => (
+                {filteredOrders.map((order) => (
                   <tr key={order._id}>
                     <Td>
                       <div className="flex items-center gap-2">
@@ -297,7 +349,7 @@ export function MaintenancePage() {
           </CardHeader>
           <CardContent>
             <div className="mb-5 grid grid-cols-2 gap-3">
-              {orders.map((order) => (
+              {filteredOrders.map((order) => (
                 <div
                   key={order._id}
                   className="rounded-lg border border-fleet-line p-3"

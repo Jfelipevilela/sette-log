@@ -70,7 +70,7 @@ export function LoginPage() {
 
       <section className="flex min-h-screen items-center justify-center px-5 py-10">
         <Card className="w-full max-w-md border-white/10 bg-white p-6 text-fleet-ink shadow-soft">
-          <div className="mb-8">
+          <div className="mb-8 flex flex-col items-center text-center">
             <img
               src="/brand/logo_sette_log_nome2.png"
               alt="SETTE Log"

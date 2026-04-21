@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "../../components/ui/card";
 import { DetailModal } from "../../components/ui/detail-modal";
+import { FilterField, FilterPanel } from "../../components/ui/filter-panel";
 import { Input } from "../../components/ui/input";
 import { LoadingState } from "../../components/ui/loading-state";
 import { Modal } from "../../components/ui/modal";
@@ -227,12 +228,12 @@ export function VehiclesPage() {
         </div>
       </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Filtros avancados</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.3fr_180px_180px_160px_160px_auto]">
+      <FilterPanel
+        title="Filtros avançados"
+        description="Busque a frota por placa, status, tipo, setor e cidade."
+      >
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <FilterField label="Busca" className="xl:col-span-2">
             <div className="relative">
               <Search
                 className="absolute left-3 top-2.5 text-zinc-400"
@@ -245,6 +246,8 @@ export function VehiclesPage() {
                 onChange={(event) => setSearch(event.target.value)}
               />
             </div>
+          </FilterField>
+          <FilterField label="Status">
             <SearchableSelect
               value={status}
               onValueChange={setStatus}
@@ -252,6 +255,8 @@ export function VehiclesPage() {
               searchPlaceholder="Buscar status"
               options={[{ value: "", label: "Todos os status" }, ...vehicleStatusOptions]}
             />
+          </FilterField>
+          <FilterField label="Tipo">
             <SearchableSelect
               value={type}
               onValueChange={setType}
@@ -259,29 +264,50 @@ export function VehiclesPage() {
               searchPlaceholder="Buscar tipo"
               options={[{ value: "", label: "Todos os tipos" }, ...vehicleTypeOptions]}
             />
+          </FilterField>
+          <FilterField label="Setor">
             <Input
-              placeholder="Setor"
+              placeholder="Ex.: Operações"
               value={sector}
               onChange={(event) => setSector(event.target.value)}
             />
+          </FilterField>
+          <FilterField label="Cidade">
             <Input
-              placeholder="Cidade"
+              placeholder="Ex.: São Paulo"
               value={city}
               onChange={(event) => setCity(event.target.value)}
             />
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setPage(1);
-                setAppliedFilters({ search, status, type, sector, city });
-              }}
-            >
-              <Filter size={18} />
-              Filtrar
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </FilterField>
+        </div>
+        <div className="mt-4 flex flex-wrap justify-end gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setSearch("");
+              setStatus("");
+              setType("");
+              setSector("");
+              setCity("");
+              setPage(1);
+              setAppliedFilters({ search: "", status: "", type: "", sector: "", city: "" });
+            }}
+          >
+            <Filter size={18} />
+            Limpar filtros
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setPage(1);
+              setAppliedFilters({ search, status, type, sector, city });
+            }}
+          >
+            <Filter size={18} />
+            Aplicar filtros
+          </Button>
+        </div>
+      </FilterPanel>
 
       <Card>
         <CardHeader>
@@ -319,7 +345,7 @@ export function VehiclesPage() {
                                 `${vehicle.brand} ${vehicle.model}`}
                             </span>
                             <span className="text-xs text-zinc-500">
-                              {vehicle.plate} - {vehicle.year} -{" "}
+                              {vehicle.sector} - {vehicle.year} -{" "}
                               {vehicleTypeLabel(vehicle.type)}
                             </span>
                           </div>

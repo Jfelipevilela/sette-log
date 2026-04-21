@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Edit2,
+  Eye,
   FileSpreadsheet,
   KeyRound,
   Loader2,
@@ -38,8 +39,10 @@ import { Table, Td, Th } from "../../components/ui/table";
 import {
   apiErrorMessage,
   createUser,
+  disableUserApiAccess,
   deleteUser,
   downloadImportTemplate,
+  enableUserApiAccess,
   getUsersPage,
   saveSetting,
   updateUser,
@@ -205,6 +208,15 @@ export function SettingsPage() {
   const [appliedUserSearch, setAppliedUserSearch] = useState("");
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<SystemUser>();
+  const [detailUser, setDetailUser] = useState<SystemUser>();
+  const [apiTokenModal, setApiTokenModal] = useState<{
+    userId: string;
+    userName: string;
+    token: string;
+  }>();
+  const [apiTokensByUser, setApiTokensByUser] = useState<Record<string, string>>(
+    {},
+  );
   const [userError, setUserError] = useState<string>();
   const [importResource, setImportResource] = useState("vehicles");
   const [importFile, setImportFile] = useState<File>();
@@ -361,6 +373,48 @@ export function SettingsPage() {
       setMessage(apiErrorMessage(error, "Não foi possível excluir o usuário.")),
   });
 
+  const enableApiAccessMutation = useMutation({
+    mutationFn: enableUserApiAccess,
+    onSuccess: async (result) => {
+      setApiTokensByUser((current) => ({
+        ...current,
+        [result.user._id]: result.apiToken,
+      }));
+      setApiTokenModal({
+        userId: result.user._id,
+        userName: result.user.name,
+        token: result.apiToken,
+      });
+      setDetailUser((current) =>
+        current?._id === result.user._id ? result.user : current,
+      );
+      setMessage("Token de API gerado com sucesso.");
+      await queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+    onError: (error) =>
+      setMessage(
+        apiErrorMessage(error, "N?o foi poss?vel gerar o token de API."),
+      ),
+  });
+
+  const disableApiAccessMutation = useMutation({
+    mutationFn: disableUserApiAccess,
+    onSuccess: async (user) => {
+      setApiTokensByUser((current) => {
+        const next = { ...current };
+        delete next[user._id];
+        return next;
+      });
+      setDetailUser((current) => (current?._id === user._id ? user : current));
+      setMessage("Acesso ? API removido com sucesso.");
+      await queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+    onError: (error) =>
+      setMessage(
+        apiErrorMessage(error, "N?o foi poss?vel remover o acesso ? API."),
+      ),
+  });
+
   function handleSaveSettings(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -440,7 +494,7 @@ export function SettingsPage() {
           disabled={saveSettingsMutation.isPending}
         >
           <ShieldCheck size={18} />
-          {saveSettingsMutation.isPending ? "Salvando..." : "Salvar parâmetros"}
+          {saveSettingsMutation.isPending ? "Salvando..." : "Salvar par?metros"}
         </Button>
         </div>
       </section>
@@ -525,6 +579,7 @@ export function SettingsPage() {
                     <Th>Email</Th>
                     <Th>Perfil</Th>
                     <Th>Status</Th>
+                    <Th>API</Th>
                     <Th>Criado em</Th>
                     <Th>Ações</Th>
                   </tr>
@@ -549,10 +604,27 @@ export function SettingsPage() {
                           {labelFor(user.status)}
                         </Badge>
                       </Td>
+                      <Td>
+                        {user.apiAccessEnabled ? (
+                          <div className="space-y-1">
+                            <Badge tone="green">Habilitado</Badge>
+                            <span className="block text-xs text-zinc-500">
+                              {user.apiTokenPreview ?? "Token ativo"}
+                            </span>
+                          </div>
+                        ) : (
+                          <Badge tone="neutral">Desabilitado</Badge>
+                        )}
+                      </Td>
                       <Td>{formatDateTime(user.createdAt)}</Td>
                       <Td>
                         <ActionMenu
                           items={[
+                            {
+                              label: "Detalhes",
+                              icon: <Eye size={15} />,
+                              onClick: () => setDetailUser(user),
+                            },
                             {
                               label: "Editar",
                               icon: <Edit2 size={15} />,
@@ -575,6 +647,31 @@ export function SettingsPage() {
                                         : "active",
                                   },
                                 }),
+                            },
+                            {
+                              label: user.apiAccessEnabled
+                                ? "Regenerar token API"
+                                : "Gerar token API",
+                              icon: <KeyRound size={15} />,
+                              disabled: enableApiAccessMutation.isPending,
+                              onClick: () => enableApiAccessMutation.mutate(user._id),
+                            },
+                            {
+                              label: "Revogar acesso API",
+                              icon: <X size={15} />,
+                              danger: true,
+                              disabled:
+                                !user.apiAccessEnabled ||
+                                disableApiAccessMutation.isPending,
+                              onClick: () => {
+                                if (
+                                  window.confirm(
+                                    `Revogar o acesso à API do usuário ${user.name}?`,
+                                  )
+                                ) {
+                                  disableApiAccessMutation.mutate(user._id);
+                                }
+                              },
                             },
                             {
                               label: "Excluir",
@@ -609,7 +706,7 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* ── Importar dados antigos ────────────────────────────────── */}
+      {/* �?????��?????� Importar dados antigos �?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????� */}
       <Card className="overflow-hidden">
         <CardHeader className="relative bg-gradient-to-r from-emerald-50 via-white to-cyan-50">
           <span className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-fleet-green via-cyan-500 to-fleet-amber" />
@@ -953,9 +1050,9 @@ export function SettingsPage() {
                               {result.resource === "fuel-records"
                                 ? "Abastecimentos"
                                 : result.resource === "maintenance-orders"
-                                  ? "Manutenções"
+                                  ? "Manuten??es"
                                   : result.resource === "vehicles"
-                                    ? "Veículos"
+                                    ? "Ve?culos"
                                     : result.resource === "drivers"
                                       ? "Motoristas"
                                       : "Documentos"}
@@ -998,7 +1095,7 @@ export function SettingsPage() {
                                 {result.resource === "fuel-records"
                                   ? "Abastecimentos"
                                   : result.resource === "maintenance-orders"
-                                    ? "Manutenções"
+                                    ? "Manuten??es"
                                     : result.resource}
                               </p>
                               {result.errors.slice(0, 3).map((error) => (
@@ -1088,8 +1185,8 @@ export function SettingsPage() {
                         {importResult.fileName}
                       </span>
                       {importResult.failed === 0
-                        ? " — importado com sucesso!"
-                        : ` — ${importResult.failed} linha(s) com erro. Corrija e reimporte.`}
+                        ? " �????? importado com sucesso!"
+                        : ` �????? ${importResult.failed} linha(s) com erro. Corrija e reimporte.`}
                     </span>
                   </div>
                   {/* Errors */}
@@ -1185,7 +1282,7 @@ export function SettingsPage() {
 
       <Modal
         open={isUserModalOpen}
-        title={editingUser ? "Editar usuário" : "Novo usuário"}
+        title={editingUser ? "Editar usu?rio" : "Novo usu?rio"}
         description={
           editingUser
             ? "Atualize dados, perfil e status de acesso."
@@ -1268,6 +1365,161 @@ export function SettingsPage() {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      <Modal
+        open={Boolean(apiTokenModal)}
+        title="Token de API gerado"
+        description="Copie e guarde agora. Depois ele não poderá ser visualizado novamente."
+        onClose={() => setApiTokenModal(undefined)}
+      >
+        <div className="space-y-4">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            Token gerado para <strong>{apiTokenModal?.userName}</strong>.
+          </div>
+          <label className="space-y-2 text-sm font-medium">
+            Token
+            <Input readOnly value={apiTokenModal?.token ?? ""} />
+          </label>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={async () => {
+                if (apiTokenModal?.token) {
+                  await navigator.clipboard.writeText(apiTokenModal.token);
+                  setMessage("Token copiado para a área de transferência.");
+                }
+              }}
+            >
+              Copiar token
+            </Button>
+            <Button type="button" onClick={() => setApiTokenModal(undefined)}>
+              Fechar
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={Boolean(detailUser)}
+        title="Detalhes do usuário"
+        description="Dados cadastrais, perfil e acesso à API."
+        onClose={() => setDetailUser(undefined)}
+      >
+        <div className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-lg border border-fleet-line bg-zinc-50/70 p-4">
+              <span className="block text-xs font-semibold uppercase tracking-wide text-zinc-500">Nome</span>
+              <strong className="mt-2 block text-fleet-ink">{detailUser?.name ?? "-"}</strong>
+            </div>
+            <div className="rounded-lg border border-fleet-line bg-zinc-50/70 p-4">
+              <span className="block text-xs font-semibold uppercase tracking-wide text-zinc-500">Email</span>
+              <strong className="mt-2 block text-fleet-ink">{detailUser?.email ?? "-"}</strong>
+            </div>
+            <div className="rounded-lg border border-fleet-line bg-zinc-50/70 p-4">
+              <span className="block text-xs font-semibold uppercase tracking-wide text-zinc-500">Perfil</span>
+              <strong className="mt-2 block text-fleet-ink">
+                {detailUser?.roles?.map((role) => roleLabels[role] ?? role).join(", ") ?? "-"}
+              </strong>
+            </div>
+            <div className="rounded-lg border border-fleet-line bg-zinc-50/70 p-4">
+              <span className="block text-xs font-semibold uppercase tracking-wide text-zinc-500">Status</span>
+              <div className="mt-2">
+                <Badge tone={statusTone[detailUser?.status ?? ""] ?? "neutral"}>
+                  {labelFor(detailUser?.status)}
+                </Badge>
+              </div>
+            </div>
+            <div className="rounded-lg border border-fleet-line bg-zinc-50/70 p-4">
+              <span className="block text-xs font-semibold uppercase tracking-wide text-zinc-500">Filial</span>
+              <strong className="mt-2 block text-fleet-ink">{detailUser?.branchId ?? "Sem filial"}</strong>
+            </div>
+            <div className="rounded-lg border border-fleet-line bg-zinc-50/70 p-4">
+              <span className="block text-xs font-semibold uppercase tracking-wide text-zinc-500">Criado em</span>
+              <strong className="mt-2 block text-fleet-ink">{formatDateTime(detailUser?.createdAt)}</strong>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <span className="block text-xs font-semibold uppercase tracking-wide text-zinc-500">Acesso à API</span>
+                <div className="mt-2">
+                  <Badge tone={detailUser?.apiAccessEnabled ? "green" : "neutral"}>
+                    {detailUser?.apiAccessEnabled ? "Habilitado" : "Desabilitado"}
+                  </Badge>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={enableApiAccessMutation.isPending}
+                  onClick={() => detailUser && enableApiAccessMutation.mutate(detailUser._id)}
+                >
+                  <KeyRound size={16} />
+                  {detailUser?.apiAccessEnabled ? "Regenerar token" : "Gerar token"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={!detailUser?.apiAccessEnabled || disableApiAccessMutation.isPending}
+                  onClick={() => {
+                    if (detailUser && window.confirm(`Revogar o acesso à API do usuário ${detailUser.name}?`)) {
+                      disableApiAccessMutation.mutate(detailUser._id);
+                      setDetailUser(undefined);
+                    }
+                  }}
+                >
+                  <X size={16} />
+                  Revogar acesso
+                </Button>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <div className="rounded-lg border border-white/80 bg-white/80 p-4">
+                <span className="flex items-center justify-between gap-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  <span>Token</span>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={!detailUser?._id || !apiTokensByUser[detailUser._id]}
+                    onClick={async () => {
+                      const token = detailUser?._id
+                        ? apiTokensByUser[detailUser._id]
+                        : undefined;
+                      if (token) {
+                        await navigator.clipboard.writeText(token);
+                        setMessage("Token copiado para a ?rea de transfer?ncia.");
+                      }
+                    }}
+                  >
+                    Copiar token
+                  </Button>
+                </span>
+                <strong className="mt-2 block break-all text-fleet-ink">
+                  {detailUser?.apiTokenPreview ?? "Token ainda n?o gerado"}
+                </strong>
+                <span className="mt-2 block text-xs text-zinc-500">
+                  O bot?o copia o token completo gerado nesta sess?o para este usu?rio.
+                </span>
+              </div>
+              <div className="rounded-lg border border-white/80 bg-white/80 p-4">
+                <span className="block text-xs font-semibold uppercase tracking-wide text-zinc-500">?ltima gera??o</span>
+                <strong className="mt-2 block text-fleet-ink">
+                  {formatDateTime(detailUser?.lastApiTokenIssuedAt)}
+                </strong>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button type="button" onClick={() => setDetailUser(undefined)}>
+              Fechar
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

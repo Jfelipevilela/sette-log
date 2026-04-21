@@ -184,7 +184,7 @@ export function DashboardPage() {
         <div className="relative flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
           <span className="mb-2 inline-flex rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold uppercase text-emerald-700">
-            Visao executiva
+            Visão executiva
           </span>
           <h2 className="text-2xl font-semibold text-fleet-ink">Dashboard operacional</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
@@ -217,7 +217,7 @@ export function DashboardPage() {
         <StatCard
           label="Veículos"
           value={String(data.kpis.totalVehicles)}
-          detail="Ativos no tenant"
+          detail="Ativos"
           icon={Car}
           tone="green"
         />

@@ -26,6 +26,7 @@ import {
 } from "../../components/ui/card";
 import { AttachmentPreviewModal } from "../../components/ui/attachment-preview-modal";
 import { DetailModal } from "../../components/ui/detail-modal";
+import { FilterField, FilterPanel } from "../../components/ui/filter-panel";
 import { Input } from "../../components/ui/input";
 import { LoadingState } from "../../components/ui/loading-state";
 import { Modal } from "../../components/ui/modal";
@@ -443,9 +444,6 @@ export function FuelRecordsPage() {
                 >
                   <Icon size={21} />
                 </span>
-                <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-1 text-[11px] font-semibold uppercase text-zinc-500">
-                  KPI
-                </span>
               </div>
               <span className="mt-5 block text-sm font-medium text-zinc-500">
                 {item.label}
@@ -499,12 +497,9 @@ export function FuelRecordsPage() {
         </Card>
       </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Filtros</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.2fr_220px_220px_170px_150px_150px_auto]">
+      <FilterPanel description="Filtre por veículo, motorista, combustível e período do abastecimento.">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <FilterField label="Busca" className="xl:col-span-2">
             <div className="relative">
               <Search className="absolute left-3 top-2.5 text-zinc-400" size={18} />
               <Input
@@ -514,6 +509,8 @@ export function FuelRecordsPage() {
                 onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
               />
             </div>
+          </FilterField>
+          <FilterField label="Veículo">
             <SearchableSelect
               value={filters.vehicleId}
               onValueChange={(value) => setFilters((current) => ({ ...current, vehicleId: value }))}
@@ -521,6 +518,8 @@ export function FuelRecordsPage() {
               searchPlaceholder="Buscar veículo"
               options={[{ value: "", label: "Todos os veículos" }, ...vehicleOptions]}
             />
+          </FilterField>
+          <FilterField label="Motorista">
             <SearchableSelect
               value={filters.driverId}
               onValueChange={(value) => setFilters((current) => ({ ...current, driverId: value }))}
@@ -528,28 +527,36 @@ export function FuelRecordsPage() {
               searchPlaceholder="Buscar motorista"
               options={[{ value: "", label: "Todos os motoristas" }, ...driverOptions]}
             />
+          </FilterField>
+          <FilterField label="Combustível">
             <SearchableSelect
               value={filters.fuelType}
               onValueChange={(value) => setFilters((current) => ({ ...current, fuelType: value }))}
-              placeholder="Combustível"
+              placeholder="Todos"
               searchPlaceholder="Buscar combustível"
               options={[{ value: "", label: "Todos" }, ...fuelOptions]}
             />
+          </FilterField>
+          <FilterField label="Data inicial">
             <Input type="date" value={filters.from} onChange={(event) => setFilters((current) => ({ ...current, from: event.target.value }))} />
+          </FilterField>
+          <FilterField label="Data final">
             <Input type="date" value={filters.to} onChange={(event) => setFilters((current) => ({ ...current, to: event.target.value }))} />
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setPage(1);
-                setFilters({ search: "", vehicleId: "", driverId: "", fuelType: "", from: "", to: "" });
-              }}
-            >
-              <Filter size={18} />
-              Limpar
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </FilterField>
+        </div>
+        <div className="mt-4 flex flex-wrap justify-end gap-2">
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setPage(1);
+              setFilters({ search: "", vehicleId: "", driverId: "", fuelType: "", from: "", to: "" });
+            }}
+          >
+            <Filter size={18} />
+            Limpar filtros
+          </Button>
+        </div>
+      </FilterPanel>
 
       <Card className="overflow-hidden">
         <CardHeader className="border-b border-fleet-line bg-zinc-50/70">

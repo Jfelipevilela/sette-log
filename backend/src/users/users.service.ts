@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { hash } from "bcryptjs";
+import { createHash, randomBytes } from "crypto";
 import { FilterQuery, Model } from "mongoose";
 import { Types } from "mongoose";
 import { PaginationQueryDto } from "../common/dto/pagination-query.dto";
@@ -24,7 +25,7 @@ export class UsersService {
   async findByEmail(email: string, includeSecrets = false) {
     const query = this.userModel.findOne({ email: email.toLowerCase() });
     if (includeSecrets) {
-      query.select("+passwordHash +refreshTokenHash");
+      query.select("+passwordHash +refreshTokenHash +apiTokenHash");
     }
     return query.exec();
   }
@@ -32,7 +33,7 @@ export class UsersService {
   async findById(id: string, includeSecrets = false) {
     const query = this.userModel.findById(id);
     if (includeSecrets) {
-      query.select("+passwordHash +refreshTokenHash");
+      query.select("+passwordHash +refreshTokenHash +apiTokenHash");
     }
     return query.exec();
   }
@@ -40,7 +41,7 @@ export class UsersService {
   async list(
     tenantId: string,
     query: PaginationQueryDto,
-  ): Promise<PaginatedResponse<User>> {
+  ): Promise<PaginatedResponse<Record<string, unknown>>> {
     const filter: FilterQuery<User> = { tenantId };
     if (query.search) {
       filter.$or = [
@@ -65,7 +66,7 @@ export class UsersService {
     ]);
 
     return {
-      data,
+      data: data.map((item) => this.toPublic(item)),
       meta: {
         page,
         limit,
@@ -138,6 +139,64 @@ export class UsersService {
     });
   }
 
+  async enableApiAccess(tenantId: string, id: string) {
+    const rawToken = `slapi_${randomBytes(24).toString("hex")}`;
+    const apiTokenHash = this.hashApiToken(rawToken);
+    const preview = `${rawToken.slice(0, 10)}...${rawToken.slice(-6)}`;
+    const user = await this.userModel
+      .findOneAndUpdate(
+        { _id: id, tenantId },
+        {
+          apiAccessEnabled: true,
+          apiTokenHash,
+          apiTokenPreview: preview,
+          lastApiTokenIssuedAt: new Date(),
+        },
+        { new: true },
+      )
+      .lean()
+      .exec();
+    if (!user) {
+      throw new NotFoundException("Usuário não encontrado.");
+    }
+    return {
+      user: this.toPublic(user),
+      apiToken: rawToken,
+    };
+  }
+
+  async disableApiAccess(tenantId: string, id: string) {
+    const user = await this.userModel
+      .findOneAndUpdate(
+        { _id: id, tenantId },
+        {
+          apiAccessEnabled: false,
+          apiTokenHash: undefined,
+          apiTokenPreview: undefined,
+          lastApiTokenIssuedAt: undefined,
+        },
+        { new: true },
+      )
+      .lean()
+      .exec();
+    if (!user) {
+      throw new NotFoundException("Usuário não encontrado.");
+    }
+    return this.toPublic(user);
+  }
+
+  async findByApiToken(apiToken: string, includeSecrets = false) {
+    const query = this.userModel.findOne({
+      apiAccessEnabled: true,
+      apiTokenHash: this.hashApiToken(apiToken),
+      status: "active",
+    });
+    if (includeSecrets) {
+      query.select("+apiTokenHash");
+    }
+    return query.exec();
+  }
+
   toPublic(user: object) {
     const clone = { ...(this.serialize(user) as Record<string, unknown>) };
     delete clone.passwordHash;
@@ -177,5 +236,9 @@ export class UsersService {
     return Array.from(
       new Set(roles.flatMap((role) => ROLE_PERMISSIONS[role] ?? [])),
     );
+  }
+
+  private hashApiToken(token: string) {
+    return createHash("sha256").update(token).digest("hex");
   }
 }

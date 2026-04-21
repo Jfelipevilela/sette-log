@@ -33,6 +33,18 @@ export class UsersController {
     return this.usersService.update(user.tenantId, id, dto);
   }
 
+  @Post(':id/api-access')
+  @RequirePermissions(PERMISSIONS.USERS_MANAGE)
+  enableApiAccess(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.usersService.enableApiAccess(user.tenantId, id);
+  }
+
+  @Delete(':id/api-access')
+  @RequirePermissions(PERMISSIONS.USERS_MANAGE)
+  disableApiAccess(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.usersService.disableApiAccess(user.tenantId, id);
+  }
+
   @Delete(':id')
   @RequirePermissions(PERMISSIONS.USERS_MANAGE)
   remove(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {

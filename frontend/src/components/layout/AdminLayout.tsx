@@ -67,7 +67,7 @@ export function AdminLayout() {
       >
         <div className="flex flex-col gap-3 border-b border-white/10 p-4 flex-none">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg bg-white/8 shadow-lg shadow-emerald-950/25 ring-1 ring-white/15">
+            <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg bg-white/8 shadow-lg shadow-emerald-950/25 ">
               <img
                 src="/brand/logo-sette-log.png"
                 alt="SETTE Log"

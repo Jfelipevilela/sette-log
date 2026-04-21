@@ -50,7 +50,7 @@ export function LoginPage() {
         className="relative hidden min-h-screen overflow-hidden lg:block"
         style={{
           backgroundImage:
-            "linear-gradient(90deg, rgba(16,18,15,0.88), rgba(16,18,15,0.18)), url('https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1600&q=80')",
+            "linear-gradient(90deg, rgba(16,18,15,0.88), rgba(16,18,15,0.18)), url('/brand/login.png')",
           backgroundSize: 'cover',
           backgroundPosition: 'center'
         }}

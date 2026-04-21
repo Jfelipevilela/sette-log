@@ -29,6 +29,9 @@ export type SystemUser = {
   roles: string[];
   permissions: string[];
   status: 'active' | 'inactive' | 'blocked';
+  apiAccessEnabled?: boolean;
+  apiTokenPreview?: string;
+  lastApiTokenIssuedAt?: string;
   lastLoginAt?: string;
   createdAt?: string;
   updatedAt?: string;

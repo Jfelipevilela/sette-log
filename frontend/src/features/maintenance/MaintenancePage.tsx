@@ -32,6 +32,7 @@ import {
   CardTitle,
 } from "../../components/ui/card";
 import { DetailModal } from "../../components/ui/detail-modal";
+import { FilterField, FilterPanel } from "../../components/ui/filter-panel";
 import { Input } from "../../components/ui/input";
 import { Modal } from "../../components/ui/modal";
 import { SearchableSelect } from "../../components/ui/searchable-select";
@@ -230,29 +231,40 @@ export function MaintenancePage() {
         </div>
       </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Filtros</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.2fr_220px_160px_160px_160px_150px_150px_auto]">
+      <FilterPanel description="Refine ordens por veículo, tipo, prioridade, status e período.">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <FilterField label="Busca" className="xl:col-span-2">
             <div className="relative">
               <Search className="absolute left-3 top-2.5 text-zinc-400" size={18} />
               <Input className="pl-10" placeholder="Buscar veículo ou tipo" value={filters.search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))} />
             </div>
-            <SearchableSelect value={filters.vehicleId} onValueChange={(value) => setFilters((current) => ({ ...current, vehicleId: value }))} placeholder="Veículo" searchPlaceholder="Buscar veículo" options={[{ value: "", label: "Todos os veículos" }, ...vehicleOptions]} />
-            <SearchableSelect value={filters.type} onValueChange={(value) => setFilters((current) => ({ ...current, type: value }))} placeholder="Tipo" options={[{ value: "", label: "Todos" }, ...maintenanceTypeOptions]} />
-            <SearchableSelect value={filters.priority} onValueChange={(value) => setFilters((current) => ({ ...current, priority: value }))} placeholder="Prioridade" options={[{ value: "", label: "Todas" }, ...priorityOptions]} />
-            <SearchableSelect value={filters.status} onValueChange={(value) => setFilters((current) => ({ ...current, status: value }))} placeholder="Status" options={[{ value: "", label: "Todos" }, ...maintenanceStatusOptions]} />
+          </FilterField>
+          <FilterField label="Veículo">
+            <SearchableSelect value={filters.vehicleId} onValueChange={(value) => setFilters((current) => ({ ...current, vehicleId: value }))} placeholder="Todos os veículos" searchPlaceholder="Buscar veículo" options={[{ value: "", label: "Todos os veículos" }, ...vehicleOptions]} />
+          </FilterField>
+          <FilterField label="Tipo">
+            <SearchableSelect value={filters.type} onValueChange={(value) => setFilters((current) => ({ ...current, type: value }))} placeholder="Todos" options={[{ value: "", label: "Todos" }, ...maintenanceTypeOptions]} />
+          </FilterField>
+          <FilterField label="Prioridade">
+            <SearchableSelect value={filters.priority} onValueChange={(value) => setFilters((current) => ({ ...current, priority: value }))} placeholder="Todas" options={[{ value: "", label: "Todas" }, ...priorityOptions]} />
+          </FilterField>
+          <FilterField label="Status">
+            <SearchableSelect value={filters.status} onValueChange={(value) => setFilters((current) => ({ ...current, status: value }))} placeholder="Todos" options={[{ value: "", label: "Todos" }, ...maintenanceStatusOptions]} />
+          </FilterField>
+          <FilterField label="Data inicial">
             <Input type="date" value={filters.from} onChange={(event) => setFilters((current) => ({ ...current, from: event.target.value }))} />
+          </FilterField>
+          <FilterField label="Data final">
             <Input type="date" value={filters.to} onChange={(event) => setFilters((current) => ({ ...current, to: event.target.value }))} />
-            <Button variant="secondary" onClick={() => setFilters({ search: "", vehicleId: "", type: "", priority: "", status: "", from: "", to: "" })}>
-              <Filter size={18} />
-              Limpar
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </FilterField>
+        </div>
+        <div className="mt-4 flex flex-wrap justify-end gap-2">
+          <Button variant="secondary" onClick={() => setFilters({ search: "", vehicleId: "", type: "", priority: "", status: "", from: "", to: "" })}>
+            <Filter size={18} />
+            Limpar filtros
+          </Button>
+        </div>
+      </FilterPanel>
 
       <section className="grid gap-6 xl:grid-cols-[1fr_420px]">
         <Card>

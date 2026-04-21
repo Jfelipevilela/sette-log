@@ -8,6 +8,7 @@ export type AuthenticatedUser = {
   branchId?: string;
   roles: string[];
   permissions: string[];
+  authType?: 'jwt' | 'api_token';
 };
 
 export type AuthenticatedRequest = Request & {

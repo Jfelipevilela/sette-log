@@ -37,6 +37,18 @@ export class User {
   @Prop({ select: false })
   refreshTokenHash?: string;
 
+  @Prop({ default: false, index: true })
+  apiAccessEnabled: boolean;
+
+  @Prop({ select: false })
+  apiTokenHash?: string;
+
+  @Prop()
+  apiTokenPreview?: string;
+
+  @Prop()
+  lastApiTokenIssuedAt?: Date;
+
   @Prop()
   lastLoginAt?: Date;
 }

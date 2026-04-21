@@ -21,6 +21,8 @@ export const api = axios.create({
   timeout: 8000,
 });
 
+let sessionExpiredHandled = false;
+
 export function apiErrorMessage(error: unknown, fallback: string) {
   if (error instanceof AxiosError) {
     const responseMessage = error.response?.data?.message;
@@ -79,6 +81,24 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
+    const status = error?.response?.status;
+    const url = String(error?.config?.url ?? "");
+    const isAuthRequest = url.includes("/auth/");
+    if (status === 401 && !isAuthRequest && !sessionExpiredHandled) {
+      sessionExpiredHandled = true;
+      useAuthStore.getState().logout();
+      notify({
+        title: "Sessão expirada",
+        description: "Entre novamente para continuar usando o sistema.",
+        tone: "info",
+      });
+      if (window.location.pathname !== "/login") {
+        window.history.replaceState(null, "", "/login");
+        window.dispatchEvent(new PopStateEvent("popstate"));
+      }
+      return Promise.reject(error);
+    }
+
     const method = error?.config?.method?.toUpperCase?.();
     if (method && method !== "GET") {
       notify({
@@ -100,6 +120,7 @@ export async function login(email: string, password: string) {
     email,
     password,
   });
+  sessionExpiredHandled = false;
   return data;
 }
 
@@ -188,6 +209,18 @@ export async function deleteUser(id: string) {
   const { data } = await api.delete<{ success: boolean; deletedId: string }>(
     `/users/${id}`,
   );
+  return data;
+}
+
+export async function enableUserApiAccess(id: string) {
+  const { data } = await api.post<{ user: SystemUser; apiToken: string }>(
+    `/users/${id}/api-access`,
+  );
+  return data;
+}
+
+export async function disableUserApiAccess(id: string) {
+  const { data } = await api.delete<SystemUser>(`/users/${id}/api-access`);
   return data;
 }
 

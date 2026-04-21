@@ -263,7 +263,7 @@ async function seed() {
     {
       tenantId,
       vehicleId: vehicleA._id.toString(),
-      name: 'Revisao preventiva 90 mil km',
+      name: 'Revisão preventiva 90 mil km',
       recurrenceType: 'km',
       everyKm: 10000,
       dueOdometerKm: 90000,

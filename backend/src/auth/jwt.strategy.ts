@@ -41,7 +41,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       tenantId: user.tenantId,
       branchId: user.branchId,
       roles: user.roles,
-      permissions: user.permissions
+      permissions: user.permissions,
+      authType: 'jwt'
     };
   }
 }

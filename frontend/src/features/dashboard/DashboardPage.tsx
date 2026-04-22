@@ -40,6 +40,7 @@ import { getDashboard } from "../../lib/api";
 import {
   labelFor,
   maintenanceTypeLabels,
+  priorityLabels,
   severityLabels,
 } from "../../lib/labels";
 
@@ -87,9 +88,68 @@ const fuelTypeColors = [
   "#71717a",
 ];
 
+const alertTypeLabels: Record<string, string> = {
+  maintenance_due: "Manutenção próxima",
+  document_expiring: "Documento vencendo",
+  speeding: "Excesso de velocidade",
+  geofence_enter: "Entrada em geocerca",
+  geofence_exit: "Saída de geocerca",
+  idle_too_long: "Veículo parado",
+  low_battery: "Bateria baixa",
+  fuel_anomaly: "Anomalia de consumo",
+};
+
 function safeNumber(value: unknown) {
   const numberValue = Number(value ?? 0);
   return Number.isFinite(numberValue) ? numberValue : 0;
+}
+
+function CostBreakdownTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload?: Record<string, unknown> }>;
+  label?: string;
+}) {
+  if (!active || !payload?.length) {
+    return null;
+  }
+
+  const point = payload[0]?.payload ?? {};
+  const total = safeNumber(point.total);
+  const fuelCost = safeNumber(point.fuelCost);
+  const maintenanceCost = safeNumber(point.maintenanceCost);
+  const expenseCost = safeNumber(point.expenseCost);
+  const liters = safeNumber(point.liters);
+
+  return (
+    <div
+      className="min-w-[220px] rounded-lg border border-slate-200 bg-white p-3 shadow-[0_12px_30px_rgba(22,24,22,0.12)]"
+      style={chartTooltipStyle}
+    >
+      <p className="text-sm font-semibold text-fleet-ink">{label}</p>
+      <div className="mt-2 space-y-1.5 text-sm text-zinc-600">
+        <div className="flex items-center justify-between gap-3">
+          <span>Custo total</span>
+          <strong className="text-fleet-green">{formatCurrency(total)}</strong>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <span>Combustível</span>
+          <span>{formatCurrency(fuelCost)}</span>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <span>Manutenção</span>
+          <span>{formatCurrency(maintenanceCost)}</span>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <span>Outras despesas</span>
+          <span>{formatCurrency(expenseCost)}</span>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function DashboardPage() {
@@ -219,7 +279,7 @@ export function DashboardPage() {
               />
             </label>
             <label className="space-y-2 text-sm font-medium text-fleet-ink">
-              AtÃ©
+              Até
               <Input
                 type="date"
                 value={to}
@@ -303,7 +363,7 @@ export function DashboardPage() {
             </div>
             <div className="flex flex-wrap gap-2">
               <Badge tone="green">Custo total</Badge>
-              <Badge tone="cyan">Litros</Badge>
+
               <Badge tone="amber">Atualização 30s</Badge>
             </div>
           </CardHeader>
@@ -344,14 +404,7 @@ export function DashboardPage() {
                     axisLine={false}
                     tickFormatter={(value) => `${Number(value)} L`}
                   />
-                  <Tooltip
-                    contentStyle={chartTooltipStyle}
-                    formatter={(value, name) =>
-                      name === "Litros"
-                        ? `${Number(value).toLocaleString("pt-BR")} L`
-                        : formatCurrency(Number(value))
-                    }
-                  />
+                  <Tooltip content={<CostBreakdownTooltip />} />
                   <Area
                     yAxisId="cost"
                     type="monotone"
@@ -390,7 +443,6 @@ export function DashboardPage() {
             </div>
             <div className="flex flex-wrap gap-2">
               <Badge tone="green">Custo total</Badge>
-              <Badge tone="cyan">Litros</Badge>
             </div>
           </CardHeader>
           <CardContent className="h-96 bg-white">
@@ -425,14 +477,7 @@ export function DashboardPage() {
                   axisLine={false}
                   tickFormatter={(value) => `${Number(value)} L`}
                 />
-                <Tooltip
-                  contentStyle={chartTooltipStyle}
-                  formatter={(value, name) =>
-                    name === "Litros"
-                      ? `${Number(value).toLocaleString("pt-BR")} L`
-                      : formatCurrency(Number(value))
-                  }
-                />
+                <Tooltip content={<CostBreakdownTooltip />} />
                 <Area
                   yAxisId="cost"
                   type="monotone"
@@ -526,7 +571,7 @@ export function DashboardPage() {
                   </div>
                   <p className="mt-1 text-xs text-zinc-500">
                     {item.liters.toLocaleString("pt-BR")} L em {item.records}{" "}
-                    lancamento(s)
+                    lançamento(s)
                   </p>
                 </div>
               ))}
@@ -762,38 +807,35 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
-              {data.topFuelCostVehicles.map((vehicle, index) => (
+              {data.recentAlerts.map((alert) => (
                 <div
-                  key={vehicle.vehicleId}
+                  key={alert._id}
                   className="rounded-lg border border-fleet-line p-3"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <VehicleTypeIcon type={vehicle.type} />
+                      <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-50 text-red-600">
+                        <AlertTriangle size={18} />
+                      </span>
                       <div>
                         <strong className="block text-sm">
-                          {index + 1}. {vehicle.plate}
+                          {alertTypeLabels[alert.type] ?? labelFor(alert.type)}
                         </strong>
                         <span className="text-xs text-zinc-500">
-                          {vehicle.label}
+                          {formatDate(alert.triggeredAt)} •{" "}
+                          {labelFor(alert.severity, severityLabels)}
                         </span>
                       </div>
                     </div>
-                    <Badge
-                      tone={index === 0 ? "red" : index < 3 ? "amber" : "cyan"}
-                    >
-                      {formatCurrency(vehicle.totalCost)}
+                    <Badge tone={alert.severity === "critical" ? "red" : alert.severity === "warning" ? "amber" : "cyan"}>
+                      {labelFor(alert.status)}
                     </Badge>
                   </div>
-                  <p className="mt-2 text-sm text-zinc-600">
-                    {vehicle.totalLiters.toLocaleString("pt-BR")} L em{" "}
-                    {vehicle.records} lançamentos
-                  </p>
                 </div>
               ))}
-              {data.topFuelCostVehicles.length === 0 && (
+              {data.recentAlerts.length === 0 && (
                 <p className="text-sm text-zinc-500">
-                  Sem abastecimentos no período.
+                  Nenhum alerta recente aberto.
                 </p>
               )}
             </div>
@@ -806,38 +848,40 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
-              {data.topFuelCostVehicles.map((vehicle, index) => (
+              {data.upcomingMaintenance.map((order) => (
                 <div
-                  key={vehicle.vehicleId}
+                  key={order._id}
                   className="rounded-lg border border-fleet-line p-3"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <VehicleTypeIcon type={vehicle.type} />
+                      <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
+                        <Wrench size={18} />
+                      </span>
                       <div>
                         <strong className="block text-sm">
-                          {index + 1}. {vehicle.plate}
+                          {labelFor(order.type, maintenanceTypeLabels)}
                         </strong>
                         <span className="text-xs text-zinc-500">
-                          {vehicle.label}
+                          {order.scheduledAt
+                            ? formatDate(order.scheduledAt)
+                            : "Sem agendamento"}{" "}
+                          • {labelFor(order.priority, priorityLabels)}
                         </span>
                       </div>
                     </div>
-                    <Badge
-                      tone={index === 0 ? "red" : index < 3 ? "amber" : "cyan"}
-                    >
-                      {formatCurrency(vehicle.totalCost)}
+                    <Badge tone={order.status === "scheduled" ? "cyan" : "amber"}>
+                      {labelFor(order.status)}
                     </Badge>
                   </div>
                   <p className="mt-2 text-sm text-zinc-600">
-                    {vehicle.totalLiters.toLocaleString("pt-BR")} L em{" "}
-                    {vehicle.records} lançamentos
+                    Custo previsto: {formatCurrency(Number(order.totalCost ?? 0))}
                   </p>
                 </div>
               ))}
-              {data.topFuelCostVehicles.length === 0 && (
+              {data.upcomingMaintenance.length === 0 && (
                 <p className="text-sm text-zinc-500">
-                  Sem abastecimentos no período.
+                  Nenhuma manutenção agendada para os próximos 30 dias.
                 </p>
               )}
             </div>

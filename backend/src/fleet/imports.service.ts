@@ -16,6 +16,7 @@ type ImportResource =
   | "drivers"
   | "fuel-records"
   | "maintenance-orders"
+  | "expenses"
   | "documents";
 
 type UploadedSpreadsheetFile = {
@@ -47,6 +48,7 @@ const supportedResources: ImportResource[] = [
   "drivers",
   "fuel-records",
   "maintenance-orders",
+  "expenses",
   "documents",
 ];
 
@@ -65,6 +67,7 @@ const resourceSheetAliases: Record<ImportResource, string[]> = {
     "manutenções",
     "ordens_manutenção",
   ],
+  expenses: ["expenses", "despesas", "lancamentos_financeiros", "financeiro"],
   documents: ["documents", "documentos"],
 };
 
@@ -204,7 +207,13 @@ const columnAliases: Record<string, string[]> = {
   issuedAt: ["emissao", "data_emissao", "issued_at", "issuedat"],
   expiresAt: ["vencimento", "validade", "expires_at", "expiresat"],
   fileUrl: ["arquivo", "url", "file_url", "fileurl"],
-  description: ["descricao", "description", "observação", "observações"],
+  description: ["descricao", "description", "observa????o", "observa????es"],
+  category: ["categoria", "category", "tipo_despesa", "natureza"],
+  subcategory: ["subcategoria", "subcategory", "detalhe"],
+  amount: ["valor", "amount", "valor_total", "custo", "despesa"],
+  occurredAt: ["data", "data_despesa", "ocorrida_em", "occurred_at", "occurredat"],
+  vendor: ["fornecedor", "vendor", "orgao"],
+  documentNumber: ["numero_documento", "document_number", "documentnumber", "numero"],
 };
 
 @Injectable()
@@ -305,6 +314,7 @@ export class ImportsService {
       "drivers",
       "fuel-records",
       "maintenance-orders",
+      "expenses",
       "documents",
     ];
 
@@ -476,6 +486,7 @@ export class ImportsService {
       drivers: ["name", "licenseNumber"],
       "fuel-records": ["vehiclePlate", "liters", "totalCost"],
       "maintenance-orders": ["vehiclePlate"],
+      expenses: ["category", "description", "amount", "occurredAt"],
       documents: ["entityType", "entityReference", "documentType"],
     };
     const expected = expectedByResource[resource];
@@ -602,6 +613,29 @@ export class ImportsService {
         odometerKm: this.numberValue(normalized, "odometerKm"),
         totalCost: this.numberValue(normalized, "totalCost") ?? 0,
         description: this.stringValue(normalized, "description"),
+      };
+    }
+
+    if (resource === "expenses") {
+      const vehiclePlate = this.stringValue(normalized, "vehiclePlate");
+      const driverLicense = this.stringValue(normalized, "driverLicense");
+      return {
+        vehicleId: vehiclePlate
+          ? await this.vehicleIdByPlate(tenantId, vehiclePlate)
+          : undefined,
+        driverId: driverLicense
+          ? await this.driverIdByLicense(tenantId, driverLicense)
+          : undefined,
+        category: this.normalizeExpenseCategory(
+          this.requiredString(normalized, "category", "categoria"),
+        ),
+        subcategory: this.stringValue(normalized, "subcategory"),
+        description: this.requiredString(normalized, "description", "descricao"),
+        amount: this.requiredNumber(normalized, "amount", "valor"),
+        occurredAt: this.dateValue(normalized, "occurredAt") ?? new Date(),
+        costCenter: this.stringValue(normalized, "costCenter"),
+        vendor: this.stringValue(normalized, "vendor"),
+        documentNumber: this.stringValue(normalized, "documentNumber"),
       };
     }
 
@@ -742,6 +776,31 @@ export class ImportsService {
       }
     }
 
+    if (resource === "expenses") {
+      const existing = await this.connection
+        .model("Expense")
+        .findOne({
+          tenantId,
+          vehicleId: payload.vehicleId ?? null,
+          driverId: payload.driverId ?? null,
+          category: payload.category,
+          description: payload.description,
+          occurredAt: payload.occurredAt,
+          amount: payload.amount,
+        })
+        .lean<{ _id: unknown }>()
+        .exec();
+      if (existing?._id) {
+        await this.fleetService.update(
+          "expenses",
+          tenantId,
+          String(existing._id),
+          payload,
+        );
+        return "updated";
+      }
+    }
+
     await this.fleetService.create(
       resource as FleetResource,
       tenantId,
@@ -806,6 +865,7 @@ export class ImportsService {
       drivers: ["name", "licenseNumber"],
       "fuel-records": ["vehiclePlate", "liters"],
       "maintenance-orders": ["vehiclePlate"],
+      expenses: ["category", "description", "amount", "occurredAt"],
       documents: ["entityReference", "documentType"],
     };
     const requiredValues = requiredByResource[resource]
@@ -875,7 +935,8 @@ export class ImportsService {
       vehicles: "veiculo",
       drivers: "motorista",
       "fuel-records": "abastecimento",
-      "maintenance-orders": "manutenção",
+      "maintenance-orders": "manuten????o",
+      expenses: "despesa",
       documents: "documento",
     };
     return labels[resource];
@@ -1150,6 +1211,32 @@ export class ImportsService {
       return "cancelled";
     }
     return "open";
+  }
+
+  private normalizeExpenseCategory(value?: string) {
+    const normalized = this.normalizeKey(value ?? "other");
+    if (["maintenance", "manutencao"].includes(normalized)) {
+      return "maintenance";
+    }
+    if (["documentation", "documentacao", "documento"].includes(normalized)) {
+      return "documentation";
+    }
+    if (["toll", "pedagio"].includes(normalized)) {
+      return "toll";
+    }
+    if (["tax", "imposto", "ipva", "licenciamento"].includes(normalized)) {
+      return "tax";
+    }
+    if (["insurance", "seguro"].includes(normalized)) {
+      return "insurance";
+    }
+    if (["fine", "multa"].includes(normalized)) {
+      return "fine";
+    }
+    if (["incident", "sinistro"].includes(normalized)) {
+      return "incident";
+    }
+    return "other";
   }
 
   private normalizeEntityType(value: string) {

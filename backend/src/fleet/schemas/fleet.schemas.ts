@@ -561,6 +561,9 @@ export class Expense {
   @Prop({ required: true, index: true })
   category: string;
 
+  @Prop({ index: true })
+  subcategory?: string;
+
   @Prop({ required: true })
   description: string;
 
@@ -572,11 +575,17 @@ export class Expense {
 
   @Prop()
   costCenter?: string;
+
+  @Prop()
+  vendor?: string;
+
+  @Prop()
+  documentNumber?: string;
 }
 
 export type ExpenseDocument = HydratedDocument<Expense>;
 export const ExpenseSchema = SchemaFactory.createForClass(Expense);
-ExpenseSchema.index({ tenantId: 1, category: 1, occurredAt: -1 });
+ExpenseSchema.index({ tenantId: 1, category: 1, subcategory: 1, occurredAt: -1 });
 
 @Schema({ timestamps: true, collection: 'fines' })
 export class Fine {

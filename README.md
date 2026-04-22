@@ -12,7 +12,7 @@ O projeto nasce como monorepo com separação clara entre `backend` e `frontend`
 - RBAC com perfis e permissoes granulares.
 - Auditoria global para ações de escrita.
 - Frontend React com layout administrativo, rotas protegidas, React Query e componentes reutilizaveis.
-- Redis preparado no Docker Compose para filas/cache e evolucao para ingestão assincrona.
+- Redis preparado no Docker Compose para filas/cache e evolção para ingestão assincrona.
 - Swagger/OpenAPI em `/api/v1/docs`.
 
 ## ETAPA 2 - Stack final

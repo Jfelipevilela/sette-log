@@ -714,6 +714,9 @@ export class FleetService {
     const maintenanceModel = this.model("maintenance-orders");
     const fuelModel = this.model("fuel-records");
     const expenseModel = this.model("expenses");
+    const fineModel = this.model("fines");
+    const incidentModel = this.model("incidents");
+    const insuranceModel = this.model("insurances");
     const documentModel = this.model("documents");
     const now = new Date();
     const next30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
@@ -765,6 +768,9 @@ export class FleetService {
       expiringDocuments,
       fuelCost,
       expenseCost,
+      fineCost,
+      incidentCost,
+      insuranceCost,
       maintenanceCost,
       costByMonth,
       costByDay,
@@ -772,6 +778,12 @@ export class FleetService {
       maintenanceCostByDay,
       expenseCostByMonth,
       expenseCostByDay,
+      fineCostByMonth,
+      fineCostByDay,
+      incidentCostByMonth,
+      incidentCostByDay,
+      insuranceCostByMonth,
+      insuranceCostByDay,
       fuelByVehicle,
       fuelByType,
       recentAlerts,
@@ -863,6 +875,69 @@ export class FleetService {
           },
         },
         { $group: { _id: null, total: { $sum: "$numericAmount" } } },
+      ]),
+      fineModel.aggregate([
+        {
+          $match: {
+            tenantId,
+            occurredAt: { $gte: periodFrom, $lte: periodTo },
+          },
+        },
+        {
+          $addFields: {
+            numericAmount: {
+              $convert: {
+                input: "$amount",
+                to: "double",
+                onError: 0,
+                onNull: 0,
+              },
+            },
+          },
+        },
+        { $group: { _id: null, total: { $sum: "$numericAmount" } } },
+      ]),
+      incidentModel.aggregate([
+        {
+          $match: {
+            tenantId,
+            occurredAt: { $gte: periodFrom, $lte: periodTo },
+          },
+        },
+        {
+          $addFields: {
+            numericAmount: {
+              $convert: {
+                input: "$amount",
+                to: "double",
+                onError: 0,
+                onNull: 0,
+              },
+            },
+          },
+        },
+        { $group: { _id: null, total: { $sum: "$numericAmount" } } },
+      ]),
+      insuranceModel.aggregate([
+        {
+          $match: {
+            tenantId,
+            startsAt: { $gte: periodFrom, $lte: periodTo },
+          },
+        },
+        {
+          $addFields: {
+            numericPremiumAmount: {
+              $convert: {
+                input: "$premiumAmount",
+                to: "double",
+                onError: 0,
+                onNull: 0,
+              },
+            },
+          },
+        },
+        { $group: { _id: null, total: { $sum: "$numericPremiumAmount" } } },
       ]),
       maintenanceModel.aggregate([
         {
@@ -1109,6 +1184,189 @@ export class FleetService {
         },
         { $sort: { "_id.year": 1, "_id.month": 1, "_id.day": 1 } },
       ]),
+      fineModel.aggregate([
+        {
+          $match: {
+            tenantId,
+            occurredAt: { $gte: last12Months, $lte: historyTo },
+          },
+        },
+        {
+          $addFields: {
+            numericAmount: {
+              $convert: {
+                input: "$amount",
+                to: "double",
+                onError: 0,
+                onNull: 0,
+              },
+            },
+          },
+        },
+        {
+          $group: {
+            _id: {
+              year: { $year: "$occurredAt" },
+              month: { $month: "$occurredAt" },
+            },
+            total: { $sum: "$numericAmount" },
+          },
+        },
+        { $sort: { "_id.year": 1, "_id.month": 1 } },
+      ]),
+      fineModel.aggregate([
+        {
+          $match: {
+            tenantId,
+            occurredAt: { $gte: periodFrom, $lte: periodTo },
+          },
+        },
+        {
+          $addFields: {
+            numericAmount: {
+              $convert: {
+                input: "$amount",
+                to: "double",
+                onError: 0,
+                onNull: 0,
+              },
+            },
+          },
+        },
+        {
+          $group: {
+            _id: {
+              year: { $year: "$occurredAt" },
+              month: { $month: "$occurredAt" },
+              day: { $dayOfMonth: "$occurredAt" },
+            },
+            total: { $sum: "$numericAmount" },
+          },
+        },
+        { $sort: { "_id.year": 1, "_id.month": 1, "_id.day": 1 } },
+      ]),
+      incidentModel.aggregate([
+        {
+          $match: {
+            tenantId,
+            occurredAt: { $gte: last12Months, $lte: historyTo },
+          },
+        },
+        {
+          $addFields: {
+            numericAmount: {
+              $convert: {
+                input: "$amount",
+                to: "double",
+                onError: 0,
+                onNull: 0,
+              },
+            },
+          },
+        },
+        {
+          $group: {
+            _id: {
+              year: { $year: "$occurredAt" },
+              month: { $month: "$occurredAt" },
+            },
+            total: { $sum: "$numericAmount" },
+          },
+        },
+        { $sort: { "_id.year": 1, "_id.month": 1 } },
+      ]),
+      incidentModel.aggregate([
+        {
+          $match: {
+            tenantId,
+            occurredAt: { $gte: periodFrom, $lte: periodTo },
+          },
+        },
+        {
+          $addFields: {
+            numericAmount: {
+              $convert: {
+                input: "$amount",
+                to: "double",
+                onError: 0,
+                onNull: 0,
+              },
+            },
+          },
+        },
+        {
+          $group: {
+            _id: {
+              year: { $year: "$occurredAt" },
+              month: { $month: "$occurredAt" },
+              day: { $dayOfMonth: "$occurredAt" },
+            },
+            total: { $sum: "$numericAmount" },
+          },
+        },
+        { $sort: { "_id.year": 1, "_id.month": 1, "_id.day": 1 } },
+      ]),
+      insuranceModel.aggregate([
+        {
+          $match: {
+            tenantId,
+            startsAt: { $gte: last12Months, $lte: historyTo },
+          },
+        },
+        {
+          $addFields: {
+            numericPremiumAmount: {
+              $convert: {
+                input: "$premiumAmount",
+                to: "double",
+                onError: 0,
+                onNull: 0,
+              },
+            },
+          },
+        },
+        {
+          $group: {
+            _id: {
+              year: { $year: "$startsAt" },
+              month: { $month: "$startsAt" },
+            },
+            total: { $sum: "$numericPremiumAmount" },
+          },
+        },
+        { $sort: { "_id.year": 1, "_id.month": 1 } },
+      ]),
+      insuranceModel.aggregate([
+        {
+          $match: {
+            tenantId,
+            startsAt: { $gte: periodFrom, $lte: periodTo },
+          },
+        },
+        {
+          $addFields: {
+            numericPremiumAmount: {
+              $convert: {
+                input: "$premiumAmount",
+                to: "double",
+                onError: 0,
+                onNull: 0,
+              },
+            },
+          },
+        },
+        {
+          $group: {
+            _id: {
+              year: { $year: "$startsAt" },
+              month: { $month: "$startsAt" },
+              day: { $dayOfMonth: "$startsAt" },
+            },
+            total: { $sum: "$numericPremiumAmount" },
+          },
+        },
+        { $sort: { "_id.year": 1, "_id.month": 1, "_id.day": 1 } },
+      ]),
       fuelModel.aggregate([
         { $match: fuelPeriodMatch },
         {
@@ -1176,7 +1434,7 @@ export class FleetService {
         { $sort: { totalCost: -1 } },
       ]),
       alertModel
-        .find({ tenantId })
+        .find({ tenantId, status: "open" })
         .sort({ triggeredAt: -1 })
         .limit(10)
         .lean<AnyRecord[]>()
@@ -1185,7 +1443,11 @@ export class FleetService {
 
     const totalFuelCost = Number(fuelCost[0]?.total ?? 0);
     const totalFuelLiters = Number(fuelCost[0]?.liters ?? 0);
-    const totalExpenseCost = Number(expenseCost[0]?.total ?? 0);
+    const totalExpenseCost =
+      Number(expenseCost[0]?.total ?? 0) +
+      Number(fineCost[0]?.total ?? 0) +
+      Number(incidentCost[0]?.total ?? 0) +
+      Number(insuranceCost[0]?.total ?? 0);
     const totalMaintenanceCost = Number(maintenanceCost[0]?.total ?? 0);
     const totalOperationalCost =
       totalFuelCost + totalMaintenanceCost + totalExpenseCost;
@@ -1258,12 +1520,31 @@ export class FleetService {
           return `${id.year}-${id.month}` === key;
         })?.total ?? 0,
       );
-      const expenses = Number(
+      const expenses =
+        Number(
         (expenseCostByMonth as AnyRecord[]).find((item) => {
           const id = item._id as { year: number; month: number };
           return `${id.year}-${id.month}` === key;
-        })?.total ?? 0,
-      );
+          })?.total ?? 0,
+        ) +
+        Number(
+          (fineCostByMonth as AnyRecord[]).find((item) => {
+            const id = item._id as { year: number; month: number };
+            return `${id.year}-${id.month}` === key;
+          })?.total ?? 0,
+        ) +
+        Number(
+          (incidentCostByMonth as AnyRecord[]).find((item) => {
+            const id = item._id as { year: number; month: number };
+            return `${id.year}-${id.month}` === key;
+          })?.total ?? 0,
+        ) +
+        Number(
+          (insuranceCostByMonth as AnyRecord[]).find((item) => {
+            const id = item._id as { year: number; month: number };
+            return `${id.year}-${id.month}` === key;
+          })?.total ?? 0,
+        );
       const fuel = Number(point.total ?? 0);
       return {
         ...point,
@@ -1290,12 +1571,31 @@ export class FleetService {
           return `${id.year}-${id.month}-${id.day}` === key;
         })?.total ?? 0,
       );
-      const expenses = Number(
+      const expenses =
+        Number(
         (expenseCostByDay as AnyRecord[]).find((item) => {
           const id = item._id as { year: number; month: number; day: number };
           return `${id.year}-${id.month}-${id.day}` === key;
-        })?.total ?? 0,
-      );
+          })?.total ?? 0,
+        ) +
+        Number(
+          (fineCostByDay as AnyRecord[]).find((item) => {
+            const id = item._id as { year: number; month: number; day: number };
+            return `${id.year}-${id.month}-${id.day}` === key;
+          })?.total ?? 0,
+        ) +
+        Number(
+          (incidentCostByDay as AnyRecord[]).find((item) => {
+            const id = item._id as { year: number; month: number; day: number };
+            return `${id.year}-${id.month}-${id.day}` === key;
+          })?.total ?? 0,
+        ) +
+        Number(
+          (insuranceCostByDay as AnyRecord[]).find((item) => {
+            const id = item._id as { year: number; month: number; day: number };
+            return `${id.year}-${id.month}-${id.day}` === key;
+          })?.total ?? 0,
+        );
       const fuel = Number(point.total ?? 0);
       return {
         ...point,
@@ -1622,6 +1922,18 @@ export class FleetService {
     if (resource === "fuel-records") {
       return this.prepareFuel(payload, tenantId);
     }
+    if (resource === "expenses") {
+      return this.prepareExpense(payload);
+    }
+    if (resource === "fines") {
+      return this.prepareFine(payload);
+    }
+    if (resource === "incidents") {
+      return this.prepareIncident(payload);
+    }
+    if (resource === "insurances") {
+      return this.prepareInsurance(payload);
+    }
     if (resource === "documents") {
       return this.prepareDocument(payload);
     }
@@ -1649,6 +1961,18 @@ export class FleetService {
     }
     if (resource === "fuel-records") {
       return this.prepareFuel({ ...before, ...payload }, tenantId, id);
+    }
+    if (resource === "expenses") {
+      return this.prepareExpense({ ...before, ...payload });
+    }
+    if (resource === "fines") {
+      return this.prepareFine({ ...before, ...payload });
+    }
+    if (resource === "incidents") {
+      return this.prepareIncident({ ...before, ...payload });
+    }
+    if (resource === "insurances") {
+      return this.prepareInsurance({ ...before, ...payload });
     }
     return payload;
   }
@@ -2038,6 +2362,150 @@ export class FleetService {
     };
   }
 
+  private normalizeExpenseCategory(category?: string) {
+    const normalized = String(category ?? "")
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+    const categoryMap: Record<string, string> = {
+      pedagio: "pedagios",
+      pedagios: "pedagios",
+      toll: "pedagios",
+      tolls: "pedagios",
+      imposto: "impostos",
+      impostos: "impostos",
+      ipva: "impostos",
+      licenciamento: "impostos",
+      documento: "documentacao",
+      documentos: "documentacao",
+      documentacao: "documentacao",
+      pneu: "pneus",
+      pneus: "pneus",
+      tyre: "pneus",
+      tires: "pneus",
+      lavagem: "lavagem",
+      lavacao: "lavagem",
+      estetica: "lavagem",
+      administrativo: "administrativo",
+      administracao: "administrativo",
+      escritorio: "administrativo",
+      estacionamento: "estacionamento",
+      parking: "estacionamento",
+      locacao: "locacao",
+      leasing: "locacao",
+      aluguel: "locacao",
+      seguro: "seguro",
+      insurance: "seguro",
+      oficina: "pecas_servicos",
+      pecas: "pecas_servicos",
+      servicos: "pecas_servicos",
+      manutencao: "pecas_servicos",
+      manutencao_corretiva: "pecas_servicos",
+      combustivel: "combustivel",
+      fuel: "combustivel",
+      outro: "outros",
+      outros: "outros",
+    };
+
+    return categoryMap[normalized] ?? (normalized || "outros");
+  }
+
+  private prepareExpense(payload: AnyRecord) {
+    const amount = Number(payload.amount ?? 0);
+    if (!Number.isFinite(amount) || amount < 0) {
+      throw new BadRequestException(
+        "Despesa precisa ter um valor valido maior ou igual a zero.",
+      );
+    }
+
+    const description = String(payload.description ?? "").trim();
+    if (!description) {
+      throw new BadRequestException("Descricao da despesa e obrigatoria.");
+    }
+
+    const category = this.normalizeExpenseCategory(String(payload.category ?? ""));
+    const subcategory = String(payload.subcategory ?? "").trim();
+
+    return {
+      ...payload,
+      amount,
+      description,
+      category,
+      subcategory: subcategory || undefined,
+      occurredAt: payload.occurredAt
+        ? new Date(String(payload.occurredAt))
+        : new Date(),
+      costCenter: payload.costCenter
+        ? String(payload.costCenter).trim()
+        : undefined,
+      vendor: payload.vendor ? String(payload.vendor).trim() : undefined,
+      documentNumber: payload.documentNumber
+        ? String(payload.documentNumber).trim()
+        : undefined,
+    };
+  }
+
+  private prepareFine(payload: AnyRecord) {
+    const amount = Number(payload.amount ?? 0);
+    if (!Number.isFinite(amount) || amount < 0) {
+      throw new BadRequestException("Valor da multa invalido.");
+    }
+
+    return {
+      ...payload,
+      amount,
+      occurredAt: payload.occurredAt
+        ? new Date(String(payload.occurredAt))
+        : new Date(),
+      dueAt: payload.dueAt ? new Date(String(payload.dueAt)) : undefined,
+      infractionCode: payload.infractionCode
+        ? String(payload.infractionCode).trim()
+        : undefined,
+    };
+  }
+
+  private prepareIncident(payload: AnyRecord) {
+    const amount = Number(payload.amount ?? 0);
+    const description = String(payload.description ?? "").trim();
+    if (!description) {
+      throw new BadRequestException("Descricao do sinistro e obrigatoria.");
+    }
+
+    return {
+      ...payload,
+      amount: Number.isFinite(amount) ? amount : 0,
+      description,
+      occurredAt: payload.occurredAt
+        ? new Date(String(payload.occurredAt))
+        : new Date(),
+    };
+  }
+
+  private prepareInsurance(payload: AnyRecord) {
+    const premiumAmount = Number(payload.premiumAmount ?? 0);
+    const provider = String(payload.provider ?? "").trim();
+    const policyNumber = String(payload.policyNumber ?? "").trim();
+
+    if (!provider || !policyNumber) {
+      throw new BadRequestException(
+        "Seguradora e numero da apolice sao obrigatorios.",
+      );
+    }
+
+    return {
+      ...payload,
+      provider,
+      policyNumber,
+      premiumAmount: Number.isFinite(premiumAmount) ? premiumAmount : 0,
+      startsAt: payload.startsAt ? new Date(String(payload.startsAt)) : new Date(),
+      expiresAt: payload.expiresAt
+        ? new Date(String(payload.expiresAt))
+        : new Date(),
+    };
+  }
+
   private async calculateFuelEfficiencyStats(
     tenantId: string,
     vehicleIds: string[],
@@ -2238,12 +2706,15 @@ export class FleetService {
     const totalCost =
       Number(financial.totalFuelCost ?? 0) +
       Number(financial.totalExpenses ?? 0);
-    const odometerKm = Number(vehicle.odometerKm ?? 0);
+    const distanceDrivenKm = Math.max(
+      Number(vehicle.odometerKm ?? 0) - Number(vehicle.initialOdometerKm ?? 0),
+      0,
+    );
     await this.model("vehicles").updateOne(
       { _id: vehicleId, tenantId },
       {
         "financialSummary.costPerKm":
-          odometerKm > 0 ? totalCost / odometerKm : 0,
+          distanceDrivenKm > 0 ? totalCost / distanceDrivenKm : 0,
       },
     );
   }
@@ -2255,8 +2726,10 @@ export class FleetService {
     const [
       fuelSummary,
       expenseSummary,
+      maintenanceSummary,
       fineSummary,
       incidentSummary,
+      insuranceSummary,
       maxFuelOdometer,
     ] = await Promise.all([
       this.model("fuel-records").aggregate([
@@ -2266,12 +2739,32 @@ export class FleetService {
             _id: null,
             totalFuelCost: { $sum: "$totalCost" },
             totalFuelLiters: { $sum: "$liters" },
+            efficiencyDistanceKm: { $sum: { $ifNull: ["$distanceKm", 0] } },
+            efficiencyLiters: {
+              $sum: {
+                $cond: [
+                  { $gt: [{ $ifNull: ["$distanceKm", 0] }, 0] },
+                  "$liters",
+                  0,
+                ],
+              },
+            },
           },
         },
       ]),
       this.model("expenses").aggregate([
         { $match: { tenantId, vehicleId } },
         { $group: { _id: null, total: { $sum: "$amount" } } },
+      ]),
+      this.model("maintenance-orders").aggregate([
+        {
+          $match: {
+            tenantId,
+            vehicleId,
+            status: { $ne: "cancelled" },
+          },
+        },
+        { $group: { _id: null, total: { $sum: "$totalCost" } } },
       ]),
       this.model("fines").aggregate([
         { $match: { tenantId, vehicleId } },
@@ -2280,6 +2773,10 @@ export class FleetService {
       this.model("incidents").aggregate([
         { $match: { tenantId, vehicleId } },
         { $group: { _id: null, total: { $sum: "$amount" } } },
+      ]),
+      this.model("insurances").aggregate([
+        { $match: { tenantId, vehicleId } },
+        { $group: { _id: null, total: { $sum: "$premiumAmount" } } },
       ]),
       this.model("fuel-records")
         .find({ tenantId, vehicleId, odometerKm: { $gt: 0 } })
@@ -2291,10 +2788,21 @@ export class FleetService {
 
     const totalFuelCost = Number(fuelSummary[0]?.totalFuelCost ?? 0);
     const totalFuelLiters = Number(fuelSummary[0]?.totalFuelLiters ?? 0);
+    const efficiencyDistanceKm = Number(
+      fuelSummary[0]?.efficiencyDistanceKm ?? 0,
+    );
+    const efficiencyLiters = Number(fuelSummary[0]?.efficiencyLiters ?? 0);
+    const totalOtherExpenses = Number(expenseSummary[0]?.total ?? 0);
+    const totalMaintenanceCost = Number(maintenanceSummary[0]?.total ?? 0);
+    const totalFines = Number(fineSummary[0]?.total ?? 0);
+    const totalIncidents = Number(incidentSummary[0]?.total ?? 0);
+    const totalInsuranceCost = Number(insuranceSummary[0]?.total ?? 0);
     const totalExpenses =
-      Number(expenseSummary[0]?.total ?? 0) +
-      Number(fineSummary[0]?.total ?? 0) +
-      Number(incidentSummary[0]?.total ?? 0);
+      totalOtherExpenses +
+      totalMaintenanceCost +
+      totalFines +
+      totalIncidents +
+      totalInsuranceCost;
     const vehicle = await this.model("vehicles")
       .findOne({ _id: vehicleId, tenantId })
       .lean<AnyRecord>()
@@ -2303,6 +2811,9 @@ export class FleetService {
       Number(vehicle?.odometerKm ?? 0),
       Number(maxFuelOdometer[0]?.odometerKm ?? 0),
     );
+    const initialOdometerKm = Number(vehicle?.initialOdometerKm ?? 0);
+    const distanceDrivenKm = Math.max(odometerKm - initialOdometerKm, 0);
+    const totalCost = totalFuelCost + totalExpenses;
 
     await this.model("vehicles").updateOne(
       { _id: vehicleId, tenantId },
@@ -2312,9 +2823,20 @@ export class FleetService {
           financialSummary: {
             totalFuelCost,
             totalFuelLiters,
+            totalMaintenanceCost,
+            totalOtherExpenses,
+            totalFines,
+            totalIncidents,
+            totalInsuranceCost,
             totalExpenses,
+            totalOperationalCost: totalCost,
+            distanceDrivenKm,
+            efficiencyDistanceKm,
+            efficiencyLiters,
+            averageKmPerLiter:
+              efficiencyLiters > 0 ? efficiencyDistanceKm / efficiencyLiters : 0,
             costPerKm:
-              odometerKm > 0 ? (totalFuelCost + totalExpenses) / odometerKm : 0,
+              distanceDrivenKm > 0 ? totalCost / distanceDrivenKm : 0,
           },
         },
       },

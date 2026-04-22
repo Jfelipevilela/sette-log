@@ -121,6 +121,32 @@ const DATA_SHEETS: TemplateSheet[] = [
     ],
   },
   {
+    name: "despesas",
+    title: "Despesas",
+    columns: [
+      { label: "placa", description: "Placa do veículo já cadastrado.", required: false, width: 16 },
+      { label: "cnh", description: "CNH do motorista, opcional.", required: false, width: 18 },
+      { label: "categoria *", description: "maintenance, documentation, toll, tax, insurance, fine, incident, other.", required: true, width: 20 },
+      { label: "subcategoria", description: "Detalhe interno opcional.", required: false, width: 20 },
+      { label: "descricao *", description: "Descrição da despesa.", required: true, width: 42 },
+      { label: "valor *", description: "Valor da despesa.", required: true, width: 14 },
+      { label: "data *", description: "Data em DD/MM/AAAA.", required: true, width: 16 },
+      { label: "centro_custo", description: "Centro de custo opcional.", required: false, width: 20 },
+      { label: "fornecedor", description: "Fornecedor ou órgão emissor.", required: false, width: 24 },
+      { label: "numero_documento", description: "NF, boleto, auto ou referência.", required: false, width: 24 },
+    ],
+    examples: [
+      ["ABC1D23", "CNH001", "toll", "Pedágio", "Pedágio Fernão Dias", 42.5, "16/04/2026", "Operação", "Sem Parar", "TAG-4451"],
+      ["LOG7B88", "", "tax", "IPVA", "IPVA 2026 parcela única", 1890, "10/01/2026", "Fiscal", "SEFAZ", "IPVA-2026-01"],
+    ],
+    rules: [
+      "Pode informar placa e/ou CNH, mas ao menos descrição, categoria, valor e data são obrigatórios.",
+      "Se informar placa, ela precisa existir na aba veículos ou no banco.",
+      "Se informar CNH, ela precisa existir na aba motoristas ou no banco.",
+      "Despesas entram em Outras despesas na dashboard e no financeiro da frota.",
+    ],
+  },
+  {
     name: "documentos",
     title: "Documentos",
     columns: [
@@ -179,8 +205,8 @@ export class TemplateGeneratorService {
     sheet.columns = [{ width: 34 }, { width: 95 }];
     this.title(sheet, "Template de importação Sette Log", 2);
     [
-      ["Ordem correta", "1 veículos, 2 motoristas, 3 abastecimentos, 4 manutenções, 5 documentos."],
-      ["Abas importáveis", "Preencha apenas veículos, motoristas, abastecimentos, manutenções e documentos."],
+      ["Ordem correta", "1 veículos, 2 motoristas, 3 abastecimentos, 4 manutenções, 5 despesas, 6 documentos."],
+      ["Abas importáveis", "Preencha apenas veículos, motoristas, abastecimentos, manutenções, despesas e documentos."],
       ["Cabeçalho", "Não altere a primeira linha das abas importáveis."],
       ["Exemplos", "Apague ou substitua os exemplos antes de importar dados reais."],
       ["Datas", "Use DD/MM/AAAA ou AAAA-MM-DD."],

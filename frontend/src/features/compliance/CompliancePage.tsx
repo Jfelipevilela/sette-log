@@ -875,10 +875,10 @@ export function CompliancePage() {
                 <tr>
                   <Th>Tipo</Th>
                   <Th>Entidade</Th>
-                  <Th>NÃºmero</Th>
+                  <Th>Número</Th>
                   <Th>Vencimento</Th>
                   <Th>Status</Th>
-                  <Th>AÃ§Ãµes</Th>
+                  <Th>Ações</Th>
                 </tr>
               </thead>
               <tbody>
@@ -951,7 +951,7 @@ export function CompliancePage() {
             <div>
               <CardTitle>Checklists recentes</CardTitle>
               <p className="mt-1 text-sm text-zinc-500">
-                Entrega por veículo, status, anexos e aÃ§Ãµes rapidas.
+                Entrega por veículo, status, anexos e ações rápidas.
               </p>
             </div>
           </CardHeader>
@@ -1107,15 +1107,15 @@ export function CompliancePage() {
               />
             </label>
             <label className="space-y-2 text-sm font-medium">
-              NÃºmero
+              Número
               <Input
                 name="number"
-                placeholder="NÃºmero do documento"
+                placeholder="Número do documento"
                 defaultValue={editingDocument?.number}
               />
             </label>
             <label className="space-y-2 text-sm font-medium">
-              EmissÃ£o
+              Emissão
               <Input
                 name="issuedAt"
                 type="date"
@@ -1195,8 +1195,8 @@ export function CompliancePage() {
                   )?.plate ?? detailDocument.entityId)
               : undefined,
           },
-          { label: "NÃºmero", value: detailDocument?.number },
-          { label: "EmissÃ£o", value: formatDate(detailDocument?.issuedAt) },
+          { label: "Número", value: detailDocument?.number },
+          { label: "Emissão", value: formatDate(detailDocument?.issuedAt) },
           { label: "Vencimento", value: formatDate(detailDocument?.expiresAt) },
           { label: "Status", value: labelFor(detailDocument?.status) },
           { label: "Arquivo", value: detailDocument?.fileUrl },
@@ -1556,7 +1556,7 @@ export function CompliancePage() {
               <Textarea
                 name="bodyDamageNotes"
                 defaultValue={checkItemNotes(editingCheck, "body_damage_notes")}
-                placeholder="Informe local, nÃºmero e descriÃ§Ã£o do dano. Ex.: porta esquerda riscada, para-choque amassado."
+                placeholder="Informe local, número e descrição do dano. Ex.: porta esquerda riscada, para-choque amassado."
               />
             </label>
             <label className="space-y-2 text-sm font-medium">
@@ -1601,7 +1601,7 @@ export function CompliancePage() {
                   </strong>
                   <p className="mt-1 text-sm text-zinc-500">
                     Adicione fotos do veículo, danos, documentos assinados ou
-                    comprovantes. Ã‰ possÃ­vel selecionar mais de um arquivo.
+                    comprovantes. É possível selecionar mais de um arquivo.
                   </p>
                 </div>
               </div>

@@ -417,6 +417,45 @@ export async function deleteFuelRecord(id: string) {
   return data;
 }
 
+export async function createFine(payload: Record<string, unknown>) {
+  const { data } = await api.post("/finance/fines", payload);
+  return data;
+}
+
+export async function createExpense(payload: Record<string, unknown>) {
+  const { data } = await api.post("/finance/expenses", payload);
+  return data;
+}
+
+export async function createIncident(payload: Record<string, unknown>) {
+  const { data } = await api.post("/finance/incidents", payload);
+  return data;
+}
+
+export async function createInsurance(payload: Record<string, unknown>) {
+  const { data } = await api.post("/finance/insurances", payload);
+  return data;
+}
+
+export async function updateFinanceResource(
+  resource: "expenses" | "fines" | "incidents" | "insurances",
+  id: string,
+  payload: Record<string, unknown>,
+) {
+  const { data } = await api.patch(`/finance/${resource}/${id}`, payload);
+  return data;
+}
+
+export async function deleteFinanceResource(
+  resource: "expenses" | "fines" | "incidents" | "insurances",
+  id: string,
+) {
+  const { data } = await api.delete<{ success: boolean; deletedId: string }>(
+    `/finance/${resource}/${id}`,
+  );
+  return data;
+}
+
 export async function uploadFuelRecordAttachment(id: string, file: File) {
   const formData = new FormData();
   formData.append("file", file);
@@ -603,25 +642,23 @@ export async function uploadLegacySpreadsheet(
 
 export async function downloadImportTemplate() {
   try {
-    const response = await fetch(
-      `/templates/sette-log-importação-template.xlsx?v=${Date.now()}`,
-    );
-    if (!response.ok) {
-      throw new Error("Template não encontrado.");
-    }
+    const response = await api.get("/imports/template", {
+      responseType: "blob",
+      timeout: 60_000,
+    });
 
-    const blob = await response.blob();
+    const blob = response.data as Blob;
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", "sette-log-importação-template.xlsx");
+    link.setAttribute("download", "sette-log-importacao-template.xlsx");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
   } catch (error) {
     throw new Error(
-      apiErrorMessage(error, "Não foi possível baixar o template."),
+      apiErrorMessage(error, "N?o foi poss?vel baixar o template."),
     );
   }
 }

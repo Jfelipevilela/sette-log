@@ -85,6 +85,7 @@ const importResources = [
   { value: "drivers", label: "Motoristas" },
   { value: "fuel-records", label: "Abastecimentos" },
   { value: "maintenance-orders", label: "Ordens de Manutenção" },
+  { value: "expenses", label: "Despesas" },
   { value: "documents", label: "Documentos" },
 ];
 
@@ -162,8 +163,25 @@ const resourceMeta: Record<string, ResourceMeta> = {
     hint: "Sempre inserida como nova ordem. tipo: preventiva, corretiva, preditiva.",
     depends: "Requer veículos já importados.",
   },
-  documents: {
+  expenses: {
     step: 5,
+    color: "text-orange-700",
+    bgColor: "bg-orange-50",
+    borderColor: "border-orange-200",
+    required: ["categoria", "descricao", "valor", "data"],
+    optional: [
+      "placa",
+      "cnh",
+      "subcategoria",
+      "centro_custo",
+      "fornecedor",
+      "numero_documento",
+    ],
+    hint: "Importa despesas operacionais e financeiras para compor Outras despesas no dashboard e no financeiro.",
+    depends: "Placa e CNH s??o opcionais, mas se informados precisam existir no sistema.",
+  },
+  documents: {
+    step: 6,
     color: "text-purple-700",
     bgColor: "bg-purple-50",
     borderColor: "border-purple-200",

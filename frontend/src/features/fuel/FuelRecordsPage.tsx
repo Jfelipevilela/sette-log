@@ -752,7 +752,7 @@ export function FuelRecordsPage() {
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-2 text-sm font-medium md:col-span-2">
-              veículo
+              Veículo
               <SearchableSelect
                 name="vehicleId"
                 required
@@ -887,7 +887,7 @@ export function FuelRecordsPage() {
         open={Boolean(detailRecord)}
         entityId={detailRecord?._id}
         title="Detalhes do abastecimento"
-        description="Informacoes completas do lancamento e trilha de auditoria."
+        description="Informações completas do lançamento e trilha de auditoria."
         onClose={() => setDetailRecord(undefined)}
         fields={[
           {

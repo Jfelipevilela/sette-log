@@ -93,13 +93,11 @@ export function AdminLayout() {
 
   return (
     <div className="min-h-screen text-fleet-ink">
-      <aside
-        className="fixed inset-y-0 left-0 z-30 hidden w-72 border-r border-white/10 bg-[linear-gradient(180deg,#111714_0%,#1b2a23_52%,#111b17_100%)] text-white shadow-[16px_0_45px_rgba(15,23,42,0.18)] lg:flex lg:flex-col"
-        // className="fixed inset-y-0 left-0 z-30 hidden w-72 border-r border-black/10 bg-fleet-ink text-white lg:block flex flex-col h-full"
-      >
-        <div className="flex flex-col gap-3 border-b border-white/10 p-4 flex-none">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-72 border-r border-emerald-950/40 bg-[linear-gradient(180deg,#041010_0%,#041313_45%,#020b0b_100%)] text-white shadow-[16px_0_45px_rgba(2,12,12,0.34)] lg:flex lg:flex-col">
+        {" "}
+        <div className="flex flex-col gap-3 border-b border-white/8 px-4 py-4 flex-none">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg bg-white/8 shadow-lg shadow-emerald-950/25 ">
+            <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl  shadow-lg shadow-emerald-950/25">
               <img
                 src="/brand/logo-sette-log.png"
                 alt="SETTE Log"
@@ -114,29 +112,45 @@ export function AdminLayout() {
             </div>
           </div>
         </div>
-        <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
+        <nav className="flex-1 space-y-1.5 px-3 py-4 overflow-y-auto">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
                 cn(
-                  "flex h-11 items-center gap-3 rounded-md px-3 text-sm font-medium text-zinc-300 transition hover:bg-white/10 hover:text-white",
+                  "group relative flex h-12 items-center gap-3 rounded-xl px-4 text-sm font-medium text-zinc-300 transition hover:bg-white/[0.04] hover:text-white",
                   isActive &&
-                    "bg-white text-fleet-ink shadow-[0_12px_28px_rgba(0,0,0,0.18)] hover:bg-white hover:text-fleet-ink",
+                    "bg-white/[0.08] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.03),0_10px_24px_rgba(0,0,0,0.22)]",
                 )
               }
             >
-              <item.icon size={18} />
-              {item.label}
+              {({ isActive }) => (
+                <>
+                  <span
+                    className={cn(
+                      "absolute inset-y-2 left-0 w-1 rounded-r-full bg-transparent transition",
+                      isActive &&
+                        "bg-emerald-400 shadow-[0_0_16px_rgba(52,211,153,0.45)]",
+                    )}
+                  />
+                  <item.icon
+                    size={18}
+                    className={cn(
+                      "shrink-0 text-zinc-400 transition group-hover:text-white",
+                      isActive && "text-white",
+                    )}
+                  />
+                  <span className="truncate">{item.label}</span>
+                </>
+              )}
             </NavLink>
           ))}
         </nav>
-        <div className="mt-auto border-t border-white/10 pt-2 pb-4 px-4">
-          {" "}
+        <div className="mt-auto border-t border-white/8 px-4 pb-4 pt-3">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 truncate">
-              <div className="flex h-8 w-8 items-center justify-center rounded bg-white/10">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5">
                 <UserRound size={16} />
               </div>
               <div className="min-w-0 truncate">
@@ -241,10 +255,10 @@ export function AdminLayout() {
           className="fixed inset-0 z-50 bg-black/45 lg:hidden"
           onClick={() => setMobileOpen(false)}
         >
-          <aside className="fixed inset-y-0 left-0 z-30 flex w-72 flex-col border-r border-black/10 bg-[linear-gradient(180deg,#151916_0%,#1f2a24_55%,#16201b_100%)] text-white shadow-[12px_0_35px_rgba(22,24,22,0.18)]">
-            <div className="flex flex-col gap-3 p-4 border-b border-white/10 flex-none">
+          <aside className="fixed inset-y-0 left-0 z-30 flex w-72 flex-col border-r border-white/10 bg-[linear-gradient(180deg,#111714_0%,#1b2a23_52%,#111b17_100%)] text-white shadow-[12px_0_35px_rgba(22,24,22,0.18)]">
+            <div className="flex flex-col gap-3 px-4 py-4 border-b border-white/8 flex-none">
               <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg bg-white/8 shadow-lg shadow-emerald-950/25 ring-1 ring-white/15">
+                <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-white/5 shadow-lg shadow-emerald-950/25">
                   <img
                     src="/brand/logo-sette-log.png"
                     alt="SETTE Log"
@@ -261,7 +275,7 @@ export function AdminLayout() {
                 </div>
               </div>
             </div>
-            <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
+            <nav className="flex-1 space-y-1.5 px-3 py-4 overflow-y-auto">
               {navItems.map((item) => (
                 <NavLink
                   key={item.to}
@@ -269,22 +283,38 @@ export function AdminLayout() {
                   onClick={() => setMobileOpen(false)}
                   className={({ isActive }) =>
                     cn(
-                      "flex h-11 items-center gap-3 rounded-md px-3 text-sm font-medium text-zinc-300 transition hover:bg-white/10 hover:text-white",
+                      "group relative flex h-12 items-center gap-3 rounded-xl px-4 text-sm font-medium text-zinc-300 transition hover:bg-white/[0.04] hover:text-white",
                       isActive &&
-                        "bg-white text-fleet-ink hover:bg-white hover:text-fleet-ink",
+                        "bg-white/[0.08] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.03),0_10px_24px_rgba(0,0,0,0.22)]",
                     )
                   }
                 >
-                  <item.icon size={18} />
-                  {item.label}
+                  {({ isActive }) => (
+                    <>
+                      <span
+                        className={cn(
+                          "absolute inset-y-2 left-0 w-1 rounded-r-full bg-transparent transition",
+                          isActive &&
+                            "bg-emerald-400 shadow-[0_0_16px_rgba(52,211,153,0.45)]",
+                        )}
+                      />
+                      <item.icon
+                        size={18}
+                        className={cn(
+                          "shrink-0 text-zinc-400 transition group-hover:text-white",
+                          isActive && "text-white",
+                        )}
+                      />
+                      <span className="truncate">{item.label}</span>
+                    </>
+                  )}
                 </NavLink>
               ))}
             </nav>
-            <div className="mt-auto border-t border-white/10 pt-2 pb-4 px-4">
-              {" "}
+            <div className="mt-auto border-t border-white/8 px-4 pb-4 pt-3">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 truncate">
-                  <div className="flex h-8 w-8 items-center justify-center rounded bg-white/10">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5">
                     <UserRound size={16} />
                   </div>
                   <div className="min-w-0 truncate">

@@ -904,6 +904,7 @@ export class ImportsController {
             "drivers",
             "fuel-records",
             "maintenance-orders",
+            "expenses",
             "documents",
           ],
         },

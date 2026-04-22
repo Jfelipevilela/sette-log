@@ -24,6 +24,7 @@ import {
 import { Input } from "../../components/ui/input";
 import { DetailModal } from "../../components/ui/detail-modal";
 import { Modal } from "../../components/ui/modal";
+import { MultiSearchableSelect } from "../../components/ui/multi-searchable-select";
 import { SearchableSelect } from "../../components/ui/searchable-select";
 import { Table, Td, Th } from "../../components/ui/table";
 import {
@@ -44,6 +45,25 @@ const licenseCategoryOptions = ["A", "B", "C", "D", "E"].map((category) => ({
   value: category,
   label: category,
 }));
+
+function normalizeLicenseCategories(values: string[]) {
+  const allowed = new Set(["A", "B", "C", "D", "E"]);
+
+  return Array.from(
+    new Set(
+      values
+        .flatMap((value) => value.toUpperCase().split(/[^A-Z]+/))
+        .filter((value) => allowed.has(value)),
+    ),
+  )
+    .sort()
+    .join("");
+}
+
+function formatLicenseCategory(value?: string) {
+  const normalized = normalizeLicenseCategories([value ?? ""]);
+  return normalized ? normalized.split("").join(", ") : "-";
+}
 
 const driverStatusOptions = [
   { value: "active", label: "Ativo" },
@@ -135,9 +155,14 @@ export function DriversPage() {
         (!term ||
           driver.name.toLowerCase().includes(term) ||
           driver.licenseNumber.toLowerCase().includes(term) ||
-          driver.licenseCategory.toLowerCase().includes(term)) &&
+          formatLicenseCategory(driver.licenseCategory)
+            .toLowerCase()
+            .includes(term)) &&
         (!statusFilter || driver.status === statusFilter) &&
-        (!categoryFilter || driver.licenseCategory === categoryFilter) &&
+        (!categoryFilter ||
+          normalizeLicenseCategories([driver.licenseCategory]).includes(
+            categoryFilter,
+          )) &&
         (!vehicleFilter || driver.assignedVehicleId === vehicleFilter),
     );
   }, [drivers, search, statusFilter, categoryFilter, vehicleFilter]);
@@ -153,10 +178,19 @@ export function DriversPage() {
     setFormError(undefined);
     const form = new FormData(event.currentTarget);
     const assignedVehicleId = String(form.get("assignedVehicleId") ?? "");
+    const licenseCategory = normalizeLicenseCategories(
+      form.getAll("licenseCategory").map((value) => String(value)),
+    );
+
+    if (!licenseCategory) {
+      setFormError("Selecione ao menos uma categoria de CNH.");
+      return;
+    }
+
     const payload = {
       name: String(form.get("name") ?? ""),
       licenseNumber: String(form.get("licenseNumber") ?? ""),
-      licenseCategory: String(form.get("licenseCategory") ?? ""),
+      licenseCategory,
       licenseExpiresAt: String(form.get("licenseExpiresAt") ?? ""),
       status: String(form.get("status") || "active"),
       phone: String(form.get("phone") ?? ""),
@@ -255,7 +289,7 @@ export function DriversPage() {
                       <Td>
                         {driver.licenseNumber}
                         <span className="block text-xs text-zinc-500">
-                          Categoria {driver.licenseCategory}
+                          Categoria {formatLicenseCategory(driver.licenseCategory)}
                         </span>
                       </Td>
                       <Td>{formatDate(driver.licenseExpiresAt)}</Td>
@@ -374,12 +408,18 @@ export function DriversPage() {
             </label>
             <label className="space-y-2 text-sm font-medium">
               Categoria
-              <SearchableSelect
+              <MultiSearchableSelect
                 name="licenseCategory"
-                defaultValue={editingDriver?.licenseCategory ?? "B"}
+                defaultValue={normalizeLicenseCategories([
+                  editingDriver?.licenseCategory ?? "B",
+                ]).split("")}
                 options={licenseCategoryOptions}
+                placeholder="Selecione as categorias"
                 searchPlaceholder="Buscar categoria"
               />
+              <p className="text-xs font-normal text-zinc-500">
+                Marque uma ou mais categorias, como A e B.
+              </p>
             </label>
             <label className="space-y-2 text-sm font-medium">
               Validade da CNH
@@ -462,7 +502,10 @@ export function DriversPage() {
         fields={[
           { label: "Nome", value: detailDriver?.name },
           { label: "CNH", value: detailDriver?.licenseNumber },
-          { label: "Categoria", value: detailDriver?.licenseCategory },
+          {
+            label: "Categoria",
+            value: formatLicenseCategory(detailDriver?.licenseCategory),
+          },
           {
             label: "Validade da CNH",
             value: formatDate(detailDriver?.licenseExpiresAt),

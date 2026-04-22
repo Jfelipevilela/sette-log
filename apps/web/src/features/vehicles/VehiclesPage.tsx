@@ -211,10 +211,10 @@ export function VehiclesPage() {
             <label className="space-y-2 text-sm font-medium">
               Tipo
               <Select name="type" defaultValue="car">
-                <option value="car">Automovel</option>
+                <option value="car">Automóvel</option>
                 <option value="van">Van</option>
-                <option value="truck">Caminhao</option>
-                <option value="bus">Onibus</option>
+                <option value="truck">Caminhão</option>
+                <option value="bus">Ônibus</option>
                 <option value="motorcycle">Moto</option>
                 <option value="equipment">Equipamento</option>
               </Select>

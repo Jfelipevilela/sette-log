@@ -64,7 +64,7 @@ const maintenanceTypeOptions = [
 
 const priorityOptions = [
   { value: "low", label: "Baixa" },
-  { value: "medium", label: "MÃ©dia" },
+  { value: "medium", label: "Média" },
   { value: "high", label: "Alta" },
   { value: "critical", label: "Critica" },
 ];
@@ -236,7 +236,7 @@ export function MaintenancePage() {
       </section>
 
       <FilterPanel
-        description="Refine ordens por veí­culo, tipo, prioridade, status e período."
+        description="Refine ordens por veículo, tipo, prioridade, status e período."
         isExpanded={filtersExpanded}
         onToggleExpanded={() => setFiltersExpanded((current) => !current)}
         searchSlot={
@@ -305,7 +305,7 @@ export function MaintenancePage() {
                   <Th>Agendamento</Th>
                   <Th>Custo</Th>
                   <Th>Anexos</Th>
-                  <Th>AÃ§Ãµes</Th>
+                  <Th>Ações</Th>
                 </tr>
               </thead>
               <tbody>

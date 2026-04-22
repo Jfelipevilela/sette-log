@@ -140,7 +140,7 @@ export function FuelRecordsPage() {
     },
     onError: (error) =>
       setFormError(
-        apiErrorMessage(error, "NÃ£o foi possÃ­vel registrar o abastecimento."),
+        apiErrorMessage(error, "Não foi possível registrar o abastecimento."),
       ),
   });
   const updateMutation = useMutation({
@@ -163,7 +163,7 @@ export function FuelRecordsPage() {
     },
     onError: (error) =>
       setFormError(
-        apiErrorMessage(error, "NÃ£o foi possÃ­vel editar o abastecimento."),
+        apiErrorMessage(error, "Não foi possível editar o abastecimento."),
       ),
   });
   const deleteMutation = useMutation({
@@ -171,7 +171,7 @@ export function FuelRecordsPage() {
     onSuccess: invalidateFuelData,
     onError: (error) =>
       setFormError(
-        apiErrorMessage(error, "NÃ£o foi possÃ­vel excluir o abastecimento."),
+        apiErrorMessage(error, "Não foi possível excluir o abastecimento."),
       ),
   });
 
@@ -622,7 +622,7 @@ export function FuelRecordsPage() {
         </Card>
         <Card className="p-5">
           <Gauge className="text-fleet-green" />
-          <span className="mt-4 block text-sm text-zinc-500">Km/L mÃ©dio</span>
+          <span className="mt-4 block text-sm text-zinc-500">Km/L médio</span>
           <strong className="mt-2 block text-3xl text-fleet-ink">
             {formatKmPerLiter(summary.averageKmPerLiter)}
           </strong>
@@ -637,7 +637,7 @@ export function FuelRecordsPage() {
           <div>
             <CardTitle>Histórico de abastecimentos</CardTitle>
             <p className="mt-1 text-sm text-zinc-500">
-              O km/L usa o odômetro deste lancamento contra o abastecimento
+              O km/L usa o odômetro deste lançamento contra o abastecimento
               anterior do mesmo veículo.
             </p>
           </div>
@@ -653,13 +653,13 @@ export function FuelRecordsPage() {
                     <Th>Data</Th>
                     <Th>Ve­culo</Th>
                     <Th>Motorista</Th>
-                    <Th>Combustí­vel</Th>
+                    <Th>Combustível</Th>
                     <Th>Litros</Th>
                     <Th>R$/L</Th>
                     <Th>Total</Th>
                     <Th>Km/L</Th>
                     <Th>Anexos</Th>
-                    <Th>AÃ§Ãµes</Th>
+                    <Th>Ações</Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -767,10 +767,10 @@ export function FuelRecordsPage() {
               <SearchableSelect
                 name="driverId"
                 defaultValue={editingRecord?.driverId ?? ""}
-                placeholder="NÃ£o informado"
+                placeholder="Não informado"
                 searchPlaceholder="Buscar motorista ou CNH"
                 options={[
-                  { value: "", label: "NÃ£o informado" },
+                  { value: "", label: "Não informado" },
                   ...driverOptions,
                 ]}
               />

@@ -76,8 +76,8 @@ const safetyChecklistItems = [
 
 const motorChecklistItems = [
   { key: "motor_acelerador", label: "Acelerador" },
-  { key: "motor_agua_limpador", label: "Ãgua do limpador" },
-  { key: "motor_agua_radiador", label: "Ãgua do radiador" },
+  { key: "motor_agua_limpador", label: "Água do limpador" },
+  { key: "motor_agua_radiador", label: "Água do radiador" },
   { key: "motor_embreagem", label: "Embreagem" },
   { key: "motor_freio", label: "Freio" },
   { key: "motor_freio_mao", label: "Freio de mao" },
@@ -117,24 +117,24 @@ const frontLightingItems = [
 
 const conservationOptions = [
   { value: "bom", label: "Bom" },
-  { value: "mÃ©dio", label: "Medio" },
+  { value: "médio", label: "Médio" },
   { value: "ruim", label: "Ruim" },
 ];
 
 const lightingOptions = [
   { value: "ok", label: "Funcionamento OK" },
-  { value: "failed", label: "NÃ£o funcionando" },
+  { value: "failed", label: "Não funcionando" },
 ];
 
 const checklistSteps = [
-  "IdentificaÃ§Ã£o",
-  "CondiÃ§Ãµes de conservaÃ§Ã£o",
-  "IluminaÃ§Ã£o traseira",
-  "IluminaÃ§Ã£o dianteira",
-  "Itens de seguranÃ§a",
+  "Identificação",
+  "Condições de conservação",
+  "Iluminação traseira",
+  "Iluminação dianteira",
+  "Itens de segurança",
   "Motor e sistemas associados",
-  "Danos e observaÃ§Ãµes",
-  "Anexos e finalizaÃ§Ã£o",
+  "Danos e observações",
+  "Anexos e finalização",
 ];
 
 const requiredChecklistFieldsByStep: Record<

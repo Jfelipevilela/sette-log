@@ -403,7 +403,7 @@ export function VehiclesPage() {
         description={
           editingVehicle
             ? "Atualize cadastro, status operacional e dados de custo."
-            : "Cadastre um automÃ³vel, utilitÃ¡rio ou caminhÃ£o na frota operacional."
+            : "Cadastre um automóvel, utilitário ou caminhão na frota operacional."
         }
         onClose={closeModal}
       >
@@ -491,7 +491,7 @@ export function VehiclesPage() {
               Centro de custo
               <Input
                 name="costCenter"
-                placeholder="Carros PrÃ³prios"
+                placeholder="Carros Próprios"
                 defaultValue={editingVehicle?.costCenter}
               />
             </label>
@@ -599,7 +599,7 @@ export function VehiclesPage() {
               : undefined,
           },
           {
-            label: "Km/L mÃ©dio",
+            label: "Km/L médio",
             value: detailVehicle
               ? detailVehicle.financialSummary?.averageKmPerLiter
                 ? `${Number(detailVehicle.financialSummary.averageKmPerLiter).toLocaleString("pt-BR", {

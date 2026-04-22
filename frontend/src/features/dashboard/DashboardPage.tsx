@@ -199,13 +199,13 @@ export function DashboardPage() {
         <div className="relative flex flex-col justify-between gap-4 md:flex-row md:items-end">
           <div>
             <span className="mb-2 inline-flex rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold uppercase text-emerald-700">
-              VisÃ£o executiva
+              Visão executiva
             </span>
             <h2 className="text-2xl font-semibold text-fleet-ink">
               Dashboard operacional
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
-              Filtre o perÃ­odo para analisar abastecimento, consumo e custos
+              Filtre o perí­odo para analisar abastecimento, consumo e custos
               por veículo.
             </p>
           </div>
@@ -265,21 +265,21 @@ export function DashboardPage() {
         <StatCard
           label="Custo total"
           value={formatCurrency(totalOperationalCost)}
-          detail="Combustí­vel, manutenção e despesas"
+          detail="Combustível, manutenção e despesas"
           icon={ReceiptText}
           tone="green"
         />
         <StatCard
           label="Combustível"
           value={formatCurrency(totalFuelCost)}
-          detail={`${totalFuelLiters.toLocaleString("pt-BR")} L no periodo`}
+          detail={`${totalFuelLiters.toLocaleString("pt-BR")} L no período`}
           icon={Fuel}
           tone="cyan"
         />
         <StatCard
           label="Manutenção"
           value={formatCurrency(totalMaintenanceCost)}
-          detail="Ordens no periodo"
+          detail="Ordens no período"
           icon={Wrench}
           tone="amber"
         />
@@ -298,8 +298,7 @@ export function DashboardPage() {
             <div>
               <CardTitle>Custos e consumo por dia</CardTitle>
               <p className="mt-1 text-sm text-zinc-500">
-                Custo operacional total no periodo
-                selecionado
+                Custo operacional total no período selecionado
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -377,7 +376,7 @@ export function DashboardPage() {
               </ResponsiveContainer>
             ) : (
               <div className="flex h-96 items-center justify-center text-sm text-zinc-500">
-                Nenhum custo ou abastecimento encontrado no periodo selecionado.
+                Nenhum custo ou abastecimento encontrado no período selecionado.
               </div>
             )}
           </CardContent>
@@ -387,9 +386,7 @@ export function DashboardPage() {
           <CardHeader className="border-b border-fleet-line bg-zinc-50/70">
             <div>
               <CardTitle>Histórico 12 meses</CardTitle>
-              <p className="mt-1 text-sm text-zinc-500">
-                Custo total mensal 
-              </p>
+              <p className="mt-1 text-sm text-zinc-500">Custo total mensal</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Badge tone="green">Custo total</Badge>
@@ -466,7 +463,7 @@ export function DashboardPage() {
             <div>
               <CardTitle>Combustível por tipo</CardTitle>
               <p className="mt-1 text-sm text-zinc-500">
-                Valor em reais e total de litros no periodo selecionado.
+                Valor em reais e total de litros no período selecionado.
               </p>
             </div>
           </CardHeader>
@@ -502,7 +499,7 @@ export function DashboardPage() {
                 </ResponsiveContainer>
               ) : (
                 <div className="flex h-72 items-center justify-center text-sm text-zinc-500">
-                  Nenhum abastecimento no periodo selecionado.
+                  Nenhum abastecimento no período selecionado.
                 </div>
               )}
             </div>
@@ -585,7 +582,7 @@ export function DashboardPage() {
             ))}
             {data.fuelByVehicle.length === 0 && (
               <p className="text-sm text-zinc-500">
-                Sem abastecimentos no periodo.
+                Sem abastecimentos no período.
               </p>
             )}
           </CardContent>

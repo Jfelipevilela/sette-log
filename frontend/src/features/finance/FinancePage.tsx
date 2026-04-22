@@ -136,8 +136,8 @@ export function FinancePage() {
         <div>
           <h2 className="text-2xl font-semibold">Financeiro da frota</h2>
           <p className="mt-1 text-sm text-zinc-500">
-            Abastecimentos, multas, seguros, impostos, pedagios e km/l medio por
-            veiculo.
+            Abastecimentos, multas, seguros, impostos, pedágios e km/l médio por
+            veículo.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -274,7 +274,7 @@ export function FinancePage() {
       </FilterPanel>
       <section className="grid gap-6 lg:grid-cols-3">
         <StatCard
-          label="Combustí­vel"
+          label="Combustível"
           value={formatCurrency(data.kpis.totalFuelCost)}
           detail={`${data.kpis.totalFuelLiters.toLocaleString("pt-BR")} L registrados`}
           icon={Fuel}

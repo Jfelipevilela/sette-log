@@ -58,11 +58,11 @@ export function LoginPage() {
         <div className="absolute inset-x-0 bottom-0 p-12">
           <div className="max-w-2xl">
             <span className="mb-6 inline-flex rounded-md border border-white/30 px-3 py-1 text-sm text-white/90">
-              Telemetria, rotas, custos e compliance
+              Plataforma unificada para opera??o de frota
             </span>
             <h1 className="text-5xl font-semibold leading-tight">Operação de frota com controle total.</h1>
             <p className="mt-5 max-w-xl text-lg text-white/80">
-              Dados operacionais, alertas criticos e desempenho financeiro em uma central segura para times de frota.
+              Monitore veículos, custos, manutenções e compliance em uma central segura, clara e pronta para a rotina operacional.
             </p>
           </div>
         </div>
@@ -76,7 +76,7 @@ export function LoginPage() {
               alt="SETTE Log"
               className="h-16 w-auto max-w-full object-contain"
             />
-            <span className="mt-3 block text-sm text-zinc-500">Acesso administrativo</span>
+            <span className="mt-3 block text-sm text-zinc-500">Gest?o operacional, financeira e de compliance em um ?nico ambiente</span>
           </div>
 
           <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>

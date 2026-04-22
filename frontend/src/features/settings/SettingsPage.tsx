@@ -308,7 +308,7 @@ export function SettingsPage() {
       const totalUpdated = result.summary.totalUpdated;
       const totalFailed = result.summary.totalFailed;
       setMessage(
-        `✅ Importação completa concluida: ${totalImported} inseridos, ${totalUpdated} atualizados, ${totalFailed} falhas.`,
+        `✅ Importação completa conclu?da: ${totalImported} inseridos, ${totalUpdated} atualizados, ${totalFailed} falhas.`,
       );
       setImportFile(undefined);
       fileInputRef.current?.removeAttribute("value");
@@ -393,7 +393,7 @@ export function SettingsPage() {
     },
     onError: (error) =>
       setMessage(
-        apiErrorMessage(error, "N?o foi poss?vel gerar o token de API."),
+        apiErrorMessage(error, "Não foi possível gerar o token de API."),
       ),
   });
 
@@ -406,12 +406,12 @@ export function SettingsPage() {
         return next;
       });
       setDetailUser((current) => (current?._id === user._id ? user : current));
-      setMessage("Acesso ? API removido com sucesso.");
+      setMessage("Acesso à API removido com sucesso.");
       await queryClient.invalidateQueries({ queryKey: ["users"] });
     },
     onError: (error) =>
       setMessage(
-        apiErrorMessage(error, "N?o foi poss?vel remover o acesso ? API."),
+        apiErrorMessage(error, "Não foi possível remover o acesso à API."),
       ),
   });
 

@@ -214,9 +214,9 @@ export function SettingsPage() {
     userName: string;
     token: string;
   }>();
-  const [apiTokensByUser, setApiTokensByUser] = useState<Record<string, string>>(
-    {},
-  );
+  const [apiTokensByUser, setApiTokensByUser] = useState<
+    Record<string, string>
+  >({});
   const [userError, setUserError] = useState<string>();
   const [importResource, setImportResource] = useState("vehicles");
   const [importFile, setImportFile] = useState<File>();
@@ -488,14 +488,16 @@ export function SettingsPage() {
               tokens.
             </p>
           </div>
-        <Button
-          type="submit"
-          form="settings-form"
-          disabled={saveSettingsMutation.isPending}
-        >
-          <ShieldCheck size={18} />
-          {saveSettingsMutation.isPending ? "Salvando..." : "Salvar par?metros"}
-        </Button>
+          <Button
+            type="submit"
+            form="settings-form"
+            disabled={saveSettingsMutation.isPending}
+          >
+            <ShieldCheck size={18} />
+            {saveSettingsMutation.isPending
+              ? "Salvando..."
+              : "Salvar parâmetros"}
+          </Button>
         </div>
       </section>
 
@@ -512,9 +514,7 @@ export function SettingsPage() {
                   <item.icon size={20} />
                 </span>
                 <div>
-                  <strong className="block text-fleet-ink">
-                    {item.title}
-                  </strong>
+                  <strong className="block text-fleet-ink">{item.title}</strong>
                   <p className="mt-1 text-sm leading-6 text-zinc-500">
                     {item.detail}
                   </p>
@@ -608,9 +608,6 @@ export function SettingsPage() {
                         {user.apiAccessEnabled ? (
                           <div className="space-y-1">
                             <Badge tone="green">Habilitado</Badge>
-                            <span className="block text-xs text-zinc-500">
-                              {user.apiTokenPreview ?? "Token ativo"}
-                            </span>
                           </div>
                         ) : (
                           <Badge tone="neutral">Desabilitado</Badge>
@@ -654,7 +651,8 @@ export function SettingsPage() {
                                 : "Gerar token API",
                               icon: <KeyRound size={15} />,
                               disabled: enableApiAccessMutation.isPending,
-                              onClick: () => enableApiAccessMutation.mutate(user._id),
+                              onClick: () =>
+                                enableApiAccessMutation.mutate(user._id),
                             },
                             {
                               label: "Revogar acesso API",
@@ -1243,7 +1241,9 @@ export function SettingsPage() {
                 </span>
               </label>
               <label className="rounded-lg border border-zinc-200 bg-zinc-50/60 p-4 text-sm font-medium">
-                <span className="block text-zinc-700">Dias para vencimento</span>
+                <span className="block text-zinc-700">
+                  Dias para vencimento
+                </span>
                 <Input
                   className="mt-3 bg-white"
                   name="expirationDays"
@@ -1410,21 +1410,35 @@ export function SettingsPage() {
         <div className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-lg border border-fleet-line bg-zinc-50/70 p-4">
-              <span className="block text-xs font-semibold uppercase tracking-wide text-zinc-500">Nome</span>
-              <strong className="mt-2 block text-fleet-ink">{detailUser?.name ?? "-"}</strong>
-            </div>
-            <div className="rounded-lg border border-fleet-line bg-zinc-50/70 p-4">
-              <span className="block text-xs font-semibold uppercase tracking-wide text-zinc-500">Email</span>
-              <strong className="mt-2 block text-fleet-ink">{detailUser?.email ?? "-"}</strong>
-            </div>
-            <div className="rounded-lg border border-fleet-line bg-zinc-50/70 p-4">
-              <span className="block text-xs font-semibold uppercase tracking-wide text-zinc-500">Perfil</span>
+              <span className="block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Nome
+              </span>
               <strong className="mt-2 block text-fleet-ink">
-                {detailUser?.roles?.map((role) => roleLabels[role] ?? role).join(", ") ?? "-"}
+                {detailUser?.name ?? "-"}
               </strong>
             </div>
             <div className="rounded-lg border border-fleet-line bg-zinc-50/70 p-4">
-              <span className="block text-xs font-semibold uppercase tracking-wide text-zinc-500">Status</span>
+              <span className="block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Email
+              </span>
+              <strong className="mt-2 block text-fleet-ink">
+                {detailUser?.email ?? "-"}
+              </strong>
+            </div>
+            <div className="rounded-lg border border-fleet-line bg-zinc-50/70 p-4">
+              <span className="block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Perfil
+              </span>
+              <strong className="mt-2 block text-fleet-ink">
+                {detailUser?.roles
+                  ?.map((role) => roleLabels[role] ?? role)
+                  .join(", ") ?? "-"}
+              </strong>
+            </div>
+            <div className="rounded-lg border border-fleet-line bg-zinc-50/70 p-4">
+              <span className="block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Status
+              </span>
               <div className="mt-2">
                 <Badge tone={statusTone[detailUser?.status ?? ""] ?? "neutral"}>
                   {labelFor(detailUser?.status)}
@@ -1432,22 +1446,36 @@ export function SettingsPage() {
               </div>
             </div>
             <div className="rounded-lg border border-fleet-line bg-zinc-50/70 p-4">
-              <span className="block text-xs font-semibold uppercase tracking-wide text-zinc-500">Filial</span>
-              <strong className="mt-2 block text-fleet-ink">{detailUser?.branchId ?? "Sem filial"}</strong>
+              <span className="block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Filial
+              </span>
+              <strong className="mt-2 block text-fleet-ink">
+                {detailUser?.branchId ?? "Sem filial"}
+              </strong>
             </div>
             <div className="rounded-lg border border-fleet-line bg-zinc-50/70 p-4">
-              <span className="block text-xs font-semibold uppercase tracking-wide text-zinc-500">Criado em</span>
-              <strong className="mt-2 block text-fleet-ink">{formatDateTime(detailUser?.createdAt)}</strong>
+              <span className="block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Criado em
+              </span>
+              <strong className="mt-2 block text-fleet-ink">
+                {formatDateTime(detailUser?.createdAt)}
+              </strong>
             </div>
           </div>
 
           <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <span className="block text-xs font-semibold uppercase tracking-wide text-zinc-500">Acesso à API</span>
+                <span className="block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  Acesso à API
+                </span>
                 <div className="mt-2">
-                  <Badge tone={detailUser?.apiAccessEnabled ? "green" : "neutral"}>
-                    {detailUser?.apiAccessEnabled ? "Habilitado" : "Desabilitado"}
+                  <Badge
+                    tone={detailUser?.apiAccessEnabled ? "green" : "neutral"}
+                  >
+                    {detailUser?.apiAccessEnabled
+                      ? "Habilitado"
+                      : "Desabilitado"}
                   </Badge>
                 </div>
               </div>
@@ -1456,17 +1484,29 @@ export function SettingsPage() {
                   type="button"
                   variant="secondary"
                   disabled={enableApiAccessMutation.isPending}
-                  onClick={() => detailUser && enableApiAccessMutation.mutate(detailUser._id)}
+                  onClick={() =>
+                    detailUser && enableApiAccessMutation.mutate(detailUser._id)
+                  }
                 >
                   <KeyRound size={16} />
-                  {detailUser?.apiAccessEnabled ? "Regenerar token" : "Gerar token"}
+                  {detailUser?.apiAccessEnabled
+                    ? "Regenerar token"
+                    : "Gerar token"}
                 </Button>
                 <Button
                   type="button"
                   variant="secondary"
-                  disabled={!detailUser?.apiAccessEnabled || disableApiAccessMutation.isPending}
+                  disabled={
+                    !detailUser?.apiAccessEnabled ||
+                    disableApiAccessMutation.isPending
+                  }
                   onClick={() => {
-                    if (detailUser && window.confirm(`Revogar o acesso à API do usuário ${detailUser.name}?`)) {
+                    if (
+                      detailUser &&
+                      window.confirm(
+                        `Revogar o acesso à API do usuário ${detailUser.name}?`,
+                      )
+                    ) {
                       disableApiAccessMutation.mutate(detailUser._id);
                       setDetailUser(undefined);
                     }
@@ -1484,14 +1524,18 @@ export function SettingsPage() {
                   <Button
                     type="button"
                     variant="secondary"
-                    disabled={!detailUser?._id || !apiTokensByUser[detailUser._id]}
+                    disabled={
+                      !detailUser?._id || !apiTokensByUser[detailUser._id]
+                    }
                     onClick={async () => {
                       const token = detailUser?._id
                         ? apiTokensByUser[detailUser._id]
                         : undefined;
                       if (token) {
                         await navigator.clipboard.writeText(token);
-                        setMessage("Token copiado para a ?rea de transfer?ncia.");
+                        setMessage(
+                          "Token copiado para a ?rea de transfer?ncia.",
+                        );
                       }
                     }}
                   >
@@ -1501,12 +1545,11 @@ export function SettingsPage() {
                 <strong className="mt-2 block break-all text-fleet-ink">
                   {detailUser?.apiTokenPreview ?? "Token ainda n?o gerado"}
                 </strong>
-                <span className="mt-2 block text-xs text-zinc-500">
-                  O bot?o copia o token completo gerado nesta sess?o para este usu?rio.
-                </span>
               </div>
               <div className="rounded-lg border border-white/80 bg-white/80 p-4">
-                <span className="block text-xs font-semibold uppercase tracking-wide text-zinc-500">?ltima gera??o</span>
+                <span className="block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  Última geração
+                </span>
                 <strong className="mt-2 block text-fleet-ink">
                   {formatDateTime(detailUser?.lastApiTokenIssuedAt)}
                 </strong>

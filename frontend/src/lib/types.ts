@@ -47,6 +47,7 @@ export type Vehicle = {
   type: string;
   status: string;
   odometerKm: number;
+  currentOdometerKm?: number;
   initialOdometerKm?: number;
   tankCapacityLiters?: number;
   costCenter?: string;

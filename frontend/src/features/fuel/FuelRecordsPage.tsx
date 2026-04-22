@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from "react";
+﻿import { FormEvent, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CircleDollarSign,
@@ -76,6 +76,7 @@ function formatKmPerLiter(value?: number) {
 
 export function FuelRecordsPage() {
   const queryClient = useQueryClient();
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<FuelRecord>();
   const [detailRecord, setDetailRecord] = useState<FuelRecord>();
@@ -139,7 +140,7 @@ export function FuelRecordsPage() {
     },
     onError: (error) =>
       setFormError(
-        apiErrorMessage(error, "Não foi possível registrar o abastecimento."),
+        apiErrorMessage(error, "NÃ£o foi possÃ­vel registrar o abastecimento."),
       ),
   });
   const updateMutation = useMutation({
@@ -162,7 +163,7 @@ export function FuelRecordsPage() {
     },
     onError: (error) =>
       setFormError(
-        apiErrorMessage(error, "Não foi possível editar o abastecimento."),
+        apiErrorMessage(error, "NÃ£o foi possÃ­vel editar o abastecimento."),
       ),
   });
   const deleteMutation = useMutation({
@@ -170,7 +171,7 @@ export function FuelRecordsPage() {
     onSuccess: invalidateFuelData,
     onError: (error) =>
       setFormError(
-        apiErrorMessage(error, "Não foi possível excluir o abastecimento."),
+        apiErrorMessage(error, "NÃ£o foi possÃ­vel excluir o abastecimento."),
       ),
   });
 
@@ -184,7 +185,9 @@ export function FuelRecordsPage() {
         !term ||
         vehicleText.includes(term) ||
         driverText.includes(term) ||
-        String(record.station ?? "").toLowerCase().includes(term);
+        String(record.station ?? "")
+          .toLowerCase()
+          .includes(term);
       return (
         matchesSearch &&
         (!filters.vehicleId || record.vehicleId === filters.vehicleId) &&
@@ -229,7 +232,7 @@ export function FuelRecordsPage() {
 
   const fuelKpis = [
     {
-      label: "Lancamentos",
+      label: "Lançamentos",
       value: summary.count.toLocaleString("pt-BR"),
       detail: "Total cadastrado",
       icon: ReceiptText,
@@ -331,9 +334,28 @@ export function FuelRecordsPage() {
     const pricePerLiter = Number(form.get("pricePerLiter") || 0);
     const driverId = String(form.get("driverId") ?? "");
     const vehicleId = String(form.get("vehicleId") ?? "");
+    const odometerRaw = String(form.get("odometerKm") ?? "").trim();
+    const odometerKm = odometerRaw ? Number(odometerRaw) : undefined;
     const vehicle = vehicles.find((item) => item._id === vehicleId);
     if (!vehicleId) {
-      setFormError("Selecione o veículo do abastecimento.");
+      setFormError("Selecione o ve??culo do abastecimento.");
+      return;
+    }
+    if (
+      odometerRaw &&
+      (!Number.isFinite(odometerKm) || Number(odometerKm) < 0)
+    ) {
+      setFormError("Informe um odômetro válido.");
+      return;
+    }
+    if (
+      odometerKm !== undefined &&
+      vehicle?.odometerKm !== undefined &&
+      odometerKm < Number(vehicle.odometerKm)
+    ) {
+      setFormError(
+        `O odômetro informado não pode ser menor que o odômetro atual do veículo (${Number(vehicle.odometerKm).toLocaleString("pt-BR")} km).`,
+      );
       return;
     }
     if (vehicle?.tankCapacityLiters && liters > vehicle.tankCapacityLiters) {
@@ -347,7 +369,7 @@ export function FuelRecordsPage() {
       return;
     }
     if (Math.abs(liters * pricePerLiter - totalCost) > 0.05) {
-      setFormError("Litros x valor por litro Não conferem com o valor total.");
+      setFormError("Litros x valor por litro não conferem com o valor total.");
       return;
     }
     const payload = {
@@ -356,7 +378,7 @@ export function FuelRecordsPage() {
       liters,
       totalCost,
       pricePerLiter,
-      odometerKm: Number(form.get("odometerKm") || 0),
+      odometerKm,
       filledAt: String(form.get("filledAt") ?? "") || new Date().toISOString(),
       station: String(form.get("station") ?? ""),
       fuelType: String(form.get("fuelType") ?? "gasoline"),
@@ -399,17 +421,17 @@ export function FuelRecordsPage() {
         <span className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-fleet-green via-cyan-500 to-fleet-amber" />
         <div className="relative flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div>
-          <span className="mb-2 inline-flex rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold uppercase text-emerald-700">
-            Controle de combustível
-          </span>
-          <h2 className="text-2xl font-semibold text-fleet-ink">
-            Abastecimentos
-          </h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
-            Lançamentos por veículo, litros, custo e odômetro para alimentar os
-            indicadores.
-          </p>
-        </div>
+            <span className="mb-2 inline-flex rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold uppercase text-emerald-700">
+              Controle de combustível
+            </span>
+            <h2 className="text-2xl font-semibold text-fleet-ink">
+              Abastecimentos
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
+              Lançamentos por veículos, litros, custo e odômetro para alimentar
+              os indicadores.
+            </p>
+          </div>
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
@@ -426,7 +448,120 @@ export function FuelRecordsPage() {
           </div>
         </div>
       </section>
-
+      <FilterPanel
+        description="Filtre por veículos, motoristas, combustível e período do abastecimento."
+        isExpanded={filtersExpanded}
+        onToggleExpanded={() => setFiltersExpanded((current) => !current)}
+        searchSlot={
+          <div className="relative">
+            <Search
+              className="absolute left-3 top-2.5 text-zinc-400"
+              size={18}
+            />
+            <Input
+              className="pl-10"
+              placeholder="Buscar placa, motorista ou posto"
+              value={filters.search}
+              onChange={(event) =>
+                setFilters((current) => ({
+                  ...current,
+                  search: event.target.value,
+                }))
+              }
+            />
+          </div>
+        }
+        expandedContent={
+          <div className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <FilterField label="Veículo">
+                <SearchableSelect
+                  value={filters.vehicleId}
+                  onValueChange={(value) =>
+                    setFilters((current) => ({ ...current, vehicleId: value }))
+                  }
+                  placeholder="Todos os veículos"
+                  searchPlaceholder="Buscar veículo"
+                  options={[
+                    { value: "", label: "Todos os veículos" },
+                    ...vehicleOptions,
+                  ]}
+                />
+              </FilterField>
+              <FilterField label="Motorista">
+                <SearchableSelect
+                  value={filters.driverId}
+                  onValueChange={(value) =>
+                    setFilters((current) => ({ ...current, driverId: value }))
+                  }
+                  placeholder="Todos os motoristas"
+                  searchPlaceholder="Buscar motorista"
+                  options={[
+                    { value: "", label: "Todos os motoristas" },
+                    ...driverOptions,
+                  ]}
+                />
+              </FilterField>
+              <FilterField label="Combustível">
+                <SearchableSelect
+                  value={filters.fuelType}
+                  onValueChange={(value) =>
+                    setFilters((current) => ({ ...current, fuelType: value }))
+                  }
+                  placeholder="Todos"
+                  searchPlaceholder="Buscar combustível"
+                  options={[{ value: "", label: "Todos" }, ...fuelOptions]}
+                />
+              </FilterField>
+              <FilterField label="Data inicial">
+                <Input
+                  type="date"
+                  value={filters.from}
+                  onChange={(event) =>
+                    setFilters((current) => ({
+                      ...current,
+                      from: event.target.value,
+                    }))
+                  }
+                />
+              </FilterField>
+              <FilterField label="Data final">
+                <Input
+                  type="date"
+                  value={filters.to}
+                  onChange={(event) =>
+                    setFilters((current) => ({
+                      ...current,
+                      to: event.target.value,
+                    }))
+                  }
+                />
+              </FilterField>
+            </div>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setPage(1);
+                  setFilters({
+                    search: "",
+                    vehicleId: "",
+                    driverId: "",
+                    fuelType: "",
+                    from: "",
+                    to: "",
+                  });
+                }}
+              >
+                <Filter size={18} />
+                Limpar filtros
+              </Button>
+            </div>
+          </div>
+        }
+      >
+        {null}
+      </FilterPanel>
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {fuelKpis.map((item) => {
           const Icon = item.icon;
@@ -487,7 +622,7 @@ export function FuelRecordsPage() {
         </Card>
         <Card className="p-5">
           <Gauge className="text-fleet-green" />
-          <span className="mt-4 block text-sm text-zinc-500">Km/L médio</span>
+          <span className="mt-4 block text-sm text-zinc-500">Km/L mÃ©dio</span>
           <strong className="mt-2 block text-3xl text-fleet-ink">
             {formatKmPerLiter(summary.averageKmPerLiter)}
           </strong>
@@ -496,67 +631,6 @@ export function FuelRecordsPage() {
           </span>
         </Card>
       </section>
-
-      <FilterPanel description="Filtre por veículo, motorista, combustível e período do abastecimento.">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <FilterField label="Busca" className="xl:col-span-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-2.5 text-zinc-400" size={18} />
-              <Input
-                className="pl-10"
-                placeholder="Buscar placa, motorista ou posto"
-                value={filters.search}
-                onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
-              />
-            </div>
-          </FilterField>
-          <FilterField label="Veículo">
-            <SearchableSelect
-              value={filters.vehicleId}
-              onValueChange={(value) => setFilters((current) => ({ ...current, vehicleId: value }))}
-              placeholder="Todos os veículos"
-              searchPlaceholder="Buscar veículo"
-              options={[{ value: "", label: "Todos os veículos" }, ...vehicleOptions]}
-            />
-          </FilterField>
-          <FilterField label="Motorista">
-            <SearchableSelect
-              value={filters.driverId}
-              onValueChange={(value) => setFilters((current) => ({ ...current, driverId: value }))}
-              placeholder="Todos os motoristas"
-              searchPlaceholder="Buscar motorista"
-              options={[{ value: "", label: "Todos os motoristas" }, ...driverOptions]}
-            />
-          </FilterField>
-          <FilterField label="Combustível">
-            <SearchableSelect
-              value={filters.fuelType}
-              onValueChange={(value) => setFilters((current) => ({ ...current, fuelType: value }))}
-              placeholder="Todos"
-              searchPlaceholder="Buscar combustível"
-              options={[{ value: "", label: "Todos" }, ...fuelOptions]}
-            />
-          </FilterField>
-          <FilterField label="Data inicial">
-            <Input type="date" value={filters.from} onChange={(event) => setFilters((current) => ({ ...current, from: event.target.value }))} />
-          </FilterField>
-          <FilterField label="Data final">
-            <Input type="date" value={filters.to} onChange={(event) => setFilters((current) => ({ ...current, to: event.target.value }))} />
-          </FilterField>
-        </div>
-        <div className="mt-4 flex flex-wrap justify-end gap-2">
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setPage(1);
-              setFilters({ search: "", vehicleId: "", driverId: "", fuelType: "", from: "", to: "" });
-            }}
-          >
-            <Filter size={18} />
-            Limpar filtros
-          </Button>
-        </div>
-      </FilterPanel>
 
       <Card className="overflow-hidden">
         <CardHeader className="border-b border-fleet-line bg-zinc-50/70">
@@ -577,15 +651,15 @@ export function FuelRecordsPage() {
                 <thead>
                   <tr>
                     <Th>Data</Th>
-                    <Th>Veículo</Th>
+                    <Th>Ve­culo</Th>
                     <Th>Motorista</Th>
-                    <Th>Combustível</Th>
+                    <Th>Combustí­vel</Th>
                     <Th>Litros</Th>
                     <Th>R$/L</Th>
                     <Th>Total</Th>
                     <Th>Km/L</Th>
                     <Th>Anexos</Th>
-                    <Th>Ações</Th>
+                    <Th>AÃ§Ãµes</Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -657,7 +731,10 @@ export function FuelRecordsPage() {
               </Table>
               <Pagination
                 page={page}
-                totalPages={Math.max(1, Math.ceil(filteredFuelRecords.length / 10))}
+                totalPages={Math.max(
+                  1,
+                  Math.ceil(filteredFuelRecords.length / 10),
+                )}
                 total={filteredFuelRecords.length}
                 onPageChange={setPage}
               />
@@ -669,13 +746,13 @@ export function FuelRecordsPage() {
       <Modal
         open={isModalOpen}
         title={editingRecord ? "Editar abastecimento" : "Novo abastecimento"}
-        description="Informe veículo, combustível, litros, valor e odômetro. O km/L será calculado com o abastecimento anterior do mesmo veículo."
+        description="Informe veículos, combustível, litros, valor e odômetro. O km/L será calculado com o abastecimento anterior do mesmo veículo."
         onClose={closeModal}
       >
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-2 text-sm font-medium md:col-span-2">
-              Veículo
+              veículo
               <SearchableSelect
                 name="vehicleId"
                 required
@@ -690,10 +767,10 @@ export function FuelRecordsPage() {
               <SearchableSelect
                 name="driverId"
                 defaultValue={editingRecord?.driverId ?? ""}
-                placeholder="Não informado"
+                placeholder="NÃ£o informado"
                 searchPlaceholder="Buscar motorista ou CNH"
                 options={[
-                  { value: "", label: "Não informado" },
+                  { value: "", label: "NÃ£o informado" },
                   ...driverOptions,
                 ]}
               />
@@ -753,7 +830,7 @@ export function FuelRecordsPage() {
                 name="odometerKm"
                 type="number"
                 min="0"
-                defaultValue={editingRecord?.odometerKm ?? 0}
+                defaultValue={editingRecord?.odometerKm ?? ""}
               />
             </label>
             <label className="space-y-2 text-sm font-medium">
@@ -814,7 +891,7 @@ export function FuelRecordsPage() {
         onClose={() => setDetailRecord(undefined)}
         fields={[
           {
-            label: "Veículo",
+            label: "veículo",
             value: detailRecord
               ? vehicleLabel(detailRecord.vehicleId)
               : undefined,

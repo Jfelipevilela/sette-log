@@ -24,6 +24,7 @@ type ActionMenuProps = {
 type MenuPosition = {
   top: number;
   left: number;
+  maxHeight?: number;
 };
 
 function MenuButton({
@@ -57,13 +58,22 @@ export function ActionMenu({ items }: ActionMenuProps) {
     }
     const rect = button.getBoundingClientRect();
     const width = 192;
+    const estimatedMenuHeight = Math.max(56, items.length * 44 + 12);
     const left = Math.min(
       Math.max(8, rect.right - width),
       window.innerWidth - width - 8,
     );
+    const spaceBelow = window.innerHeight - rect.bottom - 8;
+    const spaceAbove = rect.top - 8;
+    const openUpwards =
+      spaceBelow < estimatedMenuHeight && spaceAbove > spaceBelow;
+
     setPosition({
-      top: rect.bottom + 8,
+      top: openUpwards
+        ? Math.max(8, rect.top - estimatedMenuHeight - 8)
+        : rect.bottom + 8,
       left,
+      maxHeight: Math.max(120, openUpwards ? spaceAbove : spaceBelow),
     });
   }
 
@@ -122,8 +132,12 @@ export function ActionMenu({ items }: ActionMenuProps) {
         createPortal(
           <div
             ref={menuRef}
-            className="fixed z-[9999] min-w-48 rounded-lg border border-white/80 bg-white/95 p-1.5 shadow-[0_22px_60px_rgba(15,23,42,0.20)] ring-1 ring-slate-200/80 backdrop-blur-xl"
-            style={{ top: position.top, left: position.left }}
+            className="fixed z-[9999] min-w-48 overflow-y-auto rounded-lg border border-white/80 bg-white/95 p-1.5 shadow-[0_22px_60px_rgba(15,23,42,0.20)] ring-1 ring-slate-200/80 backdrop-blur-xl"
+            style={{
+              top: position.top,
+              left: position.left,
+              maxHeight: position.maxHeight,
+            }}
           >
             {items.map((item) => (
               <MenuButton

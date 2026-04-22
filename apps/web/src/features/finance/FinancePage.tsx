@@ -71,7 +71,7 @@ export function FinancePage() {
       <section className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
         <Card>
           <CardHeader>
-            <CardTitle>Distribuicao de custos</CardTitle>
+            <CardTitle>Distribuição de custos</CardTitle>
           </CardHeader>
           <CardContent className="h-80">
             <ResponsiveContainer width="100%" height="100%">

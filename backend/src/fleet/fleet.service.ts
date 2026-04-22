@@ -157,7 +157,9 @@ export class FleetService {
     const serializedData =
       resource === "fuel-records"
         ? await this.enrichFuelRecordsWithEfficiency(tenantId, data)
-        : data.map((record) => this.serialize(record));
+        : resource === "vehicles"
+          ? data.map((record) => this.serializeVehicle(record))
+          : data.map((record) => this.serialize(record));
 
     const response: PaginatedResponse<AnyRecord> & { summary?: unknown } = {
       data: serializedData,
@@ -187,7 +189,9 @@ export class FleetService {
     const rows =
       resource === "fuel-records"
         ? await this.enrichFuelRecordsWithEfficiency(tenantId, data)
-        : data.map((record) => this.serialize(record));
+        : resource === "vehicles"
+          ? data.map((record) => this.serializeVehicle(record))
+          : data.map((record) => this.serialize(record));
     return this.toCsv(rows.map((row) => this.flattenForExport(row)));
   }
 
@@ -1932,6 +1936,21 @@ export class FleetService {
     const filledAt = payload.filledAt
       ? new Date(String(payload.filledAt))
       : new Date();
+    const hasOdometerInput =
+      payload.odometerKm !== undefined &&
+      payload.odometerKm !== null &&
+      payload.odometerKm !== "";
+    const odometerKm = hasOdometerInput
+      ? Number(payload.odometerKm ?? 0)
+      : undefined;
+    if (
+      hasOdometerInput &&
+      (!Number.isFinite(odometerKm) || Number(odometerKm) < 0)
+    ) {
+      throw new BadRequestException(
+        "Odometro do abastecimento precisa ser um numero valido.",
+      );
+    }
     let distanceKm: number | undefined;
     let kmPerLiter: number | undefined;
     if (tenantId && payload.vehicleId) {
@@ -1957,6 +1976,18 @@ export class FleetService {
         .select("odometerKm")
         .lean<AnyRecord>()
         .exec();
+      const nextFuel = await this.model("fuel-records")
+        .findOne({
+          tenantId,
+          vehicleId: payload.vehicleId,
+          odometerKm: { $gt: 0 },
+          ...(currentId ? { _id: { $ne: currentId } } : {}),
+          filledAt: { $gt: filledAt },
+        })
+        .sort({ filledAt: 1, createdAt: 1 })
+        .select("odometerKm")
+        .lean<AnyRecord>()
+        .exec();
       const hasBase =
         Boolean(previousFuel) ||
         vehicle?.initialOdometerKm !== undefined ||
@@ -1964,8 +1995,32 @@ export class FleetService {
       const previousOdometer = previousFuel
         ? Number(previousFuel.odometerKm ?? 0)
         : Number(vehicle?.initialOdometerKm ?? vehicle?.odometerKm ?? 0);
-      const odometerKm = Number(payload.odometerKm ?? 0);
-      if (hasBase && odometerKm > previousOdometer) {
+      const currentVehicleOdometer = Number(
+        vehicle?.odometerKm ?? vehicle?.initialOdometerKm ?? 0,
+      );
+      if (odometerKm !== undefined) {
+        if (odometerKm < currentVehicleOdometer) {
+          throw new BadRequestException(
+            `Odometro informado (${odometerKm} km) nao pode ser menor que o odometro atual do veiculo (${currentVehicleOdometer} km).`,
+          );
+        }
+        if (previousFuel && odometerKm < previousOdometer) {
+          throw new BadRequestException(
+            `Odometro informado (${odometerKm} km) nao pode ser menor que o ultimo odometro registrado para este veiculo (${previousOdometer} km).`,
+          );
+        }
+        if (
+          nextFuel &&
+          odometerKm > Number(nextFuel.odometerKm ?? 0)
+        ) {
+          throw new BadRequestException(
+            `Odometro informado (${odometerKm} km) nao pode ser maior que um abastecimento posterior ja registrado (${Number(
+              nextFuel.odometerKm ?? 0,
+            )} km).`,
+          );
+        }
+      }
+      if (hasBase && odometerKm !== undefined && odometerKm > previousOdometer) {
         distanceKm = odometerKm - previousOdometer;
         kmPerLiter = distanceKm / liters;
       }
@@ -1975,6 +2030,7 @@ export class FleetService {
       liters,
       totalCost,
       pricePerLiter,
+      odometerKm,
       ...(distanceKm && kmPerLiter
         ? { distanceKm, kmPerLiter }
         : { distanceKm: undefined, kmPerLiter: undefined }),
@@ -2565,5 +2621,15 @@ export class FleetService {
       ) as T;
     }
     return value;
+  }
+
+  private serializeVehicle(record: AnyRecord) {
+    const serialized = this.serialize(record) as AnyRecord;
+    return {
+      ...serialized,
+      currentOdometerKm: Number(
+        serialized.odometerKm ?? serialized.initialOdometerKm ?? 0,
+      ),
+    };
   }
 }

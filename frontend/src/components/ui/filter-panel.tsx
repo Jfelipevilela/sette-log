@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
-import { Filter } from "lucide-react";
+import { ChevronDown, ChevronUp, Filter } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { Button } from "./button";
 import { Card, CardContent, CardHeader, CardTitle } from "./card";
 
 export function FilterPanel({
@@ -8,12 +9,26 @@ export function FilterPanel({
   description,
   children,
   className,
+  searchSlot,
+  expandedContent,
+  isExpanded,
+  onToggleExpanded,
 }: {
   title?: string;
   description?: string;
   children: ReactNode;
   className?: string;
+  searchSlot?: ReactNode;
+  expandedContent?: ReactNode;
+  isExpanded?: boolean;
+  onToggleExpanded?: () => void;
 }) {
+  const useCompactLayout =
+    searchSlot !== undefined &&
+    expandedContent !== undefined &&
+    isExpanded !== undefined &&
+    onToggleExpanded !== undefined;
+
   return (
     <Card className={cn("overflow-hidden", className)}>
       <CardHeader className="border-b border-fleet-line bg-gradient-to-r from-zinc-50 via-white to-emerald-50/60">
@@ -29,7 +44,28 @@ export function FilterPanel({
           </div>
         </div>
       </CardHeader>
-      <CardContent className="p-4 md:p-5">{children}</CardContent>
+      <CardContent className="p-4 md:p-5">
+        {useCompactLayout ? (
+          <div className="space-y-4">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+              <div className="min-w-0 flex-1">{searchSlot}</div>
+              <Button
+                type="button"
+                variant="secondary"
+                className="shrink-0"
+                onClick={onToggleExpanded}
+              >
+                <Filter size={18} />
+                {isExpanded ? "Ocultar filtros" : "Expandir filtros"}
+                {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </Button>
+            </div>
+            {isExpanded ? expandedContent : null}
+          </div>
+        ) : (
+          children
+        )}
+      </CardContent>
     </Card>
   );
 }

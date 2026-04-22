@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from "react";
+﻿import { FormEvent, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -25,6 +25,7 @@ import {
   CardHeader,
   CardTitle,
 } from "../../components/ui/card";
+import { FilterPanel } from "../../components/ui/filter-panel";
 import { DetailModal } from "../../components/ui/detail-modal";
 import { Input } from "../../components/ui/input";
 import { Modal } from "../../components/ui/modal";
@@ -75,8 +76,8 @@ const safetyChecklistItems = [
 
 const motorChecklistItems = [
   { key: "motor_acelerador", label: "Acelerador" },
-  { key: "motor_agua_limpador", label: "Água do limpador" },
-  { key: "motor_agua_radiador", label: "Água do radiador" },
+  { key: "motor_agua_limpador", label: "Ãgua do limpador" },
+  { key: "motor_agua_radiador", label: "Ãgua do radiador" },
   { key: "motor_embreagem", label: "Embreagem" },
   { key: "motor_freio", label: "Freio" },
   { key: "motor_freio_mao", label: "Freio de mao" },
@@ -116,24 +117,24 @@ const frontLightingItems = [
 
 const conservationOptions = [
   { value: "bom", label: "Bom" },
-  { value: "médio", label: "Medio" },
+  { value: "mÃ©dio", label: "Medio" },
   { value: "ruim", label: "Ruim" },
 ];
 
 const lightingOptions = [
   { value: "ok", label: "Funcionamento OK" },
-  { value: "failed", label: "Não funcionando" },
+  { value: "failed", label: "NÃ£o funcionando" },
 ];
 
 const checklistSteps = [
-  "Identificação",
-  "Condições de conservação",
-  "Iluminação traseira",
-  "Iluminação dianteira",
-  "Itens de segurança",
+  "IdentificaÃ§Ã£o",
+  "CondiÃ§Ãµes de conservaÃ§Ã£o",
+  "IluminaÃ§Ã£o traseira",
+  "IluminaÃ§Ã£o dianteira",
+  "Itens de seguranÃ§a",
   "Motor e sistemas associados",
-  "Danos e observações",
-  "Anexos e finalização",
+  "Danos e observaÃ§Ãµes",
+  "Anexos e finalizaÃ§Ã£o",
 ];
 
 const requiredChecklistFieldsByStep: Record<
@@ -229,6 +230,7 @@ function checkItemNotes(check: ComplianceCheckRecord | undefined, key: string) {
 export function CompliancePage() {
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false);
   const [editingDocument, setEditingDocument] = useState<DocumentRecord>();
   const [editingCheck, setEditingCheck] = useState<ComplianceCheckRecord>();
@@ -303,7 +305,9 @@ export function CompliancePage() {
     onSuccess: async () => {
       closeChecklistModal();
       await queryClient.invalidateQueries({ queryKey: ["compliance-checks"] });
-      await queryClient.invalidateQueries({ queryKey: ["compliance-checks-all"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["compliance-checks-all"],
+      });
       await queryClient.invalidateQueries({
         queryKey: ["compliance-documents"],
       });
@@ -313,7 +317,7 @@ export function CompliancePage() {
       setFormError(
         apiErrorMessage(
           error,
-          "Não foi possível salvar o checklist ou enviar os anexos.",
+          "NÃ£o foi possÃ­vel salvar o checklist ou enviar os anexos.",
         ),
       ),
   });
@@ -334,14 +338,16 @@ export function CompliancePage() {
     onSuccess: async () => {
       closeChecklistModal();
       await queryClient.invalidateQueries({ queryKey: ["compliance-checks"] });
-      await queryClient.invalidateQueries({ queryKey: ["compliance-checks-all"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["compliance-checks-all"],
+      });
       await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
     onError: (error) =>
       setFormError(
         apiErrorMessage(
           error,
-          "Não foi possível editar o checklist ou enviar os anexos.",
+          "NÃ£o foi possÃ­vel editar o checklist ou enviar os anexos.",
         ),
       ),
   });
@@ -353,7 +359,7 @@ export function CompliancePage() {
     },
     onError: (error) =>
       setDocumentError(
-        apiErrorMessage(error, "Não foi possível criar o documento."),
+        apiErrorMessage(error, "NÃ£o foi possÃ­vel criar o documento."),
       ),
   });
   const updateDocumentMutation = useMutation({
@@ -370,7 +376,7 @@ export function CompliancePage() {
     },
     onError: (error) =>
       setDocumentError(
-        apiErrorMessage(error, "Não foi possível editar o documento."),
+        apiErrorMessage(error, "NÃ£o foi possÃ­vel editar o documento."),
       ),
   });
   const deleteDocumentMutation = useMutation({
@@ -378,7 +384,7 @@ export function CompliancePage() {
     onSuccess: invalidateComplianceData,
     onError: (error) =>
       setDocumentError(
-        apiErrorMessage(error, "Não foi possível excluir o documento."),
+        apiErrorMessage(error, "NÃ£o foi possÃ­vel excluir o documento."),
       ),
   });
   const deleteCheckMutation = useMutation({
@@ -386,12 +392,14 @@ export function CompliancePage() {
     onSuccess: async () => {
       setDetailCheck(undefined);
       await queryClient.invalidateQueries({ queryKey: ["compliance-checks"] });
-      await queryClient.invalidateQueries({ queryKey: ["compliance-checks-all"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["compliance-checks-all"],
+      });
       await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
     onError: (error) =>
       setFormError(
-        apiErrorMessage(error, "Não foi possível excluir o checklist."),
+        apiErrorMessage(error, "NÃ£o foi possÃ­vel excluir o checklist."),
       ),
   });
 
@@ -479,8 +487,12 @@ export function CompliancePage() {
     label: `${driver.name}${driver.licenseNumber ? ` - CNH ${driver.licenseNumber}` : ""}`,
     searchText: `${driver.name} ${driver.licenseNumber} ${driver.licenseCategory}`,
   }));
-  const documentTypeOptions = Object.entries(documentTypeLabels).map(([value, label]) => ({ value, label }));
-  const entityTypeOptions = Object.entries(entityTypeLabels).map(([value, label]) => ({ value, label }));
+  const documentTypeOptions = Object.entries(documentTypeLabels).map(
+    ([value, label]) => ({ value, label }),
+  );
+  const entityTypeOptions = Object.entries(entityTypeLabels).map(
+    ([value, label]) => ({ value, label }),
+  );
 
   function vehicleLabel(vehicleId?: string) {
     if (!vehicleId) {
@@ -509,16 +521,26 @@ export function CompliancePage() {
       selectedChecklistItemFromForm(
         form,
         item,
-        "Condicoes de conservação",
+        "Condicoes de conservaÃ§Ã£o",
         "bom",
       ),
     );
     const lightingResults = [
       ...rearLightingItems.map((item) =>
-        selectedChecklistItemFromForm(form, item, "Iluminação traseira", "ok"),
+        selectedChecklistItemFromForm(
+          form,
+          item,
+          "IluminaÃ§Ã£o traseira",
+          "ok",
+        ),
       ),
       ...frontLightingItems.map((item) =>
-        selectedChecklistItemFromForm(form, item, "Iluminação dianteira", "ok"),
+        selectedChecklistItemFromForm(
+          form,
+          item,
+          "IluminaÃ§Ã£o dianteira",
+          "ok",
+        ),
       ),
     ];
     const functionalItems = [
@@ -550,14 +572,14 @@ export function CompliancePage() {
         {
           key: "delivery_odometer_km",
           label: "Km de entrega",
-          section: "Identificação",
+          section: "IdentificaÃ§Ã£o",
           result: "info",
           notes: deliveryOdometerKm ? `${deliveryOdometerKm} km` : "",
         },
         {
           key: "delivery_date",
           label: "Data da entrega",
-          section: "Identificação",
+          section: "IdentificaÃ§Ã£o",
           result: "info",
           notes: deliveredAt,
         },
@@ -573,8 +595,8 @@ export function CompliancePage() {
         },
         {
           key: "maintenance_observations",
-          label: "Observações do veículo",
-          section: "Observações",
+          label: "ObservaÃ§Ãµes do veículo",
+          section: "ObservaÃ§Ãµes",
           result: maintenanceNotes ? "reported" : "ok",
           notes: maintenanceNotes,
         },
@@ -599,23 +621,37 @@ export function CompliancePage() {
   const filteredDocuments = useMemo(() => {
     const term = filters.search.trim().toLowerCase();
     return documents.filter((document) => {
-      const entityLabel = document.entityType === "driver" ? driverLabel(document.entityId) : vehicleLabel(document.entityId);
+      const entityLabel =
+        document.entityType === "driver"
+          ? driverLabel(document.entityId)
+          : vehicleLabel(document.entityId);
       return (
-        (!term || `${document.type} ${document.number ?? ""} ${entityLabel}`.toLowerCase().includes(term)) &&
+        (!term ||
+          `${document.type} ${document.number ?? ""} ${entityLabel}`
+            .toLowerCase()
+            .includes(term)) &&
         (!filters.entityType || document.entityType === filters.entityType) &&
-        (!filters.documentStatus || document.status === filters.documentStatus) &&
+        (!filters.documentStatus ||
+          document.status === filters.documentStatus) &&
         (!filters.documentType || document.type === filters.documentType)
       );
     });
   }, [documents, filters, vehicles, drivers]);
   const complianceChecks = useMemo(() => {
-    const source = allComplianceChecks.length > 0 ? allComplianceChecks : (checksPage?.data ?? []);
+    const source =
+      allComplianceChecks.length > 0
+        ? allComplianceChecks
+        : (checksPage?.data ?? []);
     const term = filters.search.trim().toLowerCase();
-    return source.filter((check) => (
-      (!term || `${vehicleLabel(check.vehicleId)} ${driverLabel(check.driverId)} ${check.checklistVersion}`.toLowerCase().includes(term)) &&
-      (!filters.checkStatus || check.status === filters.checkStatus) &&
-      (!filters.vehicleId || check.vehicleId === filters.vehicleId)
-    ));
+    return source.filter(
+      (check) =>
+        (!term ||
+          `${vehicleLabel(check.vehicleId)} ${driverLabel(check.driverId)} ${check.checklistVersion}`
+            .toLowerCase()
+            .includes(term)) &&
+        (!filters.checkStatus || check.status === filters.checkStatus) &&
+        (!filters.vehicleId || check.vehicleId === filters.vehicleId),
+    );
   }, [allComplianceChecks, checksPage, filters, vehicles, drivers]);
   const complianceKpis = useMemo(() => {
     const validDocuments = filteredDocuments.filter(
@@ -704,7 +740,117 @@ export function CompliancePage() {
           </Button>
         </div>
       </section>
-
+      <FilterPanel
+        description="Busque documentos e checklists por entidade, status e veículo."
+        isExpanded={filtersExpanded}
+        onToggleExpanded={() => setFiltersExpanded((current) => !current)}
+        searchSlot={
+          <div className="relative">
+            <Search
+              className="absolute left-3 top-2.5 text-zinc-400"
+              size={18}
+            />
+            <Input
+              className="pl-10"
+              placeholder="Buscar documento, veículo ou motorista"
+              value={filters.search}
+              onChange={(event) =>
+                setFilters((current) => ({
+                  ...current,
+                  search: event.target.value,
+                }))
+              }
+            />
+          </div>
+        }
+        expandedContent={
+          <div className="space-y-4">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+              <SearchableSelect
+                value={filters.entityType}
+                onValueChange={(value) =>
+                  setFilters((current) => ({ ...current, entityType: value }))
+                }
+                placeholder="Entidade"
+                options={[{ value: "", label: "Todas" }, ...entityTypeOptions]}
+              />
+              <SearchableSelect
+                value={filters.documentType}
+                onValueChange={(value) =>
+                  setFilters((current) => ({ ...current, documentType: value }))
+                }
+                placeholder="Tipo doc."
+                searchPlaceholder="Buscar tipo"
+                options={[
+                  { value: "", label: "Todos" },
+                  ...documentTypeOptions,
+                ]}
+              />
+              <SearchableSelect
+                value={filters.documentStatus}
+                onValueChange={(value) =>
+                  setFilters((current) => ({
+                    ...current,
+                    documentStatus: value,
+                  }))
+                }
+                placeholder="Status doc."
+                options={[
+                  { value: "", label: "Todos" },
+                  { value: "valid", label: "Válido" },
+                  { value: "expiring", label: "Vencendo" },
+                  { value: "expired", label: "Vencido" },
+                ]}
+              />
+              <SearchableSelect
+                value={filters.checkStatus}
+                onValueChange={(value) =>
+                  setFilters((current) => ({ ...current, checkStatus: value }))
+                }
+                placeholder="Status checklist"
+                options={[
+                  { value: "", label: "Todos" },
+                  { value: "passed", label: "Aprovado" },
+                  { value: "failed", label: "Reprovado" },
+                  { value: "pending", label: "Pendente" },
+                ]}
+              />
+              <SearchableSelect
+                value={filters.vehicleId}
+                onValueChange={(value) =>
+                  setFilters((current) => ({ ...current, vehicleId: value }))
+                }
+                placeholder="veículo do checklist"
+                searchPlaceholder="Buscar veículo"
+                options={[
+                  { value: "", label: "Todos os veí­culos" },
+                  ...vehicleOptions,
+                ]}
+              />
+            </div>
+            <div className="flex justify-end">
+              <Button
+                variant="secondary"
+                onClick={() =>
+                  setFilters({
+                    search: "",
+                    entityType: "",
+                    documentStatus: "",
+                    documentType: "",
+                    checkStatus: "",
+                    vehicleId: "",
+                  })
+                }
+              >
+                <Filter size={18} />
+                Limpar
+              </Button>
+            </div>
+          </div>
+        }
+      >
+        {null}
+      </FilterPanel>
       <section className="grid gap-6 lg:grid-cols-3">
         {complianceKpis.map((item) => (
           <StatCard
@@ -718,29 +864,6 @@ export function CompliancePage() {
         ))}
       </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Filtros</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.2fr_180px_180px_180px_180px_220px_auto]">
-            <div className="relative">
-              <Search className="absolute left-3 top-2.5 text-zinc-400" size={18} />
-              <Input className="pl-10" placeholder="Buscar documento, veículo ou motorista" value={filters.search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))} />
-            </div>
-            <SearchableSelect value={filters.entityType} onValueChange={(value) => setFilters((current) => ({ ...current, entityType: value }))} placeholder="Entidade" options={[{ value: "", label: "Todas" }, ...entityTypeOptions]} />
-            <SearchableSelect value={filters.documentType} onValueChange={(value) => setFilters((current) => ({ ...current, documentType: value }))} placeholder="Tipo doc." searchPlaceholder="Buscar tipo" options={[{ value: "", label: "Todos" }, ...documentTypeOptions]} />
-            <SearchableSelect value={filters.documentStatus} onValueChange={(value) => setFilters((current) => ({ ...current, documentStatus: value }))} placeholder="Status doc." options={[{ value: "", label: "Todos" }, { value: "valid", label: "Válido" }, { value: "expiring", label: "Vencendo" }, { value: "expired", label: "Vencido" }]} />
-            <SearchableSelect value={filters.checkStatus} onValueChange={(value) => setFilters((current) => ({ ...current, checkStatus: value }))} placeholder="Status checklist" options={[{ value: "", label: "Todos" }, { value: "passed", label: "Aprovado" }, { value: "failed", label: "Reprovado" }, { value: "pending", label: "Pendente" }]} />
-            <SearchableSelect value={filters.vehicleId} onValueChange={(value) => setFilters((current) => ({ ...current, vehicleId: value }))} placeholder="Veículo do checklist" searchPlaceholder="Buscar veículo" options={[{ value: "", label: "Todos os veículos" }, ...vehicleOptions]} />
-            <Button variant="secondary" onClick={() => setFilters({ search: "", entityType: "", documentStatus: "", documentType: "", checkStatus: "", vehicleId: "" })}>
-              <Filter size={18} />
-              Limpar
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
       <section className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_minmax(560px,680px)]">
         <Card>
           <CardHeader>
@@ -752,10 +875,10 @@ export function CompliancePage() {
                 <tr>
                   <Th>Tipo</Th>
                   <Th>Entidade</Th>
-                  <Th>Número</Th>
+                  <Th>NÃºmero</Th>
                   <Th>Vencimento</Th>
                   <Th>Status</Th>
-                  <Th>Ações</Th>
+                  <Th>AÃ§Ãµes</Th>
                 </tr>
               </thead>
               <tbody>
@@ -828,7 +951,7 @@ export function CompliancePage() {
             <div>
               <CardTitle>Checklists recentes</CardTitle>
               <p className="mt-1 text-sm text-zinc-500">
-                Entrega por veículo, status, anexos e ações rapidas.
+                Entrega por veículo, status, anexos e aÃ§Ãµes rapidas.
               </p>
             </div>
           </CardHeader>
@@ -984,15 +1107,15 @@ export function CompliancePage() {
               />
             </label>
             <label className="space-y-2 text-sm font-medium">
-              Número
+              NÃºmero
               <Input
                 name="number"
-                placeholder="Número do documento"
+                placeholder="NÃºmero do documento"
                 defaultValue={editingDocument?.number}
               />
             </label>
             <label className="space-y-2 text-sm font-medium">
-              Emissão
+              EmissÃ£o
               <Input
                 name="issuedAt"
                 type="date"
@@ -1072,8 +1195,8 @@ export function CompliancePage() {
                   )?.plate ?? detailDocument.entityId)
               : undefined,
           },
-          { label: "Número", value: detailDocument?.number },
-          { label: "Emissão", value: formatDate(detailDocument?.issuedAt) },
+          { label: "NÃºmero", value: detailDocument?.number },
+          { label: "EmissÃ£o", value: formatDate(detailDocument?.issuedAt) },
           { label: "Vencimento", value: formatDate(detailDocument?.expiresAt) },
           { label: "Status", value: labelFor(detailDocument?.status) },
           { label: "Arquivo", value: detailDocument?.fileUrl },
@@ -1130,7 +1253,7 @@ export function CompliancePage() {
           { label: "Veículo", value: vehicleLabel(detailCheck?.vehicleId) },
           { label: "Motorista", value: driverLabel(detailCheck?.driverId) },
           { label: "Status", value: labelFor(detailCheck?.status) },
-          { label: "Versao", value: detailCheck?.checklistVersion },
+          { label: "Versão", value: detailCheck?.checklistVersion },
           { label: "Data", value: formatDate(detailCheck?.performedAt) },
           { label: "Itens", value: detailCheck?.items?.length ?? 0 },
           { label: "Anexos", value: detailCheck?.attachments?.length ?? 0 },
@@ -1323,7 +1446,7 @@ export function CompliancePage() {
             }
           >
             <label className="space-y-2 text-sm font-medium md:col-span-2">
-              Veículo
+              Veí­culo
               <SearchableSelect
                 name="vehicleId"
                 defaultValue={editingCheck?.vehicleId ?? ""}
@@ -1341,7 +1464,7 @@ export function CompliancePage() {
                 placeholder="Condutor responsavel"
                 searchPlaceholder="Buscar motorista ou CNH"
                 options={[
-                  { value: "", label: "Não informado" },
+                  { value: "", label: "NÃ£o informado" },
                   ...driverOptions,
                 ]}
               />
@@ -1380,7 +1503,7 @@ export function CompliancePage() {
 
           <div className={checklistStep === 1 ? "block" : "hidden"}>
             <SelectChecklistSection
-              title="Condicoes de conservação"
+              title="Condicoes de conservaÃ§Ã£o"
               check={editingCheck}
               items={conservationItems}
               options={conservationOptions}
@@ -1390,7 +1513,7 @@ export function CompliancePage() {
           </div>
           <div className={checklistStep === 2 ? "block" : "hidden"}>
             <SelectChecklistSection
-              title="Iluminação traseira"
+              title="IluminaÃ§Ã£o traseira"
               check={editingCheck}
               items={rearLightingItems}
               options={lightingOptions}
@@ -1400,7 +1523,7 @@ export function CompliancePage() {
           </div>
           <div className={checklistStep === 3 ? "block" : "hidden"}>
             <SelectChecklistSection
-              title="Iluminação dianteira"
+              title="IluminaÃ§Ã£o dianteira"
               check={editingCheck}
               items={frontLightingItems}
               options={lightingOptions}
@@ -1433,7 +1556,7 @@ export function CompliancePage() {
               <Textarea
                 name="bodyDamageNotes"
                 defaultValue={checkItemNotes(editingCheck, "body_damage_notes")}
-                placeholder="Informe local, número e descrição do dano. Ex.: porta esquerda riscada, para-choque amassado."
+                placeholder="Informe local, nÃºmero e descriÃ§Ã£o do dano. Ex.: porta esquerda riscada, para-choque amassado."
               />
             </label>
             <label className="space-y-2 text-sm font-medium">
@@ -1444,7 +1567,7 @@ export function CompliancePage() {
                   editingCheck,
                   "maintenance_observations",
                 )}
-                placeholder="Descreva manutenções necessárias ou observações da entrega."
+                placeholder="Descreva manutenÃ§Ãµes necessÃ¡rias ou observaÃ§Ãµes da entrega."
               />
             </label>
             <label className="space-y-2 text-sm font-medium">
@@ -1478,7 +1601,7 @@ export function CompliancePage() {
                   </strong>
                   <p className="mt-1 text-sm text-zinc-500">
                     Adicione fotos do veículo, danos, documentos assinados ou
-                    comprovantes. É possível selecionar mais de um arquivo.
+                    comprovantes. Ã‰ possÃ­vel selecionar mais de um arquivo.
                   </p>
                 </div>
               </div>

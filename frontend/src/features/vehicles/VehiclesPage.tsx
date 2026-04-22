@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from "react";
+﻿import { FormEvent, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, Edit2, Eye, Filter, Plus, Search, Trash2 } from "lucide-react";
 import { Badge } from "../../components/ui/badge";
@@ -66,6 +66,7 @@ const vehicleStatusOptions = [
 
 export function VehiclesPage() {
   const queryClient = useQueryClient();
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle>();
   const [detailVehicle, setDetailVehicle] = useState<Vehicle>();
@@ -178,6 +179,7 @@ export function VehiclesPage() {
     event.preventDefault();
     setFormError(undefined);
     const form = new FormData(event.currentTarget);
+    const initialOdometerRaw = String(form.get("initialOdometerKm") ?? "").trim();
     const payload = {
       plate: String(form.get("plate") ?? ""),
       brand: String(form.get("brand") ?? ""),
@@ -187,7 +189,9 @@ export function VehiclesPage() {
       type: String(form.get("type") || "car"),
       status: String(form.get("status") || "available"),
       odometerKm: Number(form.get("odometerKm") || 0),
-      initialOdometerKm: Number(form.get("initialOdometerKm") || 0),
+      initialOdometerKm: initialOdometerRaw
+        ? Number(initialOdometerRaw)
+        : undefined,
       tankCapacityLiters:
         Number(form.get("tankCapacityLiters") || 0) || undefined,
       costCenter: String(form.get("costCenter") ?? ""),
@@ -231,82 +235,63 @@ export function VehiclesPage() {
       <FilterPanel
         title="Filtros avançados"
         description="Busque a frota por placa, status, tipo, setor e cidade."
-      >
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <FilterField label="Busca" className="xl:col-span-2">
-            <div className="relative">
-              <Search
-                className="absolute left-3 top-2.5 text-zinc-400"
-                size={18}
-              />
-              <Input
-                className="pl-10"
-                placeholder="Buscar por placa, modelo ou centro de custo"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-              />
+        isExpanded={filtersExpanded}
+        onToggleExpanded={() => setFiltersExpanded((current) => !current)}
+        searchSlot={
+          <div className="relative">
+            <Search
+              className="absolute left-3 top-2.5 text-zinc-400"
+              size={18}
+            />
+            <Input
+              className="pl-10"
+              placeholder="Buscar por placa, modelo ou centro de custo"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </div>
+        }
+        expandedContent={
+          <div className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <FilterField label="Status">
+                <SearchableSelect value={status} onValueChange={setStatus} placeholder="Todos os status" searchPlaceholder="Buscar status" options={[{ value: "", label: "Todos os status" }, ...vehicleStatusOptions]} />
+              </FilterField>
+              <FilterField label="Tipo">
+                <SearchableSelect value={type} onValueChange={setType} placeholder="Todos os tipos" searchPlaceholder="Buscar tipo" options={[{ value: "", label: "Todos os tipos" }, ...vehicleTypeOptions]} />
+              </FilterField>
+              <FilterField label="Setor">
+                <Input placeholder="Ex.: Operações" value={sector} onChange={(event) => setSector(event.target.value)} />
+              </FilterField>
+              <FilterField label="Cidade">
+                <Input placeholder="Ex.: São Paulo" value={city} onChange={(event) => setCity(event.target.value)} />
+              </FilterField>
             </div>
-          </FilterField>
-          <FilterField label="Status">
-            <SearchableSelect
-              value={status}
-              onValueChange={setStatus}
-              placeholder="Todos os status"
-              searchPlaceholder="Buscar status"
-              options={[{ value: "", label: "Todos os status" }, ...vehicleStatusOptions]}
-            />
-          </FilterField>
-          <FilterField label="Tipo">
-            <SearchableSelect
-              value={type}
-              onValueChange={setType}
-              placeholder="Todos os tipos"
-              searchPlaceholder="Buscar tipo"
-              options={[{ value: "", label: "Todos os tipos" }, ...vehicleTypeOptions]}
-            />
-          </FilterField>
-          <FilterField label="Setor">
-            <Input
-              placeholder="Ex.: Operações"
-              value={sector}
-              onChange={(event) => setSector(event.target.value)}
-            />
-          </FilterField>
-          <FilterField label="Cidade">
-            <Input
-              placeholder="Ex.: São Paulo"
-              value={city}
-              onChange={(event) => setCity(event.target.value)}
-            />
-          </FilterField>
-        </div>
-        <div className="mt-4 flex flex-wrap justify-end gap-2">
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setSearch("");
-              setStatus("");
-              setType("");
-              setSector("");
-              setCity("");
-              setPage(1);
-              setAppliedFilters({ search: "", status: "", type: "", sector: "", city: "" });
-            }}
-          >
-            <Filter size={18} />
-            Limpar filtros
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setPage(1);
-              setAppliedFilters({ search, status, type, sector, city });
-            }}
-          >
-            <Filter size={18} />
-            Aplicar filtros
-          </Button>
-        </div>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button variant="secondary" onClick={() => {
+                setSearch("");
+                setStatus("");
+                setType("");
+                setSector("");
+                setCity("");
+                setPage(1);
+                setAppliedFilters({ search: "", status: "", type: "", sector: "", city: "" });
+              }}>
+                <Filter size={18} />
+                Limpar filtros
+              </Button>
+              <Button variant="secondary" onClick={() => {
+                setPage(1);
+                setAppliedFilters({ search, status, type, sector, city });
+              }}>
+                <Filter size={18} />
+                Aplicar filtros
+              </Button>
+            </div>
+          </div>
+        }
+      >
+        {null}
       </FilterPanel>
 
       <Card>
@@ -322,11 +307,11 @@ export function VehiclesPage() {
                 <thead>
                   <tr>
                     <Th>Placa</Th>
-                    <Th>Veículo</Th>
+                    <Th>veículo</Th>
                     <Th>Status</Th>
                     <Th>Odômetro</Th>
-                    <Th>Custo/km</Th>
-                    <Th>Ultima posição</Th>
+                    <Th>Km/L médio</Th>
+                    {/* <Th>Ultima posição</Th> */}
                     <Th>Ações</Th>
                   </tr>
                 </thead>
@@ -358,11 +343,14 @@ export function VehiclesPage() {
                       </Td>
                       <Td>{vehicle.odometerKm.toLocaleString("pt-BR")} km</Td>
                       <Td>
-                        {formatCurrency(
-                          vehicle.financialSummary?.costPerKm ?? 0,
-                        )}
+                        {vehicle.financialSummary?.averageKmPerLiter
+                          ? `${Number(vehicle.financialSummary.averageKmPerLiter).toLocaleString("pt-BR", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })} km/L`
+                          : "-"}
                       </Td>
-                      <Td>{vehicle.lastPosition?.address ?? "-"}</Td>
+                      {/* <Td>{vehicle.lastPosition?.address ?? "-"}</Td> */}
                       <Td>
                         <ActionMenu
                           items={[
@@ -415,7 +403,7 @@ export function VehiclesPage() {
         description={
           editingVehicle
             ? "Atualize cadastro, status operacional e dados de custo."
-            : "Cadastre um automóvel, utilitário ou caminhão na frota operacional."
+            : "Cadastre um automÃ³vel, utilitÃ¡rio ou caminhÃ£o na frota operacional."
         }
         onClose={closeModal}
       >
@@ -479,23 +467,6 @@ export function VehiclesPage() {
               />
             </label>
             <label className="space-y-2 text-sm font-medium">
-              Odômetro base de consumo
-              <Input
-                name="initialOdometerKm"
-                type="number"
-                min="0"
-                placeholder="Km antes do primeiro abastecimento"
-                defaultValue={
-                  editingVehicle?.initialOdometerKm ??
-                  editingVehicle?.odometerKm ??
-                  0
-                }
-              />
-              <span className="block text-xs font-normal text-zinc-500">
-                Usado como base para calcular o km/L do primeiro abastecimento.
-              </span>
-            </label>
-            <label className="space-y-2 text-sm font-medium">
               Tanque em litros
               <Input
                 name="tankCapacityLiters"
@@ -520,7 +491,7 @@ export function VehiclesPage() {
               Centro de custo
               <Input
                 name="costCenter"
-                placeholder="Carros Próprios"
+                placeholder="Carros PrÃ³prios"
                 defaultValue={editingVehicle?.costCenter}
               />
             </label>
@@ -569,8 +540,8 @@ export function VehiclesPage() {
       <DetailModal
         open={Boolean(detailVehicle)}
         entityId={detailVehicle?._id}
-        title="Detalhes do veículo"
-        description="Informacoes operacionais, financeiras e auditoria do cadastro."
+        title="Detalhes do veículos"
+        description="Informações operacionais, financeiras e auditoria do cadastro."
         onClose={() => setDetailVehicle(undefined)}
         fields={[
           { label: "Placa", value: detailVehicle?.plate },
@@ -584,17 +555,17 @@ export function VehiclesPage() {
             value: labelFor(detailVehicle?.status, vehicleStatusLabels),
           },
           {
-            label: "Odômetro",
-            value: detailVehicle
-              ? `${detailVehicle.odometerKm.toLocaleString("pt-BR")} km`
-              : undefined,
-          },
-          {
-            label: "Odômetro base de consumo",
+            label: "Odômetro inicial",
             value:
               detailVehicle?.initialOdometerKm !== undefined
                 ? `${Number(detailVehicle.initialOdometerKm).toLocaleString("pt-BR")} km`
                 : "-",
+          },
+          {
+            label: "Odômetro atual registrado",
+            value: detailVehicle
+              ? `${Number(detailVehicle.currentOdometerKm ?? detailVehicle.odometerKm ?? 0).toLocaleString("pt-BR")} km`
+              : undefined,
           },
           {
             label: "Tanque",
@@ -606,7 +577,7 @@ export function VehiclesPage() {
           { label: "Setor", value: detailVehicle?.sector },
           { label: "Cidade", value: detailVehicle?.city },
           {
-            label: "Custo de combustível",
+            label: "Custo de combustí­vel",
             value: detailVehicle
               ? formatCurrency(
                   detailVehicle.financialSummary?.totalFuelCost ?? 0,
@@ -628,9 +599,14 @@ export function VehiclesPage() {
               : undefined,
           },
           {
-            label: "Custo por km",
+            label: "Km/L mÃ©dio",
             value: detailVehicle
-              ? formatCurrency(detailVehicle.financialSummary?.costPerKm ?? 0)
+              ? detailVehicle.financialSummary?.averageKmPerLiter
+                ? `${Number(detailVehicle.financialSummary.averageKmPerLiter).toLocaleString("pt-BR", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })} km/L`
+                : "-"
               : undefined,
           },
           {
@@ -642,3 +618,4 @@ export function VehiclesPage() {
     </div>
   );
 }
+

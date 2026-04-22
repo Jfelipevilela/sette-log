@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -37,7 +37,11 @@ import { LoadingState } from "../../components/ui/loading-state";
 import { StatCard } from "../../components/ui/stat-card";
 import { VehicleTypeIcon } from "../../components/vehicle-type-icon";
 import { getDashboard } from "../../lib/api";
-import { labelFor, maintenanceTypeLabels, severityLabels } from "../../lib/labels";
+import {
+  labelFor,
+  maintenanceTypeLabels,
+  severityLabels,
+} from "../../lib/labels";
 
 import { formatCurrency, formatDate, formatPercent } from "../../lib/utils";
 
@@ -71,10 +75,17 @@ const fuelLabels: Record<string, string> = {
   diesel: "Diesel",
   gnv: "GNV",
   electric: "Eletrico",
-  unknown: "Não informado",
+  unknown: "NÃ£o informado",
 };
 
-const fuelTypeColors = ["#0f8f63", "#027f9f", "#b7791f", "#c2413b", "#3b82f6", "#71717a"];
+const fuelTypeColors = [
+  "#0f8f63",
+  "#027f9f",
+  "#b7791f",
+  "#c2413b",
+  "#3b82f6",
+  "#71717a",
+];
 
 function safeNumber(value: unknown) {
   const numberValue = Number(value ?? 0);
@@ -156,10 +167,14 @@ export function DashboardPage() {
       expenseCost: safeNumber(point.expenseCost),
     })) || [];
 
-  const hasDailyData = costByDay.some((point) => Number(point.total) > 0 || Number(point.liters) > 0);
+  const hasDailyData = costByDay.some(
+    (point) => Number(point.total) > 0 || Number(point.liters) > 0,
+  );
   const totalOperationalCost =
     data.kpis.totalOperationalCost ??
-    safeNumber(data.kpis.totalFuelCost) + safeNumber(data.kpis.totalMaintenanceCost) + safeNumber(data.kpis.totalExpenseCost);
+    safeNumber(data.kpis.totalFuelCost) +
+      safeNumber(data.kpis.totalMaintenanceCost) +
+      safeNumber(data.kpis.totalExpenseCost);
   const totalFuelCost = safeNumber(data.kpis.totalFuelCost);
   const totalMaintenanceCost = safeNumber(data.kpis.totalMaintenanceCost);
   const totalExpenseCost = safeNumber(data.kpis.totalExpenseCost);
@@ -182,40 +197,42 @@ export function DashboardPage() {
       <section className="relative overflow-hidden rounded-lg border border-fleet-line bg-white p-5 shadow-sm md:p-6">
         <span className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-fleet-green via-cyan-500 to-fleet-amber" />
         <div className="relative flex flex-col justify-between gap-4 md:flex-row md:items-end">
-        <div>
-          <span className="mb-2 inline-flex rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold uppercase text-emerald-700">
-            Visão executiva
-          </span>
-          <h2 className="text-2xl font-semibold text-fleet-ink">Dashboard operacional</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
-            Filtre o período para analisar abastecimento, consumo e custos por
-            veículo.
-          </p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="space-y-2 text-sm font-medium text-fleet-ink">
-            De
-            <Input
-              type="date"
-              value={from}
-              onChange={(event) => setFrom(event.target.value)}
-            />
-          </label>
-          <label className="space-y-2 text-sm font-medium text-fleet-ink">
-            Até
-            <Input
-              type="date"
-              value={to}
-              onChange={(event) => setTo(event.target.value)}
-            />
-          </label>
-        </div>
+          <div>
+            <span className="mb-2 inline-flex rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold uppercase text-emerald-700">
+              VisÃ£o executiva
+            </span>
+            <h2 className="text-2xl font-semibold text-fleet-ink">
+              Dashboard operacional
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
+              Filtre o perÃ­odo para analisar abastecimento, consumo e custos
+              por veículo.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="space-y-2 text-sm font-medium text-fleet-ink">
+              De
+              <Input
+                type="date"
+                value={from}
+                onChange={(event) => setFrom(event.target.value)}
+              />
+            </label>
+            <label className="space-y-2 text-sm font-medium text-fleet-ink">
+              AtÃ©
+              <Input
+                type="date"
+                value={to}
+                onChange={(event) => setTo(event.target.value)}
+              />
+            </label>
+          </div>
         </div>
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Veículos"
+          label="Veí­culos"
           value={String(data.kpis.totalVehicles)}
           detail="Ativos"
           icon={Car}
@@ -248,7 +265,7 @@ export function DashboardPage() {
         <StatCard
           label="Custo total"
           value={formatCurrency(totalOperationalCost)}
-          detail="Combustível, manutenção e despesas"
+          detail="Combustí­vel, manutenção e despesas"
           icon={ReceiptText}
           tone="green"
         />
@@ -281,7 +298,8 @@ export function DashboardPage() {
             <div>
               <CardTitle>Custos e consumo por dia</CardTitle>
               <p className="mt-1 text-sm text-zinc-500">
-                Custo operacional total e litros abastecidos no periodo selecionado
+                Custo operacional total no periodo
+                selecionado
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -293,14 +311,25 @@ export function DashboardPage() {
           <CardContent className="h-96 bg-white">
             {hasDailyData ? (
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={costByDay} margin={{ top: 12, right: 16, left: 0, bottom: 8 }}>
+                <AreaChart
+                  data={costByDay}
+                  margin={{ top: 12, right: 16, left: 0, bottom: 8 }}
+                >
                   <defs>
                     <linearGradient id="cost" x1="0" x2="0" y1="0" y2="1">
-                      <stop offset="5%" stopColor="#0f8f63" stopOpacity={0.28} />
+                      <stop
+                        offset="5%"
+                        stopColor="#0f8f63"
+                        stopOpacity={0.28}
+                      />
                       <stop offset="95%" stopColor="#0f8f63" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid stroke="#e5e7eb" strokeDasharray="4 4" vertical={false} />
+                  <CartesianGrid
+                    stroke="#e5e7eb"
+                    strokeDasharray="4 4"
+                    vertical={false}
+                  />
                   <XAxis dataKey="day" tickLine={false} axisLine={false} />
                   <Legend verticalAlign="bottom" height={28} />
                   <YAxis
@@ -319,7 +348,9 @@ export function DashboardPage() {
                   <Tooltip
                     contentStyle={chartTooltipStyle}
                     formatter={(value, name) =>
-                      name === "Litros" ? `${Number(value).toLocaleString("pt-BR")} L` : formatCurrency(Number(value))
+                      name === "Litros"
+                        ? `${Number(value).toLocaleString("pt-BR")} L`
+                        : formatCurrency(Number(value))
                     }
                   />
                   <Area
@@ -357,7 +388,7 @@ export function DashboardPage() {
             <div>
               <CardTitle>Histórico 12 meses</CardTitle>
               <p className="mt-1 text-sm text-zinc-500">
-                Custo total mensal independente do filtro
+                Custo total mensal 
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -367,14 +398,21 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent className="h-96 bg-white">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={costByMonth.slice(-12)} margin={{ top: 12, right: 16, left: 0, bottom: 8 }}>
+              <AreaChart
+                data={costByMonth.slice(-12)}
+                margin={{ top: 12, right: 16, left: 0, bottom: 8 }}
+              >
                 <defs>
                   <linearGradient id="month-cost" x1="0" x2="0" y1="0" y2="1">
                     <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.28} />
                     <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid stroke="#e5e7eb" strokeDasharray="4 4" vertical={false} />
+                <CartesianGrid
+                  stroke="#e5e7eb"
+                  strokeDasharray="4 4"
+                  vertical={false}
+                />
                 <XAxis dataKey="month" tickLine={false} axisLine={false} />
                 <Legend verticalAlign="bottom" height={28} />
                 <YAxis
@@ -393,7 +431,9 @@ export function DashboardPage() {
                 <Tooltip
                   contentStyle={chartTooltipStyle}
                   formatter={(value, name) =>
-                    name === "Litros" ? `${Number(value).toLocaleString("pt-BR")} L` : formatCurrency(Number(value))
+                    name === "Litros"
+                      ? `${Number(value).toLocaleString("pt-BR")} L`
+                      : formatCurrency(Number(value))
                   }
                 />
                 <Area
@@ -418,7 +458,6 @@ export function DashboardPage() {
             </ResponsiveContainer>
           </CardContent>
         </Card>
-
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[1fr_1fr]">
@@ -489,7 +528,8 @@ export function DashboardPage() {
                     </span>
                   </div>
                   <p className="mt-1 text-xs text-zinc-500">
-                    {item.liters.toLocaleString("pt-BR")} L em {item.records} lancamento(s)
+                    {item.liters.toLocaleString("pt-BR")} L em {item.records}{" "}
+                    lancamento(s)
                   </p>
                 </div>
               ))}
@@ -502,7 +542,8 @@ export function DashboardPage() {
             <div>
               <CardTitle>Consumo médio por carro</CardTitle>
               <p className="mt-1 text-sm text-zinc-500">
-                Km/L calculado pela diferenca entre abastecimentos consecutivos.
+                Km/L calculado a partir do odômetro inicial no primeiro
+                abastecimento e, depois, pela sequência dos abastecimentos.
               </p>
             </div>
           </CardHeader>
@@ -533,8 +574,12 @@ export function DashboardPage() {
                   </Badge>
                 </div>
                 <p className="mt-2 text-xs text-zinc-500">
-                  {Number(vehicle.distanceKm ?? 0).toLocaleString("pt-BR")} km analisados com{" "}
-                  {Number(vehicle.efficiencyLiters ?? 0).toLocaleString("pt-BR")} L vinculados ao consumo.
+                  {Number(vehicle.distanceKm ?? 0).toLocaleString("pt-BR")} km
+                  analisados com{" "}
+                  {Number(vehicle.efficiencyLiters ?? 0).toLocaleString(
+                    "pt-BR",
+                  )}{" "}
+                  L vinculados ao consumo.
                 </p>
               </div>
             ))}
@@ -553,7 +598,7 @@ export function DashboardPage() {
             <div>
               <CardTitle>Status operacional</CardTitle>
               <p className="mt-1 text-sm text-zinc-500">
-                Distribuicao atual da frota
+                Distribuição atual da frota
               </p>
             </div>
           </CardHeader>
@@ -596,68 +641,75 @@ export function DashboardPage() {
             <div>
               <CardTitle>Custo e consumo por carro</CardTitle>
               <p className="mt-1 text-sm text-zinc-500">
-                Total de litros e valor abastecido dentro do período filtrado.
+                Total de litros e valor abastecido dentro do perÃ­odo filtrado.
               </p>
             </div>
           </CardHeader>
-          <CardContent className="overflow-x-auto">
-            <table className="w-full border-collapse text-left text-sm">
-              <thead>
-                <tr>
-                  <th className="border-b border-fleet-line px-4 py-3 font-semibold text-zinc-600">
-                    Veículo
-                  </th>
-                  <th className="border-b border-fleet-line px-4 py-3 font-semibold text-zinc-600">
-                    Litros
-                  </th>
-                  <th className="border-b border-fleet-line px-4 py-3 font-semibold text-zinc-600">
-                    Custo
-                  </th>
-                  <th className="border-b border-fleet-line px-4 py-3 font-semibold text-zinc-600">
-                    Km/L
-                  </th>
-                  <th className="border-b border-fleet-line px-4 py-3 font-semibold text-zinc-600">
-                    Lançamentos
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.fuelByVehicle.map((vehicle) => (
-                  <tr key={vehicle.vehicleId}>
-                    <td className="border-b border-zinc-100 px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <VehicleTypeIcon type={vehicle.type} />
-                        <div>
-                          <strong>{vehicle.plate}</strong>
-                          <span className="block text-xs text-zinc-500">
-                            {vehicle.label}
-                          </span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="border-b border-zinc-100 px-4 py-3">
-                      {vehicle.totalLiters.toLocaleString("pt-BR")} L
-                    </td>
-                    <td className="border-b border-zinc-100 px-4 py-3">
-                      {formatCurrency(vehicle.totalCost)}
-                    </td>
-                    <td className="border-b border-zinc-100 px-4 py-3">
-                      {vehicle.averageKmPerLiter ? `${vehicle.averageKmPerLiter.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} km/L` : "-"}
-                    </td>
-                    <td className="border-b border-zinc-100 px-4 py-3">
-                      {vehicle.records}
-                    </td>
-                  </tr>
-                ))}
-                {data.fuelByVehicle.length === 0 && (
+          <CardContent>
+            <div className="max-h-[420px] overflow-auto">
+              <table className="w-full border-collapse text-left text-sm">
+                <thead>
                   <tr>
-                    <td className="px-4 py-6 text-sm text-zinc-500" colSpan={5}>
-                      Nenhum abastecimento no período selecionado.
-                    </td>
+                    <th className="border-b border-fleet-line px-4 py-3 font-semibold text-zinc-600">
+                      Veículo
+                    </th>
+                    <th className="border-b border-fleet-line px-4 py-3 font-semibold text-zinc-600">
+                      Litros
+                    </th>
+                    <th className="border-b border-fleet-line px-4 py-3 font-semibold text-zinc-600">
+                      Custo
+                    </th>
+                    <th className="border-b border-fleet-line px-4 py-3 font-semibold text-zinc-600">
+                      Km/L
+                    </th>
+                    <th className="border-b border-fleet-line px-4 py-3 font-semibold text-zinc-600">
+                      Lançamentos
+                    </th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {data.fuelByVehicle.map((vehicle) => (
+                    <tr key={vehicle.vehicleId}>
+                      <td className="border-b border-zinc-100 px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <VehicleTypeIcon type={vehicle.type} />
+                          <div>
+                            <strong>{vehicle.plate}</strong>
+                            <span className="block text-xs text-zinc-500">
+                              {vehicle.label}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="border-b border-zinc-100 px-4 py-3">
+                        {vehicle.totalLiters.toLocaleString("pt-BR")} L
+                      </td>
+                      <td className="border-b border-zinc-100 px-4 py-3">
+                        {formatCurrency(vehicle.totalCost)}
+                      </td>
+                      <td className="border-b border-zinc-100 px-4 py-3">
+                        {vehicle.averageKmPerLiter
+                          ? `${vehicle.averageKmPerLiter.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} km/L`
+                          : "-"}
+                      </td>
+                      <td className="border-b border-zinc-100 px-4 py-3">
+                        {vehicle.records}
+                      </td>
+                    </tr>
+                  ))}
+                  {data.fuelByVehicle.length === 0 && (
+                    <tr>
+                      <td
+                        className="px-4 py-6 text-sm text-zinc-500"
+                        colSpan={5}
+                      >
+                        Nenhum abastecimento no perÃ­odo selecionado.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </CardContent>
         </Card>
 
@@ -665,41 +717,43 @@ export function DashboardPage() {
           <CardHeader>
             <CardTitle>Ranking de maior gasto</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {data.topFuelCostVehicles.map((vehicle, index) => (
-              <div
-                key={vehicle.vehicleId}
-                className="rounded-lg border border-fleet-line p-3"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <VehicleTypeIcon type={vehicle.type} />
-                    <div>
-                      <strong className="block text-sm">
-                        {index + 1}. {vehicle.plate}
-                      </strong>
-                      <span className="text-xs text-zinc-500">
-                        {vehicle.label}
-                      </span>
+          <CardContent>
+            <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
+              {data.topFuelCostVehicles.map((vehicle, index) => (
+                <div
+                  key={vehicle.vehicleId}
+                  className="rounded-lg border border-fleet-line p-3"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <VehicleTypeIcon type={vehicle.type} />
+                      <div>
+                        <strong className="block text-sm">
+                          {index + 1}. {vehicle.plate}
+                        </strong>
+                        <span className="text-xs text-zinc-500">
+                          {vehicle.label}
+                        </span>
+                      </div>
                     </div>
+                    <Badge
+                      tone={index === 0 ? "red" : index < 3 ? "amber" : "cyan"}
+                    >
+                      {formatCurrency(vehicle.totalCost)}
+                    </Badge>
                   </div>
-                  <Badge
-                    tone={index === 0 ? "red" : index < 3 ? "amber" : "cyan"}
-                  >
-                    {formatCurrency(vehicle.totalCost)}
-                  </Badge>
+                  <p className="mt-2 text-sm text-zinc-600">
+                    {vehicle.totalLiters.toLocaleString("pt-BR")} L em{" "}
+                    {vehicle.records} lançamentos
+                  </p>
                 </div>
-                <p className="mt-2 text-sm text-zinc-600">
-                  {vehicle.totalLiters.toLocaleString("pt-BR")} L em{" "}
-                  {vehicle.records} lançamentos
+              ))}
+              {data.topFuelCostVehicles.length === 0 && (
+                <p className="text-sm text-zinc-500">
+                  Sem abastecimentos no período.
                 </p>
-              </div>
-            ))}
-            {data.topFuelCostVehicles.length === 0 && (
-              <p className="text-sm text-zinc-500">
-                Sem abastecimentos no período.
-              </p>
-            )}
+              )}
+            </div>
           </CardContent>
         </Card>
       </section>
@@ -709,33 +763,43 @@ export function DashboardPage() {
           <CardHeader>
             <CardTitle>Alertas recentes</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {data.recentAlerts.map((alert) => (
-              <div
-                key={alert._id}
-                className="rounded-lg border border-fleet-line p-3"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <strong className="text-sm">
-                    {alert.type.replace(/_/g, " ")}
-                  </strong>
-                  <Badge
-                    tone={
-                      alert.severity === "critical"
-                        ? "red"
-                        : alert.severity === "warning"
-                          ? "amber"
-                          : "cyan"
-                    }
-                  >
-                    {labelFor(alert.severity, severityLabels)}
-                  </Badge>
+          <CardContent>
+            <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
+              {data.topFuelCostVehicles.map((vehicle, index) => (
+                <div
+                  key={vehicle.vehicleId}
+                  className="rounded-lg border border-fleet-line p-3"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <VehicleTypeIcon type={vehicle.type} />
+                      <div>
+                        <strong className="block text-sm">
+                          {index + 1}. {vehicle.plate}
+                        </strong>
+                        <span className="text-xs text-zinc-500">
+                          {vehicle.label}
+                        </span>
+                      </div>
+                    </div>
+                    <Badge
+                      tone={index === 0 ? "red" : index < 3 ? "amber" : "cyan"}
+                    >
+                      {formatCurrency(vehicle.totalCost)}
+                    </Badge>
+                  </div>
+                  <p className="mt-2 text-sm text-zinc-600">
+                    {vehicle.totalLiters.toLocaleString("pt-BR")} L em{" "}
+                    {vehicle.records} lançamentos
+                  </p>
                 </div>
-                <p className="mt-1 text-xs text-zinc-500">
-                  {formatDate(alert.triggeredAt)}
+              ))}
+              {data.topFuelCostVehicles.length === 0 && (
+                <p className="text-sm text-zinc-500">
+                  Sem abastecimentos no período.
                 </p>
-              </div>
-            ))}
+              )}
+            </div>
           </CardContent>
         </Card>
 
@@ -743,26 +807,43 @@ export function DashboardPage() {
           <CardHeader>
             <CardTitle>Manutenção próxima</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {data.upcomingMaintenance.map((order) => (
-              <div
-                key={order._id}
-                className="rounded-lg border border-fleet-line p-3"
-              >
-                <div className="flex items-center gap-2">
-                  <Wrench size={16} className="text-fleet-amber" />
-                  <strong className="text-sm">
-                    {labelFor(order.type, maintenanceTypeLabels)}
-                  </strong>
+          <CardContent>
+            <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
+              {data.topFuelCostVehicles.map((vehicle, index) => (
+                <div
+                  key={vehicle.vehicleId}
+                  className="rounded-lg border border-fleet-line p-3"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <VehicleTypeIcon type={vehicle.type} />
+                      <div>
+                        <strong className="block text-sm">
+                          {index + 1}. {vehicle.plate}
+                        </strong>
+                        <span className="text-xs text-zinc-500">
+                          {vehicle.label}
+                        </span>
+                      </div>
+                    </div>
+                    <Badge
+                      tone={index === 0 ? "red" : index < 3 ? "amber" : "cyan"}
+                    >
+                      {formatCurrency(vehicle.totalCost)}
+                    </Badge>
+                  </div>
+                  <p className="mt-2 text-sm text-zinc-600">
+                    {vehicle.totalLiters.toLocaleString("pt-BR")} L em{" "}
+                    {vehicle.records} lançamentos
+                  </p>
                 </div>
-                <p className="mt-1 text-sm text-zinc-500">
-                  {formatDate(order.scheduledAt)}
+              ))}
+              {data.topFuelCostVehicles.length === 0 && (
+                <p className="text-sm text-zinc-500">
+                  Sem abastecimentos no período.
                 </p>
-                <span className="mt-2 block text-sm font-medium">
-                  {formatCurrency(order.totalCost)}
-                </span>
-              </div>
-            ))}
+              )}
+            </div>
           </CardContent>
         </Card>
 
@@ -806,7 +887,7 @@ export function DashboardPage() {
             </div>
             <div className="rounded-lg border border-fleet-line p-4">
               <span className="text-sm text-zinc-600">
-                Preço médio por litro
+                PreÃ§o mÃ©dio por litro
               </span>
               <strong className="mt-2 block text-2xl">
                 {formatCurrency(averageFuelCost)}

@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from "react";
+﻿import { FormEvent, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarDays,
@@ -64,7 +64,7 @@ const maintenanceTypeOptions = [
 
 const priorityOptions = [
   { value: "low", label: "Baixa" },
-  { value: "medium", label: "Média" },
+  { value: "medium", label: "MÃ©dia" },
   { value: "high", label: "Alta" },
   { value: "critical", label: "Critica" },
 ];
@@ -73,12 +73,13 @@ const maintenanceStatusOptions = [
   { value: "open", label: "Aberta" },
   { value: "scheduled", label: "Agendada" },
   { value: "in_progress", label: "Em execução" },
-  { value: "closed", label: "Fechada" },
+  { value: "closed", label: "Finalizada" },
   { value: "cancelled", label: "Cancelada" },
 ];
 
 export function MaintenancePage() {
   const queryClient = useQueryClient();
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<MaintenanceOrder>();
   const [detailOrder, setDetailOrder] = useState<MaintenanceOrder>();
@@ -91,6 +92,7 @@ export function MaintenancePage() {
     status: "",
     from: "",
     to: "",
+    showClosed: false,
   });
   const [previewAttachment, setPreviewAttachment] = useState<{
     fileName: string;
@@ -174,12 +176,14 @@ export function MaintenancePage() {
     return orders.filter((order) => {
       const vehicleText = vehicleOptions.find((vehicle) => vehicle.value === order.vehicleId)?.searchText?.toLowerCase() ?? "";
       const scheduledAt = order.scheduledAt?.slice(0, 10) ?? "";
+      const hideClosed = !filters.showClosed && !filters.status;
       return (
         (!term || vehicleText.includes(term) || String(order.type).toLowerCase().includes(term)) &&
         (!filters.vehicleId || order.vehicleId === filters.vehicleId) &&
         (!filters.type || order.type === filters.type) &&
         (!filters.priority || order.priority === filters.priority) &&
         (!filters.status || order.status === filters.status) &&
+        (!hideClosed || order.status !== "closed") &&
         (!filters.from || scheduledAt >= filters.from) &&
         (!filters.to || scheduledAt <= filters.to)
       );
@@ -200,7 +204,7 @@ export function MaintenancePage() {
       total: filteredOrders.filter((order) => order.status === "in_progress").length,
     },
     {
-      status: "Fechada",
+      status: "Finalizada",
       total: filteredOrders.filter((order) => order.status === "closed").length,
     },
   ];
@@ -231,39 +235,59 @@ export function MaintenancePage() {
         </div>
       </section>
 
-      <FilterPanel description="Refine ordens por veículo, tipo, prioridade, status e período.">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <FilterField label="Busca" className="xl:col-span-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-2.5 text-zinc-400" size={18} />
-              <Input className="pl-10" placeholder="Buscar veículo ou tipo" value={filters.search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))} />
+      <FilterPanel
+        description="Refine ordens por veí­culo, tipo, prioridade, status e período."
+        isExpanded={filtersExpanded}
+        onToggleExpanded={() => setFiltersExpanded((current) => !current)}
+        searchSlot={
+          <div className="relative">
+            <Search className="absolute left-3 top-2.5 text-zinc-400" size={18} />
+            <Input className="pl-10" placeholder="Buscar veículo ou tipo" value={filters.search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))} />
+          </div>
+        }
+        expandedContent={
+          <div className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <FilterField label="Veículo">
+                <SearchableSelect value={filters.vehicleId} onValueChange={(value) => setFilters((current) => ({ ...current, vehicleId: value }))} placeholder="Todos os veículos" searchPlaceholder="Buscar veículo" options={[{ value: "", label: "Veículos" }, ...vehicleOptions]} />
+              </FilterField>
+              <FilterField label="Tipo">
+                <SearchableSelect value={filters.type} onValueChange={(value) => setFilters((current) => ({ ...current, type: value }))} placeholder="Todos" options={[{ value: "", label: "Todos" }, ...maintenanceTypeOptions]} />
+              </FilterField>
+              <FilterField label="Prioridade">
+                <SearchableSelect value={filters.priority} onValueChange={(value) => setFilters((current) => ({ ...current, priority: value }))} placeholder="Todas" options={[{ value: "", label: "Todas" }, ...priorityOptions]} />
+              </FilterField>
+              <FilterField label="Status">
+                <SearchableSelect value={filters.status} onValueChange={(value) => setFilters((current) => ({ ...current, status: value }))} placeholder="Todos" options={[{ value: "", label: "Todos" }, ...maintenanceStatusOptions]} />
+              </FilterField>
+              <FilterField label="Fechadas">
+                <label className="flex h-11 items-center gap-3 rounded-lg border border-fleet-line bg-white px-3 text-sm font-medium text-fleet-ink">
+                  <input
+                    type="checkbox"
+                    checked={filters.showClosed}
+                    onChange={(event) => setFilters((current) => ({ ...current, showClosed: event.target.checked }))}
+                    className="h-4 w-4 accent-fleet-green"
+                  />
+                  <span>Mostrar fechadas</span>
+                </label>
+              </FilterField>
+              <FilterField label="Data inicial">
+                <Input type="date" value={filters.from} onChange={(event) => setFilters((current) => ({ ...current, from: event.target.value }))} />
+              </FilterField>
+              <FilterField label="Data final">
+                <Input type="date" value={filters.to} onChange={(event) => setFilters((current) => ({ ...current, to: event.target.value }))} />
+              </FilterField>
             </div>
-          </FilterField>
-          <FilterField label="Veículo">
-            <SearchableSelect value={filters.vehicleId} onValueChange={(value) => setFilters((current) => ({ ...current, vehicleId: value }))} placeholder="Todos os veículos" searchPlaceholder="Buscar veículo" options={[{ value: "", label: "Todos os veículos" }, ...vehicleOptions]} />
-          </FilterField>
-          <FilterField label="Tipo">
-            <SearchableSelect value={filters.type} onValueChange={(value) => setFilters((current) => ({ ...current, type: value }))} placeholder="Todos" options={[{ value: "", label: "Todos" }, ...maintenanceTypeOptions]} />
-          </FilterField>
-          <FilterField label="Prioridade">
-            <SearchableSelect value={filters.priority} onValueChange={(value) => setFilters((current) => ({ ...current, priority: value }))} placeholder="Todas" options={[{ value: "", label: "Todas" }, ...priorityOptions]} />
-          </FilterField>
-          <FilterField label="Status">
-            <SearchableSelect value={filters.status} onValueChange={(value) => setFilters((current) => ({ ...current, status: value }))} placeholder="Todos" options={[{ value: "", label: "Todos" }, ...maintenanceStatusOptions]} />
-          </FilterField>
-          <FilterField label="Data inicial">
-            <Input type="date" value={filters.from} onChange={(event) => setFilters((current) => ({ ...current, from: event.target.value }))} />
-          </FilterField>
-          <FilterField label="Data final">
-            <Input type="date" value={filters.to} onChange={(event) => setFilters((current) => ({ ...current, to: event.target.value }))} />
-          </FilterField>
-        </div>
-        <div className="mt-4 flex flex-wrap justify-end gap-2">
-          <Button variant="secondary" onClick={() => setFilters({ search: "", vehicleId: "", type: "", priority: "", status: "", from: "", to: "" })}>
-            <Filter size={18} />
-            Limpar filtros
-          </Button>
-        </div>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button variant="secondary" onClick={() => setFilters({ search: "", vehicleId: "", type: "", priority: "", status: "", from: "", to: "", showClosed: false })}>
+                <Filter size={18} />
+                Limpar filtros
+              </Button>
+            </div>
+          </div>
+        }
+      >
+        {null}
       </FilterPanel>
 
       <section className="grid gap-6 xl:grid-cols-[1fr_420px]">
@@ -281,7 +305,7 @@ export function MaintenancePage() {
                   <Th>Agendamento</Th>
                   <Th>Custo</Th>
                   <Th>Anexos</Th>
-                  <Th>Ações</Th>
+                  <Th>AÃ§Ãµes</Th>
                 </tr>
               </thead>
               <tbody>
@@ -308,7 +332,20 @@ export function MaintenancePage() {
                         {labelFor(order.priority, priorityLabels)}
                       </Badge>
                     </Td>
-                    <Td>{labelFor(order.status, maintenanceStatusLabels)}</Td>
+                    <Td>
+                      <SearchableSelect
+                        value={order.status}
+                        onValueChange={(value) =>
+                          updateOrderMutation.mutate({
+                            id: order._id,
+                            payload: { status: value },
+                          })
+                        }
+                        options={maintenanceStatusOptions}
+                        searchable={false}
+                        className="min-w-[150px]"
+                      />
+                    </Td>
                     <Td>{formatDate(order.scheduledAt)}</Td>
                     <Td>{formatCurrency(order.totalCost)}</Td>
                     <Td>
@@ -432,7 +469,7 @@ export function MaintenancePage() {
         >
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-2 text-sm font-medium md:col-span-2">
-              Veículo
+              veículo
               <SearchableSelect
                 name="vehicleId"
                 required
@@ -531,7 +568,7 @@ export function MaintenancePage() {
         onClose={() => setDetailOrder(undefined)}
         fields={[
           {
-            label: "Veículo",
+            label: "veículo",
             value: detailOrder?.vehicleId
               ? (vehicles.find(
                   (vehicle) => vehicle._id === detailOrder.vehicleId,
@@ -565,6 +602,28 @@ export function MaintenancePage() {
           },
         ]}
       >
+        <div className="rounded-lg border border-fleet-line p-4">
+          <strong className="block text-sm text-fleet-ink">Status</strong>
+          <div className="mt-3 max-w-[240px]">
+            <SearchableSelect
+              value={detailOrder?.status ?? "open"}
+              onValueChange={(value) => {
+                if (!detailOrder) {
+                  return;
+                }
+                updateOrderMutation.mutate({
+                  id: detailOrder._id,
+                  payload: { status: value },
+                });
+                setDetailOrder((current) =>
+                  current ? { ...current, status: value } : current,
+                );
+              }}
+              options={maintenanceStatusOptions}
+              searchable={false}
+            />
+          </div>
+        </div>
         <div className="rounded-lg border border-fleet-line p-4">
           <strong className="block text-sm text-fleet-ink">Anexos</strong>
           <div className="mt-3 space-y-2">
@@ -615,3 +674,4 @@ export function MaintenancePage() {
     </div>
   );
 }
+

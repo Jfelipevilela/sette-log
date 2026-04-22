@@ -161,7 +161,7 @@ async function seed() {
       type: 'truck',
       status: 'maintenance',
       odometerKm: 61200,
-      costCenter: 'Distribuicao Urbana',
+      costCenter: 'Distribuição Urbana',
       primaryDriverId: driverB._id.toString(),
       lastPosition: {
         type: 'Point',

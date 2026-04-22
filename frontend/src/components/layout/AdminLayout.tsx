@@ -14,7 +14,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { Button } from "../ui/button";
 import { useAuthStore } from "../../store/auth-store";
@@ -40,6 +40,8 @@ export function AdminLayout() {
   const queryClient = useQueryClient();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const notificationsButtonRef = useRef<HTMLButtonElement>(null);
+  const notificationsPanelRef = useRef<HTMLDivElement>(null);
   const { data: notifications = [] } = useQuery({
     queryKey: ["notifications"],
     queryFn: getNotifications,
@@ -53,6 +55,36 @@ export function AdminLayout() {
   const unreadCount = notifications.filter(
     (notification) => notification.status !== "read",
   ).length;
+
+  useEffect(() => {
+    if (!notificationsOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target as Node;
+      if (
+        notificationsButtonRef.current?.contains(target) ||
+        notificationsPanelRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setNotificationsOpen(false);
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setNotificationsOpen(false);
+      }
+    }
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("keydown", handleEscape);
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [notificationsOpen]);
 
   function handleLogout() {
     logout();
@@ -151,6 +183,7 @@ export function AdminLayout() {
           </div>
           <div className="flex items-center gap-3">
             <button
+              ref={notificationsButtonRef}
               type="button"
               className="relative flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 bg-white text-zinc-700 shadow-[0_8px_20px_rgba(15,23,42,0.06)] transition hover:-translate-y-px hover:border-emerald-200 hover:bg-emerald-50/40"
               onClick={() => setNotificationsOpen((current) => !current)}

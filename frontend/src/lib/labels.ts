@@ -47,7 +47,7 @@ export const maintenanceStatusLabels: Record<string, string> = {
   open: 'Aberta',
   scheduled: 'Agendada',
   in_progress: 'Em execução',
-  closed: 'Fechada',
+  closed: 'Finalizada',
   cancelled: 'Cancelada'
 };
 
@@ -74,7 +74,7 @@ export const documentTypeLabels: Record<string, string> = {
   crlv: 'CRLV',
   insurance: 'Seguro',
   licensing: 'Licenciamento',
-  inspection: 'Inspecao',
+  inspection: 'Inspeção',
   cnh: 'CNH',
   other: 'Outro'
 };

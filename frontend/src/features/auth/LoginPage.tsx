@@ -58,7 +58,7 @@ export function LoginPage() {
         <div className="absolute inset-x-0 bottom-0 p-12">
           <div className="max-w-2xl">
             <span className="mb-6 inline-flex rounded-md border border-white/30 px-3 py-1 text-sm text-white/90">
-              Plataforma unificada para opera??o de frota
+              Plataforma unificada para operação de frota
             </span>
             <h1 className="text-5xl font-semibold leading-tight">Operação de frota com controle total.</h1>
             <p className="mt-5 max-w-xl text-lg text-white/80">

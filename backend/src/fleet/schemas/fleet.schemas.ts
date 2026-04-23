@@ -167,7 +167,17 @@ export class Vehicle {
     type: {
       totalFuelCost: { type: Number, default: 0 },
       totalFuelLiters: { type: Number, default: 0 },
+      totalMaintenanceCost: { type: Number, default: 0 },
+      totalOtherExpenses: { type: Number, default: 0 },
+      totalFines: { type: Number, default: 0 },
+      totalIncidents: { type: Number, default: 0 },
+      totalInsuranceCost: { type: Number, default: 0 },
       totalExpenses: { type: Number, default: 0 },
+      totalOperationalCost: { type: Number, default: 0 },
+      distanceDrivenKm: { type: Number, default: 0 },
+      efficiencyDistanceKm: { type: Number, default: 0 },
+      efficiencyLiters: { type: Number, default: 0 },
+      averageKmPerLiter: { type: Number, default: 0 },
       costPerKm: { type: Number, default: 0 }
     },
     default: {}

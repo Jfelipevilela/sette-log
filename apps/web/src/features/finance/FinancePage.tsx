@@ -1,24 +1,28 @@
-import { useQuery } from '@tanstack/react-query';
-import { CreditCard, Download, Fuel, Receipt } from 'lucide-react';
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
-import { Badge } from '../../components/ui/badge';
-import { Button } from '../../components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-import { Table, Td, Th } from '../../components/ui/table';
-import { getDashboard } from '../../lib/api';
-import { mockDashboard, mockVehicles } from '../../lib/mock-data';
-import { downloadTextFile, formatCurrency, toCsv } from '../../lib/utils';
+import { useQuery } from "@tanstack/react-query";
+import { CreditCard, Download, Fuel, Receipt } from "lucide-react";
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, Td, Th } from "@/components/ui/table";
+import { getDashboard } from "@/lib/api";
+import { mockDashboard, mockVehicles } from "@/lib/mock-data";
+import { downloadTextFile, formatCurrency, toCsv } from "@/lib/utils";
 
 export function FinancePage() {
   const { data = mockDashboard } = useQuery({
-    queryKey: ['finance-dashboard'],
-    queryFn: () => getDashboard().catch(() => mockDashboard)
+    queryKey: ["finance-dashboard"],
+    queryFn: () => getDashboard().catch(() => mockDashboard),
   });
 
   const pieData = [
-    { name: 'Combustivel', value: data.kpis.totalFuelCost, color: '#0f8f63' },
-    { name: 'Manutenção e despesas', value: data.kpis.totalExpenseCost, color: '#027f9f' },
-    { name: 'Multas e sinistros', value: 2380, color: '#c2413b' }
+    { name: "Combustivel", value: data.kpis.totalFuelCost, color: "#0f8f63" },
+    {
+      name: "Manutenção e despesas",
+      value: data.kpis.totalExpenseCost,
+      color: "#027f9f",
+    },
+    { name: "Multas e sinistros", value: 2380, color: "#c2413b" },
   ];
 
   return (
@@ -26,22 +30,24 @@ export function FinancePage() {
       <section className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
         <div>
           <h2 className="text-2xl font-semibold">Financeiro da frota</h2>
-          <p className="mt-1 text-sm text-zinc-500">Abastecimentos, multas, seguros, impostos, pedagios e custo por km.</p>
+          <p className="mt-1 text-sm text-zinc-500">
+            Abastecimentos, multas, seguros, impostos, pedagios e custo por km.
+          </p>
         </div>
         <Button
           variant="secondary"
           onClick={() =>
             downloadTextFile(
-              'financeiro-frota.csv',
+              "financeiro-frota.csv",
               toCsv(
                 mockVehicles.map((vehicle) => ({
                   placa: vehicle.plate,
                   centro_custo: vehicle.costCenter,
                   combustivel: vehicle.financialSummary?.totalFuelCost ?? 0,
                   despesas: vehicle.financialSummary?.totalExpenses ?? 0,
-                  custo_km: vehicle.financialSummary?.costPerKm ?? 0
-                }))
-              )
+                  custo_km: vehicle.financialSummary?.costPerKm ?? 0,
+                })),
+              ),
             )
           }
         >
@@ -54,17 +60,27 @@ export function FinancePage() {
         <Card className="p-5">
           <Fuel className="text-fleet-green" />
           <span className="mt-4 block text-sm text-zinc-500">Combustivel</span>
-          <strong className="mt-2 block text-3xl">{formatCurrency(data.kpis.totalFuelCost)}</strong>
+          <strong className="mt-2 block text-3xl">
+            {formatCurrency(data.kpis.totalFuelCost)}
+          </strong>
         </Card>
         <Card className="p-5">
           <Receipt className="text-fleet-cyan" />
-          <span className="mt-4 block text-sm text-zinc-500">Despesas gerais</span>
-          <strong className="mt-2 block text-3xl">{formatCurrency(data.kpis.totalExpenseCost)}</strong>
+          <span className="mt-4 block text-sm text-zinc-500">
+            Despesas gerais
+          </span>
+          <strong className="mt-2 block text-3xl">
+            {formatCurrency(data.kpis.totalExpenseCost)}
+          </strong>
         </Card>
         <Card className="p-5">
           <CreditCard className="text-fleet-amber" />
-          <span className="mt-4 block text-sm text-zinc-500">Preço médio litro</span>
-          <strong className="mt-2 block text-3xl">{formatCurrency(data.kpis.averageFuelCost)}</strong>
+          <span className="mt-4 block text-sm text-zinc-500">
+            Preço médio litro
+          </span>
+          <strong className="mt-2 block text-3xl">
+            {formatCurrency(data.kpis.averageFuelCost)}
+          </strong>
         </Card>
       </section>
 
@@ -76,7 +92,14 @@ export function FinancePage() {
           <CardContent className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={70} outerRadius={110} paddingAngle={3}>
+                <Pie
+                  data={pieData}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={70}
+                  outerRadius={110}
+                  paddingAngle={3}
+                >
                   {pieData.map((entry) => (
                     <Cell key={entry.name} fill={entry.color} />
                   ))}
@@ -109,10 +132,22 @@ export function FinancePage() {
                       <strong>{vehicle.plate}</strong>
                     </Td>
                     <Td>{vehicle.costCenter}</Td>
-                    <Td>{formatCurrency(vehicle.financialSummary?.totalFuelCost ?? 0)}</Td>
-                    <Td>{formatCurrency(vehicle.financialSummary?.totalExpenses ?? 0)}</Td>
                     <Td>
-                      <Badge tone="cyan">{formatCurrency(vehicle.financialSummary?.costPerKm ?? 0)}</Badge>
+                      {formatCurrency(
+                        vehicle.financialSummary?.totalFuelCost ?? 0,
+                      )}
+                    </Td>
+                    <Td>
+                      {formatCurrency(
+                        vehicle.financialSummary?.totalExpenses ?? 0,
+                      )}
+                    </Td>
+                    <Td>
+                      <Badge tone="cyan">
+                        {formatCurrency(
+                          vehicle.financialSummary?.costPerKm ?? 0,
+                        )}
+                      </Badge>
                     </Td>
                   </tr>
                 ))}

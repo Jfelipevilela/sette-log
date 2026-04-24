@@ -76,7 +76,7 @@ const fuelLabels: Record<string, string> = {
   diesel: "Diesel",
   gnv: "GNV",
   electric: "Eletrico",
-  unknown: "NÃ£o informado",
+  unknown: "Não informado",
 };
 
 const fuelTypeColors = [
@@ -146,6 +146,45 @@ function CostBreakdownTooltip({
         <div className="flex items-center justify-between gap-3">
           <span>Outras despesas</span>
           <span>{formatCurrency(expenseCost)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FuelByDayTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload?: Record<string, unknown> }>;
+  label?: string;
+}) {
+  if (!active || !payload?.length) {
+    return null;
+  }
+
+  const point = payload[0]?.payload ?? {};
+  const liters = safeNumber(point.liters);
+  const total = safeNumber(point.total);
+
+  return (
+    <div
+      className="min-w-[220px] rounded-lg border border-fleet-line bg-white p-3 shadow-[0_12px_30px_rgba(22,24,22,0.12)]"
+      style={chartTooltipStyle}
+    >
+      <p className="text-sm font-semibold text-fleet-ink">{label}</p>
+      <div className="mt-2 space-y-1.5 text-sm text-zinc-600">
+        <div className="flex items-center justify-between gap-3">
+          <span>Abastecido</span>
+          <strong className="text-cyan-700">
+            {liters.toLocaleString("pt-BR")} L
+          </strong>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <span>Valor no dia</span>
+          <span>{formatCurrency(total)}</span>
         </div>
       </div>
     </div>
@@ -227,9 +266,16 @@ export function DashboardPage() {
       expenseCost: safeNumber(point.expenseCost),
     })) || [];
 
+  const fuelByDay = costByDay.map((point) => ({
+    day: point.day,
+    liters: safeNumber(point.liters),
+    total: safeNumber(point.fuelCost),
+  }));
+
   const hasDailyData = costByDay.some(
     (point) => Number(point.total) > 0 || Number(point.liters) > 0,
   );
+  const hasFuelByDay = fuelByDay.some((point) => Number(point.liters) > 0);
   const totalOperationalCost =
     data.kpis.totalOperationalCost ??
     safeNumber(data.kpis.totalFuelCost) +
@@ -247,6 +293,56 @@ export function DashboardPage() {
       liters: safeNumber(item.totalLiters),
       records: safeNumber(item.records),
     })) ?? [];
+  const statusOperationalData = data.vehiclesByStatus.map((item) => ({
+    name: statusLabels[item._id] ?? item._id,
+    value: safeNumber(item.count),
+    fill: statusColors[item._id] ?? "#71717a",
+  }));
+  const rankingCostData = data.topFuelCostVehicles
+    .slice(0, 8)
+    .map((vehicle, index) => ({
+      name: vehicle.plate,
+      label: vehicle.label,
+      totalCost: safeNumber(vehicle.totalCost),
+      litros: safeNumber(vehicle.totalLiters),
+      lancamentos: safeNumber(vehicle.records),
+      fill:
+        index === 0
+          ? "#c2413b"
+          : index < 3
+            ? "#b7791f"
+            : "#0f8f63",
+    }))
+    .reverse();
+  const totalVehicles = safeNumber(data.kpis.totalVehicles);
+  const operationalDistribution = statusOperationalData.map((item) => ({
+    ...item,
+    percent: totalVehicles ? (item.value / totalVehicles) * 100 : 0,
+  }));
+  const accumulatedCostItems = [
+    {
+      label: "Combustível",
+      value: totalFuelCost,
+      accent: "bg-emerald-500",
+      icon: Fuel,
+    },
+    {
+      label: "Manutenção",
+      value: totalMaintenanceCost,
+      accent: "bg-amber-500",
+      icon: Wrench,
+    },
+    {
+      label: "Outras despesas",
+      value: totalExpenseCost,
+      accent: "bg-rose-500",
+      icon: ReceiptText,
+    },
+  ];
+  const largestAccumulatedCost = Math.max(
+    ...accumulatedCostItems.map((item) => item.value),
+    1,
+  );
 
   if (isLoading) {
     return <LoadingState label="Carregando dashboard..." />;
@@ -352,7 +448,7 @@ export function DashboardPage() {
         />
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[1.45fr_1.1fr]">
+      <section className="grid gap-6 xl:grid-cols-[1.35fr_0.95fr]">
         <Card className="overflow-hidden">
           <CardHeader className="border-b border-fleet-line bg-zinc-50/70">
             <div>
@@ -438,6 +534,64 @@ export function DashboardPage() {
         <Card className="overflow-hidden">
           <CardHeader className="border-b border-fleet-line bg-zinc-50/70">
             <div>
+              <CardTitle>Abastecimentos por dia</CardTitle>
+              <p className="mt-1 text-sm text-zinc-500">
+                Volume abastecido no período filtrado.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Badge tone="cyan">
+                Litros por dia
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="h-96 bg-white">
+            {hasFuelByDay ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={fuelByDay}
+                  margin={{ top: 18, right: 12, left: -12, bottom: 4 }}
+                >
+                  <CartesianGrid
+                    stroke="#e5e7eb"
+                    vertical={false}
+                    strokeDasharray="4 4"
+                  />
+                  <XAxis
+                    dataKey="day"
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fill: "#71717a", fontSize: 12 }}
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fill: "#71717a", fontSize: 12 }}
+                    tickFormatter={(value) => `${Number(value)} L`}
+                  />
+                  <Tooltip content={<FuelByDayTooltip />} />
+                  <Bar
+                    dataKey="liters"
+                    name="Litros"
+                    radius={[8, 8, 0, 0]}
+                    fill="#06b6d4"
+                    maxBarSize={36}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-96 items-center justify-center text-sm text-zinc-500">
+                Nenhum abastecimento encontrado no período selecionado.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[1.35fr_0.95fr]">
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b border-fleet-line bg-zinc-50/70">
+            <div>
               <CardTitle>Histórico 12 meses</CardTitle>
               <p className="mt-1 text-sm text-zinc-500">Custo total mensal</p>
             </div>
@@ -500,9 +654,90 @@ export function DashboardPage() {
             </ResponsiveContainer>
           </CardContent>
         </Card>
+
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b border-fleet-line bg-zinc-50/70">
+            <div>
+              <CardTitle>Custos acumulados</CardTitle>
+              <p className="mt-1 text-sm text-zinc-500">
+                Composição operacional consolidada do período.
+              </p>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4 p-5">
+            <div className="rounded-lg border border-fleet-line bg-[linear-gradient(135deg,rgba(15,143,99,0.10),rgba(2,127,159,0.06))] p-4">
+              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500">
+                Total operacional
+              </span>
+              <strong className="mt-2 block text-3xl text-fleet-ink">
+                {formatCurrency(totalOperationalCost)}
+              </strong>
+              <p className="mt-2 text-sm text-zinc-500">
+                Combustível, manutenção e despesas financeiras consolidadas.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {accumulatedCostItems.map((item) => {
+                const Icon = item.icon;
+
+                return (
+                  <div
+                    key={item.label}
+                    className="rounded-lg border border-fleet-line bg-white p-4"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-50 text-fleet-ink">
+                          <Icon size={18} />
+                        </span>
+                        <div>
+                          <strong className="block text-sm text-fleet-ink">
+                            {item.label}
+                          </strong>
+                          <span className="text-xs text-zinc-500">
+                            {formatCurrency(item.value)}
+                          </span>
+                        </div>
+                      </div>
+                      <Badge tone="green">
+                        {formatPercent((item.value / Math.max(totalOperationalCost, 1)) * 100)}
+                      </Badge>
+                    </div>
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-100">
+                      <div
+                        className={`h-full rounded-full ${item.accent}`}
+                        style={{
+                          width: `${(item.value / largestAccumulatedCost) * 100}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border border-fleet-line p-4">
+                <span className="text-sm text-zinc-500">Litros registrados</span>
+                <strong className="mt-2 block text-2xl text-fleet-ink">
+                  {totalFuelLiters.toLocaleString("pt-BR")} L
+                </strong>
+              </div>
+              <div className="rounded-lg border border-fleet-line p-4">
+                <span className="text-sm text-zinc-500">
+                  Preço médio por litro
+                </span>
+                <strong className="mt-2 block text-2xl text-fleet-ink">
+                  {formatCurrency(averageFuelCost)}
+                </strong>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[1fr_1fr]">
+      <section className="grid gap-6 xl:grid-cols-2">
         <Card className="overflow-hidden">
           <CardHeader className="border-b border-fleet-line bg-zinc-50/70">
             <div>
@@ -579,111 +814,99 @@ export function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="overflow-hidden">
-          <CardHeader className="border-b border-fleet-line bg-zinc-50/70">
-            <div>
-              <CardTitle>Consumo médio por carro</CardTitle>
-              <p className="mt-1 text-sm text-zinc-500">
-                Km/L calculado a partir do odômetro inicial no primeiro
-                abastecimento e, depois, pela sequência dos abastecimentos.
-              </p>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3 p-5">
-            {data.fuelByVehicle.slice(0, 6).map((vehicle) => (
-              <div
-                key={vehicle.vehicleId}
-                className="rounded-lg border border-fleet-line p-3"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <VehicleTypeIcon type={vehicle.type} />
-                    <div className="min-w-0">
-                      <strong className="block truncate text-sm">
-                        {vehicle.plate}
-                      </strong>
-                      <span className="block truncate text-xs text-zinc-500">
-                        {vehicle.label}
-                      </span>
-                    </div>
-                  </div>
-                  <Badge tone="green">
-                    {vehicle.averageKmPerLiter
-                      ? `${vehicle.averageKmPerLiter.toLocaleString("pt-BR", {
-                          maximumFractionDigits: 2,
-                        })} km/L`
-                      : "Sem base"}
-                  </Badge>
-                </div>
-                <p className="mt-2 text-xs text-zinc-500">
-                  {Number(vehicle.distanceKm ?? 0).toLocaleString("pt-BR")} km
-                  analisados com{" "}
-                  {Number(vehicle.efficiencyLiters ?? 0).toLocaleString(
-                    "pt-BR",
-                  )}{" "}
-                  L vinculados ao consumo.
-                </p>
-              </div>
-            ))}
-            {data.fuelByVehicle.length === 0 && (
-              <p className="text-sm text-zinc-500">
-                Sem abastecimentos no período.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      </section>
-
-      <section className="grid gap-6 xl:grid-cols-[0.8fr_1.35fr_0.75fr]">
         <Card>
           <CardHeader>
             <div>
               <CardTitle>Status operacional</CardTitle>
               <p className="mt-1 text-sm text-zinc-500">
-                Distribuição atual da frota
+                Distribuição atual da frota por status.
               </p>
             </div>
           </CardHeader>
-          <CardContent className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data.vehiclesByStatus}>
-                <CartesianGrid stroke="#e5e7eb" vertical={false} />
-                <XAxis
-                  dataKey="_id"
-                  tickFormatter={(value) =>
-                    statusLabels[String(value)] ?? String(value)
-                  }
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis
-                  allowDecimals={false}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <Tooltip
-                  labelFormatter={(value) =>
-                    statusLabels[String(value)] ?? String(value)
-                  }
-                />
-                <Bar dataKey="count" radius={[6, 6, 0, 0]}>
-                  {data.vehiclesByStatus.map((entry) => (
-                    <Cell
-                      key={entry._id}
-                      fill={statusColors[entry._id] ?? "#71717a"}
+          <CardContent className="grid gap-4">
+            <div className="h-72">
+              {operationalDistribution.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={operationalDistribution}
+                    layout="vertical"
+                    margin={{ top: 8, right: 8, left: 8, bottom: 8 }}
+                  >
+                    <CartesianGrid stroke="#eef2f7" horizontal={false} />
+                    <XAxis
+                      type="number"
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(value) => `${Number(value)}%`}
                     />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      tickLine={false}
+                      axisLine={false}
+                      width={90}
+                    />
+                    <Tooltip
+                      contentStyle={chartTooltipStyle}
+                      formatter={(value, _name, item) => [
+                        `${Number(item.payload?.value ?? 0).toLocaleString("pt-BR")} veículo(s) | ${Number(value).toLocaleString("pt-BR", {
+                          maximumFractionDigits: 1,
+                        })}%`,
+                        "Participação",
+                      ]}
+                    />
+                    <Bar dataKey="percent" radius={[0, 6, 6, 0]}>
+                      {operationalDistribution.map((entry) => (
+                        <Cell key={entry.name} fill={entry.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex h-full items-center justify-center text-sm text-zinc-500">
+                  Sem veículos classificados.
+                </div>
+              )}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {operationalDistribution.map((item) => (
+                <div
+                  key={item.name}
+                  className="rounded-lg border border-fleet-line p-3"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="flex items-center gap-2 text-sm font-semibold text-fleet-ink">
+                      <span
+                        className="h-3 w-3 rounded-full"
+                        style={{ backgroundColor: item.fill }}
+                      />
+                      {item.name}
+                    </span>
+                    <span className="text-sm font-semibold text-fleet-ink">
+                      {item.value.toLocaleString("pt-BR")}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs text-zinc-500">
+                    {item.percent.toLocaleString("pt-BR", {
+                      maximumFractionDigits: 1,
+                    })}
+                    % da frota
+                  </p>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
+
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[1.3fr_0.9fr]">
         <Card>
           <CardHeader>
             <div>
               <CardTitle>Custo e consumo por carro</CardTitle>
               <p className="mt-1 text-sm text-zinc-500">
-                Total de litros e valor abastecido dentro do perÃ­odo filtrado.
+                Total de litros e valor abastecido dentro do período filtrado.
               </p>
             </div>
           </CardHeader>
@@ -745,7 +968,7 @@ export function DashboardPage() {
                         className="px-4 py-6 text-sm text-zinc-500"
                         colSpan={5}
                       >
-                        Nenhum abastecimento no perÃ­odo selecionado.
+                        Nenhum abastecimento no período selecionado.
                       </td>
                     </tr>
                   )}
@@ -757,11 +980,56 @@ export function DashboardPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Ranking de maior gasto</CardTitle>
+            <div>
+              <CardTitle>Ranking de maior gasto</CardTitle>
+              <p className="mt-1 text-sm text-zinc-500">
+                Veículos com maior custo de combustível no período filtrado.
+              </p>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
-              {data.topFuelCostVehicles.map((vehicle, index) => (
+          <CardContent className="space-y-4">
+            <div className="h-72">
+              {rankingCostData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={rankingCostData}
+                    layout="vertical"
+                    margin={{ top: 4, right: 8, left: 8, bottom: 4 }}
+                  >
+                    <CartesianGrid stroke="#e5e7eb" horizontal={false} />
+                    <XAxis
+                      type="number"
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(value) => `R$ ${Number(value) / 1000}k`}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      tickLine={false}
+                      axisLine={false}
+                      width={70}
+                    />
+                    <Tooltip
+                      contentStyle={chartTooltipStyle}
+                      formatter={(value) => [formatCurrency(Number(value)), "Custo"]}
+                      labelFormatter={(label) => `Veículo ${label}`}
+                    />
+                    <Bar dataKey="totalCost" radius={[0, 6, 6, 0]}>
+                      {rankingCostData.map((entry) => (
+                        <Cell key={entry.name} fill={entry.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex h-full items-center justify-center text-sm text-zinc-500">
+                  Sem abastecimentos no período.
+                </div>
+              )}
+            </div>
+            <div className="max-h-[168px] space-y-2 overflow-y-auto pr-1">
+              {data.topFuelCostVehicles.slice(0, 5).map((vehicle, index) => (
                 <div
                   key={vehicle.vehicleId}
                   className="rounded-lg border border-fleet-line p-3"
@@ -790,17 +1058,66 @@ export function DashboardPage() {
                   </p>
                 </div>
               ))}
-              {data.topFuelCostVehicles.length === 0 && (
-                <p className="text-sm text-zinc-500">
-                  Sem abastecimentos no período.
-                </p>
-              )}
             </div>
           </CardContent>
         </Card>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-3">
+      <section className="grid gap-6 xl:grid-cols-[0.95fr_0.85fr]">
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b border-fleet-line bg-zinc-50/70">
+            <div>
+              <CardTitle>Consumo médio por carro</CardTitle>
+              <p className="mt-1 text-sm text-zinc-500">
+                Km/L calculado a partir do odômetro inicial no primeiro
+                abastecimento e, depois, pela sequência dos abastecimentos.
+              </p>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3 p-5">
+            {data.fuelByVehicle.slice(0, 6).map((vehicle) => (
+              <div
+                key={vehicle.vehicleId}
+                className="rounded-lg border border-fleet-line p-3"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <VehicleTypeIcon type={vehicle.type} />
+                    <div className="min-w-0">
+                      <strong className="block truncate text-sm">
+                        {vehicle.plate}
+                      </strong>
+                      <span className="block truncate text-xs text-zinc-500">
+                        {vehicle.label}
+                      </span>
+                    </div>
+                  </div>
+                  <Badge tone="green">
+                    {vehicle.averageKmPerLiter
+                      ? `${vehicle.averageKmPerLiter.toLocaleString("pt-BR", {
+                          maximumFractionDigits: 2,
+                        })} km/L`
+                      : "Sem base"}
+                  </Badge>
+                </div>
+                <p className="mt-2 text-xs text-zinc-500">
+                  {Number(vehicle.distanceKm ?? 0).toLocaleString("pt-BR")} km
+                  analisados com{" "}
+                  {Number(vehicle.efficiencyLiters ?? 0).toLocaleString(
+                    "pt-BR",
+                  )}{" "}
+                  L vinculados ao consumo.
+                </p>
+              </div>
+            ))}
+            {data.fuelByVehicle.length === 0 && (
+              <p className="text-sm text-zinc-500">
+                Sem abastecimentos no período.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>Alertas recentes</CardTitle>
@@ -841,7 +1158,9 @@ export function DashboardPage() {
             </div>
           </CardContent>
         </Card>
+      </section>
 
+      <section className="grid gap-6 xl:grid-cols-[1fr_1fr]">
         <Card>
           <CardHeader>
             <CardTitle>Manutenção próxima</CardTitle>
@@ -884,55 +1203,6 @@ export function DashboardPage() {
                   Nenhuma manutenção agendada para os próximos 30 dias.
                 </p>
               )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Custos acumulados</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="rounded-lg border border-fleet-line p-4">
-              <span className="text-sm text-zinc-600">Total operacional</span>
-              <strong className="mt-2 block text-2xl">
-                {formatCurrency(totalOperationalCost)}
-              </strong>
-            </div>
-            <div className="rounded-lg border border-fleet-line p-4">
-              <div className="flex items-center gap-2 text-zinc-600">
-                <Fuel size={18} className="text-fleet-green" />
-                <span className="text-sm">Combustível</span>
-              </div>
-              <strong className="mt-2 block text-2xl">
-                {formatCurrency(totalFuelCost)}
-              </strong>
-            </div>
-            <div className="rounded-lg border border-fleet-line p-4">
-              <span className="text-sm text-zinc-600">Litros registrados</span>
-              <strong className="mt-2 block text-2xl">
-                {totalFuelLiters.toLocaleString("pt-BR")} L
-              </strong>
-            </div>
-            <div className="rounded-lg border border-fleet-line p-4">
-              <span className="text-sm text-zinc-600">Manutenção</span>
-              <strong className="mt-2 block text-2xl">
-                {formatCurrency(totalMaintenanceCost)}
-              </strong>
-            </div>
-            <div className="rounded-lg border border-fleet-line p-4">
-              <span className="text-sm text-zinc-600">Outras despesas</span>
-              <strong className="mt-2 block text-2xl">
-                {formatCurrency(totalExpenseCost)}
-              </strong>
-            </div>
-            <div className="rounded-lg border border-fleet-line p-4">
-              <span className="text-sm text-zinc-600">
-                PreÃ§o mÃ©dio por litro
-              </span>
-              <strong className="mt-2 block text-2xl">
-                {formatCurrency(averageFuelCost)}
-              </strong>
             </div>
           </CardContent>
         </Card>

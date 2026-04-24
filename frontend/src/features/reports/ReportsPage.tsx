@@ -709,7 +709,7 @@ export function ReportsPage() {
             <div>
               <CardTitle>Consolidado por veiculo</CardTitle>
               <p className="mt-1 text-sm text-zinc-500">
-                Litros, custo, preco medio e eficiencia para leitura executiva.
+                Litros, custo, preço médio e eficiencia para leitura executiva.
               </p>
             </div>
           </CardHeader>
@@ -717,10 +717,10 @@ export function ReportsPage() {
             <Table>
               <thead>
                 <tr>
-                  <Th>Veiculo</Th>
+                  <Th>Veículo</Th>
                   <Th>Litros</Th>
                   <Th>Custo</Th>
-                  <Th>Preco medio</Th>
+                  <Th>Preço médio</Th>
                   <Th>Km/L</Th>
                   <Th>Lançamentos</Th>
                   <Th>Último abastecimento</Th>

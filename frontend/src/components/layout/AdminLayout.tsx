@@ -210,14 +210,24 @@ export function AdminLayout() {
               )}
             </button>
             {notificationsOpen && (
-              <div className="absolute right-4 top-16 z-50 w-[min(360px,calc(100vw-2rem))] rounded-lg border border-white/80 bg-white/95 p-2 shadow-[0_22px_60px_rgba(15,23,42,0.20)] ring-1 ring-slate-200/80 backdrop-blur-xl lg:right-8">
-                <strong className="block px-2 py-2 text-sm">
-                  Notificações
-                </strong>
+              <div
+                ref={notificationsPanelRef}
+                className="absolute right-4 top-16 z-50 w-[min(360px,calc(100vw-2rem))] rounded-lg border border-white/80 bg-white/95 p-2 shadow-[0_22px_60px_rgba(15,23,42,0.20)] ring-1 ring-slate-200/80 backdrop-blur-xl lg:right-8"
+              >
+                <div className="flex items-center justify-between gap-3 px-2 py-2">
+                  <strong className="text-sm">{"Notifica\u00e7\u00f5es"}</strong>
+                  <button
+                    type="button"
+                    className="rounded-md px-2 py-1 text-xs font-medium text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-700"
+                    onClick={() => setNotificationsOpen(false)}
+                  >
+                    Fechar
+                  </button>
+                </div>
                 <div className="max-h-96 space-y-1 overflow-y-auto">
                   {notifications.length === 0 && (
                     <p className="px-2 py-4 text-sm text-zinc-500">
-                      Nenhuma notificação.
+                      {"Nenhuma notifica\u00e7\u00e3o."}
                     </p>
                   )}
                   {notifications.map((notification) => (

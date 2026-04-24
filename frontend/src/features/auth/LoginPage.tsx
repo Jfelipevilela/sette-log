@@ -76,7 +76,7 @@ export function LoginPage() {
               alt="SETTE Log"
               className="h-16 w-auto max-w-full object-contain"
             />
-            <span className="mt-3 block text-sm text-zinc-500">Gest?o operacional, financeira e de compliance em um ?nico ambiente</span>
+            <span className="mt-3 block text-sm text-zinc-500">Gestão operacional, financeira e de compliance em um único ambiente</span>
           </div>
 
           <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>

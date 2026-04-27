@@ -4,6 +4,7 @@ import {
   AlertCircle,
   CheckCircle2,
   ChevronRight,
+  FileCode2,
   Edit2,
   Eye,
   FileSpreadsheet,
@@ -547,6 +548,26 @@ export function SettingsPage() {
       </section>
 
       <Card className="overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-sky-50 via-white to-emerald-50">
+          <div>
+            <CardTitle>Documentação da API</CardTitle>
+            <p className="mt-1 text-sm text-zinc-500">
+              Acesse a central pública de integração com exemplos de requisição,
+              resposta, erros HTTP, filtros por módulo e coleções para Postman
+              e Insomnia.
+            </p>
+          </div>
+          <Button
+            type="button"
+            onClick={() => window.open("/api-docs", "_blank", "noopener,noreferrer")}
+          >
+            <FileCode2 size={18} />
+            Abrir documentação
+          </Button>
+        </CardHeader>
+      </Card>
+
+      <Card className="overflow-hidden">
         <CardHeader className="bg-gradient-to-r from-zinc-50 via-white to-emerald-50">
           <div>
             <CardTitle>Usuários</CardTitle>
@@ -1066,9 +1087,9 @@ export function SettingsPage() {
                               {result.resource === "fuel-records"
                                 ? "Abastecimentos"
                                 : result.resource === "maintenance-orders"
-                                  ? "Manuten??es"
+                                  ? "Manutenções"
                                   : result.resource === "vehicles"
-                                    ? "Ve?culos"
+                                    ? "Veículos"
                                     : result.resource === "drivers"
                                       ? "Motoristas"
                                       : "Documentos"}
@@ -1111,7 +1132,7 @@ export function SettingsPage() {
                                 {result.resource === "fuel-records"
                                   ? "Abastecimentos"
                                   : result.resource === "maintenance-orders"
-                                    ? "Manuten??es"
+                                    ? "Manutenções"
                                     : result.resource}
                               </p>
                               {result.errors.slice(0, 3).map((error) => (

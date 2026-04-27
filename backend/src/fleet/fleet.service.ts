@@ -1866,6 +1866,85 @@ export class FleetService {
     };
   }
 
+  async attachMaintenanceOrderFile(
+    tenantId: string,
+    id: string,
+    file?: UploadedFile,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Envie um arquivo no campo "file".');
+    }
+    const record = await this.model("maintenance-orders")
+      .findOne({ tenantId, _id: id })
+      .lean<AnyRecord>()
+      .exec();
+    if (!record) {
+      throw new NotFoundException("Ordem de servico nao encontrada.");
+    }
+
+    const uploadsRoot = resolve(
+      process.cwd(),
+      "uploads",
+      "maintenance-orders",
+      tenantId,
+      id,
+    );
+    await mkdir(uploadsRoot, { recursive: true });
+    const extension = extname(file.originalname).toLowerCase();
+    const generatedFileName = `${Date.now()}-${new Types.ObjectId().toString()}${extension}`;
+    const targetPath = join(uploadsRoot, generatedFileName);
+    await writeFile(targetPath, file.buffer);
+
+    const apiPrefix = process.env.API_PREFIX ?? "api/v1";
+    const attachmentUrl = `/${apiPrefix}/maintenance/orders/${id}/attachments/${encodeURIComponent(generatedFileName)}`;
+    const updated = await this.model("maintenance-orders")
+      .findOneAndUpdate(
+        { tenantId, _id: id },
+        { $push: { attachments: attachmentUrl } },
+        { new: true },
+      )
+      .lean<AnyRecord>()
+      .exec();
+    return this.serialize(updated);
+  }
+
+  async maintenanceOrderAttachmentStream(
+    tenantId: string,
+    id: string,
+    fileName: string,
+  ) {
+    const safeFileName = basename(fileName);
+    const record = await this.model("maintenance-orders")
+      .findOne({ tenantId, _id: id })
+      .lean<AnyRecord>()
+      .exec();
+    if (!record) {
+      throw new NotFoundException("Ordem de servico nao encontrada.");
+    }
+
+    const attachments = (record.attachments ?? []) as string[];
+    const attachment = attachments.find((item) => {
+      const currentFileName = basename(String(item).split("?")[0] ?? "");
+      return currentFileName === safeFileName;
+    });
+    if (!attachment) {
+      throw new NotFoundException("Anexo nao encontrado.");
+    }
+
+    const filePath = resolve(
+      process.cwd(),
+      "uploads",
+      "maintenance-orders",
+      tenantId,
+      id,
+      safeFileName,
+    );
+    return {
+      stream: createReadStream(filePath),
+      fileName: safeFileName,
+    };
+  }
+
   private model(resource: FleetResource): Model<AnyRecord> {
     const modelName = resourceModels[resource];
     if (!modelName) {

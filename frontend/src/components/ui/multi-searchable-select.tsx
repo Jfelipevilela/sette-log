@@ -42,6 +42,7 @@ export function MultiSearchableSelect({
     width: 0,
     maxHeight: 256,
   });
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
 
   const selectedValues = value ?? internalValue;
   const selectedOptions = options.filter((option) =>
@@ -53,6 +54,16 @@ export function MultiSearchableSelect({
       setInternalValue(defaultValue);
     }
   }, [defaultValue, value]);
+
+  useEffect(() => {
+    function updateViewportMode() {
+      setIsMobileViewport(window.innerWidth < 640);
+    }
+
+    updateViewportMode();
+    window.addEventListener("resize", updateViewportMode);
+    return () => window.removeEventListener("resize", updateViewportMode);
+  }, []);
 
   useEffect(() => {
     function handlePointerDown(event: globalThis.MouseEvent) {
@@ -73,6 +84,11 @@ export function MultiSearchableSelect({
   useEffect(() => {
     if (!open) {
       return undefined;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    if (isMobileViewport) {
+      document.body.style.overflow = "hidden";
     }
 
     function updateDropdownPosition() {
@@ -111,10 +127,11 @@ export function MultiSearchableSelect({
     window.addEventListener("resize", updateDropdownPosition);
     window.addEventListener("scroll", updateDropdownPosition, true);
     return () => {
+      document.body.style.overflow = previousOverflow;
       window.removeEventListener("resize", updateDropdownPosition);
       window.removeEventListener("scroll", updateDropdownPosition, true);
     };
-  }, [open]);
+  }, [open, isMobileViewport]);
 
   const filteredOptions = useMemo(() => {
     if (!searchable) {
@@ -206,59 +223,145 @@ export function MultiSearchableSelect({
 
       {open &&
         createPortal(
-          <div
-            ref={dropdownRef}
-            className="fixed z-[9998] overflow-hidden rounded-lg border border-white/80 bg-white/95 shadow-[0_22px_60px_rgba(15,23,42,0.22)] ring-1 ring-slate-200/80 backdrop-blur-xl"
-            style={{
-              left: dropdownRect.left,
-              top: dropdownRect.top,
-              width: dropdownRect.width,
-            }}
-          >
-            {searchable && (
-              <div className="border-b border-slate-200 p-2">
-                <div className="relative">
-                  <Search className="absolute left-3 top-2.5 text-zinc-400" size={16} />
-                  <input
-                    autoFocus
-                    className="h-9 w-full rounded-md border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-fleet-green focus:ring-2 focus:ring-emerald-100"
-                    placeholder={searchPlaceholder}
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                  />
+          isMobileViewport ? (
+            <div
+              className="fixed inset-0 z-[9998] flex items-end bg-slate-950/45 p-2 backdrop-blur-sm"
+              onMouseDown={() => {
+                setOpen(false);
+                setQuery("");
+              }}
+            >
+              <div
+                ref={dropdownRef}
+                className="flex h-[min(78dvh,640px)] w-full flex-col overflow-hidden rounded-t-xl border border-white/80 bg-white shadow-[0_22px_60px_rgba(15,23,42,0.22)] ring-1 ring-slate-200/80"
+                onMouseDown={(event) => event.stopPropagation()}
+              >
+                <div className="border-b border-slate-200 px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <strong className="text-sm text-fleet-ink">{placeholder}</strong>
+                    <button
+                      type="button"
+                      className="text-sm font-medium text-zinc-500"
+                      onClick={() => {
+                        setOpen(false);
+                        setQuery("");
+                      }}
+                    >
+                      Fechar
+                    </button>
+                  </div>
+                  {searchable && (
+                    <div className="relative mt-3">
+                      <Search className="absolute left-3 top-2.5 text-zinc-400" size={16} />
+                      <input
+                        autoFocus
+                        className="h-10 w-full rounded-md border border-slate-200 bg-white pl-9 pr-3 text-base outline-none focus:border-fleet-green focus:ring-2 focus:ring-emerald-100 sm:text-sm"
+                        placeholder={searchPlaceholder}
+                        value={query}
+                        onChange={(event) => setQuery(event.target.value)}
+                      />
+                    </div>
+                  )}
+                </div>
+                <div className="border-b border-slate-200 px-4 py-2">
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedOptions.length > 0 ? (
+                      selectedOptions.map((option) => (
+                        <span
+                          key={option.value}
+                          className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-fleet-green"
+                        >
+                          {option.label}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-zinc-500">Nenhum item selecionado.</span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex-1 overflow-y-auto p-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+                  {filteredOptions.length === 0 && (
+                    <p className="px-3 py-2 text-sm text-zinc-500">{emptyMessage}</p>
+                  )}
+                  {filteredOptions.map((option) => {
+                    const selected = selectedValues.includes(option.value);
+
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        disabled={option.disabled}
+                        className={cn(
+                          "flex w-full items-center justify-between gap-3 rounded-md px-3 py-3 text-left text-sm text-fleet-ink transition hover:bg-emerald-50/80",
+                          selected && "bg-emerald-50 font-medium text-fleet-green",
+                          option.disabled &&
+                            "cursor-not-allowed text-zinc-400 hover:bg-transparent",
+                        )}
+                        onClick={() => toggleValue(option.value)}
+                      >
+                        <span className="min-w-0">{option.label}</span>
+                        {selected && <Check size={15} className="shrink-0" />}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-            )}
-            <div
-              className="overflow-y-auto p-1"
-              style={{ maxHeight: searchable ? dropdownRect.maxHeight - 54 : dropdownRect.maxHeight }}
-            >
-              {filteredOptions.length === 0 && (
-                <p className="px-3 py-2 text-sm text-zinc-500">{emptyMessage}</p>
-              )}
-              {filteredOptions.map((option) => {
-                const selected = selectedValues.includes(option.value);
-
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    disabled={option.disabled}
-                    className={cn(
-                      "flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm text-fleet-ink transition hover:bg-emerald-50/80",
-                      selected && "bg-emerald-50 font-medium text-fleet-green",
-                      option.disabled &&
-                        "cursor-not-allowed text-zinc-400 hover:bg-transparent",
-                    )}
-                    onClick={() => toggleValue(option.value)}
-                  >
-                    <span className="min-w-0 truncate">{option.label}</span>
-                    {selected && <Check size={15} className="shrink-0" />}
-                  </button>
-                );
-              })}
             </div>
-          </div>,
+          ) : (
+            <div
+              ref={dropdownRef}
+              className="fixed z-[9998] overflow-hidden rounded-lg border border-white/80 bg-white/95 shadow-[0_22px_60px_rgba(15,23,42,0.22)] ring-1 ring-slate-200/80 backdrop-blur-xl"
+              style={{
+                left: dropdownRect.left,
+                top: dropdownRect.top,
+                width: dropdownRect.width,
+              }}
+            >
+              {searchable && (
+                <div className="border-b border-slate-200 p-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-2.5 text-zinc-400" size={16} />
+                    <input
+                      autoFocus
+                      className="h-9 w-full rounded-md border border-slate-200 bg-white pl-9 pr-3 text-base outline-none focus:border-fleet-green focus:ring-2 focus:ring-emerald-100 sm:text-sm"
+                      placeholder={searchPlaceholder}
+                      value={query}
+                      onChange={(event) => setQuery(event.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
+              <div
+                className="overflow-y-auto p-1"
+                style={{ maxHeight: searchable ? dropdownRect.maxHeight - 54 : dropdownRect.maxHeight }}
+              >
+                {filteredOptions.length === 0 && (
+                  <p className="px-3 py-2 text-sm text-zinc-500">{emptyMessage}</p>
+                )}
+                {filteredOptions.map((option) => {
+                  const selected = selectedValues.includes(option.value);
+
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      disabled={option.disabled}
+                      className={cn(
+                        "flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm text-fleet-ink transition hover:bg-emerald-50/80",
+                        selected && "bg-emerald-50 font-medium text-fleet-green",
+                        option.disabled &&
+                          "cursor-not-allowed text-zinc-400 hover:bg-transparent",
+                      )}
+                      onClick={() => toggleValue(option.value)}
+                    >
+                      <span className="min-w-0 truncate">{option.label}</span>
+                      {selected && <Check size={15} className="shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ),
           document.body,
         )}
     </div>

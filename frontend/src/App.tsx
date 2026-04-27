@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { ApiDocsPage } from './features/api-docs/ApiDocsPage';
 import { AdminLayout } from './components/layout/AdminLayout';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
 import { LoginPage } from './features/auth/LoginPage';
@@ -30,6 +31,7 @@ export function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/api-docs" element={<ApiDocsPage />} />
           <Route element={<ProtectedRoute />}>
             <Route element={<AdminLayout />}>
               <Route index element={<DashboardPage />} />

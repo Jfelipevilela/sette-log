@@ -1,4 +1,4 @@
-﻿import { FormEvent, useMemo, useState } from "react";
+﻿import { FormEvent, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -14,6 +14,7 @@ import {
   Search,
   ShieldAlert,
   Trash2,
+  X,
 } from "lucide-react";
 import { Badge } from "../../components/ui/badge";
 import { ActionMenu } from "../../components/ui/action-menu";
@@ -252,6 +253,7 @@ export function CompliancePage() {
   }>();
   const [checklistStep, setChecklistStep] = useState(0);
   const [checklistAttachments, setChecklistAttachments] = useState<File[]>([]);
+  const checklistAttachmentInputRef = useRef<HTMLInputElement>(null);
   const [filters, setFilters] = useState({
     search: "",
     entityType: "",
@@ -317,7 +319,7 @@ export function CompliancePage() {
       setFormError(
         apiErrorMessage(
           error,
-          "NÃ£o foi possÃ­vel salvar o checklist ou enviar os anexos.",
+          "Não foi possível salvar o checklist ou enviar os anexos.",
         ),
       ),
   });
@@ -347,7 +349,7 @@ export function CompliancePage() {
       setFormError(
         apiErrorMessage(
           error,
-          "NÃ£o foi possÃ­vel editar o checklist ou enviar os anexos.",
+          "Não foi possível editar o checklist ou enviar os anexos.",
         ),
       ),
   });
@@ -359,7 +361,7 @@ export function CompliancePage() {
     },
     onError: (error) =>
       setDocumentError(
-        apiErrorMessage(error, "NÃ£o foi possÃ­vel criar o documento."),
+        apiErrorMessage(error, "Não foi possível criar o documento."),
       ),
   });
   const updateDocumentMutation = useMutation({
@@ -376,7 +378,7 @@ export function CompliancePage() {
     },
     onError: (error) =>
       setDocumentError(
-        apiErrorMessage(error, "NÃ£o foi possÃ­vel editar o documento."),
+        apiErrorMessage(error, "Não foi possível editar o documento."),
       ),
   });
   const deleteDocumentMutation = useMutation({
@@ -384,7 +386,7 @@ export function CompliancePage() {
     onSuccess: invalidateComplianceData,
     onError: (error) =>
       setDocumentError(
-        apiErrorMessage(error, "NÃ£o foi possÃ­vel excluir o documento."),
+        apiErrorMessage(error, "Não foi possível excluir o documento."),
       ),
   });
   const deleteCheckMutation = useMutation({
@@ -399,7 +401,7 @@ export function CompliancePage() {
     },
     onError: (error) =>
       setFormError(
-        apiErrorMessage(error, "NÃ£o foi possÃ­vel excluir o checklist."),
+        apiErrorMessage(error, "Não foi possível excluir o checklist."),
       ),
   });
 
@@ -511,6 +513,16 @@ export function CompliancePage() {
     return drivers.find((item) => item._id === driverId)?.name ?? driverId;
   }
 
+  function removeChecklistAttachment(fileKey: string) {
+    setChecklistAttachments((current) => {
+      const next = current.filter((file) => `${file.name}-${file.size}` !== fileKey);
+      if (next.length === 0 && checklistAttachmentInputRef.current) {
+        checklistAttachmentInputRef.current.value = "";
+      }
+      return next;
+    });
+  }
+
   function buildChecklistPayload(form: FormData) {
     const vehicleId = String(form.get("vehicleId") ?? "");
     const driverId = String(form.get("driverId") ?? "");
@@ -521,7 +533,7 @@ export function CompliancePage() {
       selectedChecklistItemFromForm(
         form,
         item,
-        "Condicoes de conservaÃ§Ã£o",
+        "Condicoes de conservação",
         "bom",
       ),
     );
@@ -530,7 +542,7 @@ export function CompliancePage() {
         selectedChecklistItemFromForm(
           form,
           item,
-          "IluminaÃ§Ã£o traseira",
+          "Iluminação traseira",
           "ok",
         ),
       ),
@@ -538,7 +550,7 @@ export function CompliancePage() {
         selectedChecklistItemFromForm(
           form,
           item,
-          "IluminaÃ§Ã£o dianteira",
+          "Iluminação dianteira",
           "ok",
         ),
       ),
@@ -572,14 +584,14 @@ export function CompliancePage() {
         {
           key: "delivery_odometer_km",
           label: "Km de entrega",
-          section: "IdentificaÃ§Ã£o",
+          section: "Identificação",
           result: "info",
           notes: deliveryOdometerKm ? `${deliveryOdometerKm} km` : "",
         },
         {
           key: "delivery_date",
           label: "Data da entrega",
-          section: "IdentificaÃ§Ã£o",
+          section: "Identificação",
           result: "info",
           notes: deliveredAt,
         },
@@ -595,14 +607,14 @@ export function CompliancePage() {
         },
         {
           key: "maintenance_observations",
-          label: "ObservaÃ§Ãµes do veículo",
-          section: "ObservaÃ§Ãµes",
+          label: "Observações do veículo",
+          section: "Observações",
           result: maintenanceNotes ? "reported" : "ok",
           notes: maintenanceNotes,
         },
         {
           key: "delivery_responsible",
-          label: "Responsavel pela entrega",
+          label: "Responsável pela entrega",
           section: "Assinaturas",
           result: "info",
           notes: responsibleName,
@@ -1264,7 +1276,7 @@ export function CompliancePage() {
             <strong className="block text-sm text-fleet-ink">
               Itens avaliados
             </strong>
-            <div className="mt-3 max-h-72 space-y-2 overflow-y-auto">
+            <div className="mt-3 space-y-2 md:max-h-72 md:overflow-y-auto">
               {(detailCheck?.items ?? []).map((item) => (
                 <div
                   key={`${item.key}-${item.label}`}
@@ -1380,14 +1392,14 @@ export function CompliancePage() {
         size="xl"
         onClose={closeChecklistModal}
       >
-        <div className="mb-5 space-y-3">
-          <div className="flex flex-wrap gap-2">
+        <div className="sticky top-0 z-10 -mx-4 -mt-4 mb-4 space-y-3 border-b border-slate-200 bg-white/95 px-4 py-4 backdrop-blur sm:-mx-5 sm:-mt-5 sm:mb-5 sm:px-5 sm:py-5">
+          <div className="flex gap-2 overflow-x-auto pb-1">
             {checklistSteps.map((step, index) => (
               <button
                 key={step}
                 type="button"
                 disabled={index > checklistStep}
-                className={`rounded-md border px-3 py-1.5 text-xs font-medium transition ${
+                className={`shrink-0 rounded-md border px-3 py-1.5 text-xs font-medium transition ${
                   checklistStep === index
                     ? "border-fleet-green bg-emerald-50 text-fleet-green"
                     : index < checklistStep
@@ -1410,7 +1422,7 @@ export function CompliancePage() {
           </div>
         </div>
         <form
-          className="space-y-5"
+          className="space-y-5 pb-24 sm:pb-0"
           onSubmit={(event: FormEvent<HTMLFormElement>) => {
             event.preventDefault();
             setFormError(undefined);
@@ -1464,7 +1476,7 @@ export function CompliancePage() {
                 placeholder="Condutor responsavel"
                 searchPlaceholder="Buscar motorista ou CNH"
                 options={[
-                  { value: "", label: "NÃ£o informado" },
+                  { value: "", label: "Não informado" },
                   ...driverOptions,
                 ]}
               />
@@ -1474,6 +1486,7 @@ export function CompliancePage() {
               <Input
                 name="deliveryOdometerKm"
                 type="number"
+                inputMode="numeric"
                 min="0"
                 placeholder="Ex.: 125000"
                 defaultValue={checkItemNotes(
@@ -1503,7 +1516,7 @@ export function CompliancePage() {
 
           <div className={checklistStep === 1 ? "block" : "hidden"}>
             <SelectChecklistSection
-              title="Condicoes de conservaÃ§Ã£o"
+              title="Condicoes de conservação"
               check={editingCheck}
               items={conservationItems}
               options={conservationOptions}
@@ -1513,7 +1526,7 @@ export function CompliancePage() {
           </div>
           <div className={checklistStep === 2 ? "block" : "hidden"}>
             <SelectChecklistSection
-              title="IluminaÃ§Ã£o traseira"
+              title="Iluminação traseira"
               check={editingCheck}
               items={rearLightingItems}
               options={lightingOptions}
@@ -1523,7 +1536,7 @@ export function CompliancePage() {
           </div>
           <div className={checklistStep === 3 ? "block" : "hidden"}>
             <SelectChecklistSection
-              title="IluminaÃ§Ã£o dianteira"
+              title="Iluminação dianteira"
               check={editingCheck}
               items={frontLightingItems}
               options={lightingOptions}
@@ -1567,7 +1580,7 @@ export function CompliancePage() {
                   editingCheck,
                   "maintenance_observations",
                 )}
-                placeholder="Descreva manutenÃ§Ãµes necessÃ¡rias ou observaÃ§Ãµes da entrega."
+                placeholder="Descreva manutenções necessárias ou observações da entrega."
               />
             </label>
             <label className="space-y-2 text-sm font-medium">
@@ -1606,6 +1619,7 @@ export function CompliancePage() {
                 </div>
               </div>
               <Input
+                ref={checklistAttachmentInputRef}
                 className="mt-4"
                 type="file"
                 multiple
@@ -1621,12 +1635,24 @@ export function CompliancePage() {
                       key={`${file.name}-${file.size}`}
                       className="flex items-center justify-between gap-3 rounded-md border border-fleet-line bg-white px-3 py-2 text-sm"
                     >
-                      <span className="min-w-0 truncate font-medium text-fleet-ink">
-                        {file.name}
-                      </span>
-                      <span className="shrink-0 text-xs text-zinc-500">
-                        {(file.size / 1024 / 1024).toFixed(2)} MB
-                      </span>
+                      <div className="min-w-0">
+                        <span className="block truncate font-medium text-fleet-ink">
+                          {file.name}
+                        </span>
+                        <span className="block text-xs text-zinc-500">
+                          {(file.size / 1024 / 1024).toFixed(2)} MB
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className="shrink-0 rounded-full p-1 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700"
+                        onClick={() =>
+                          removeChecklistAttachment(`${file.name}-${file.size}`)
+                        }
+                        aria-label={`Remover ${file.name}`}
+                      >
+                        <X size={14} />
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -1639,11 +1665,12 @@ export function CompliancePage() {
               {formError}
             </p>
           )}
-          <div className="flex justify-end gap-2">
+          <div className="sticky bottom-[-1rem] z-10 -mx-4 flex flex-col-reverse gap-2 border-t border-slate-200 bg-white/96 px-4 py-3 backdrop-blur sm:-bottom-5 sm:-mx-5 sm:flex-row sm:justify-end sm:px-5 sm:py-4">
             <Button
               type="button"
               variant="secondary"
               onClick={closeChecklistModal}
+              className="w-full sm:w-auto"
             >
               Cancelar
             </Button>
@@ -1654,18 +1681,19 @@ export function CompliancePage() {
                 onClick={() =>
                   setChecklistStep((current) => Math.max(current - 1, 0))
                 }
+                className="w-full sm:w-auto"
               >
                 <ArrowLeft size={16} />
                 Voltar
               </Button>
             )}
             {checklistStep < checklistSteps.length - 1 ? (
-              <Button type="submit">
+              <Button type="submit" className="w-full sm:w-auto">
                 Avancar
                 <ArrowRight size={16} />
               </Button>
             ) : (
-              <Button type="submit" disabled={createCheckMutation.isPending}>
+              <Button type="submit" disabled={createCheckMutation.isPending} className="w-full sm:w-auto">
                 {createCheckMutation.isPending
                   ? "Salvando..."
                   : "Salvar checklist"}

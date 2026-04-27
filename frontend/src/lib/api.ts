@@ -21,6 +21,16 @@ export const api = axios.create({
   timeout: 8000,
 });
 
+const apiOrigin = (() => {
+  try {
+    return new URL(
+      import.meta.env.VITE_API_URL ?? "http://localhost:3333/api/v1",
+    ).origin;
+  } catch {
+    return window.location.origin;
+  }
+})();
+
 let sessionExpiredHandled = false;
 
 export function apiErrorMessage(error: unknown, fallback: string) {
@@ -394,6 +404,47 @@ export async function deleteMaintenanceOrder(id: string) {
   return data;
 }
 
+export async function uploadMaintenanceOrderAttachment(id: string, file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+  const { data } = await api.post<MaintenanceOrder>(
+    `/maintenance/orders/${id}/attachments`,
+    formData,
+    {
+      timeout: 60_000,
+    },
+  );
+  return data;
+}
+
+export async function fetchMaintenanceOrderAttachmentBlob(
+  id: string,
+  fileName: string,
+) {
+  const { data } = await api.get<Blob>(
+    `/maintenance/orders/${id}/attachments/${encodeURIComponent(fileName)}`,
+    {
+      responseType: "blob",
+    },
+  );
+  return data;
+}
+
+export async function downloadMaintenanceOrderAttachment(
+  id: string,
+  fileName: string,
+) {
+  const data = await fetchMaintenanceOrderAttachmentBlob(id, fileName);
+  const url = window.URL.createObjectURL(data);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
 export async function createFuelRecord(payload: Record<string, unknown>) {
   const { data } = await api.post<FuelRecord>("/finance/fuel-records", payload);
   return data;
@@ -498,14 +549,25 @@ export async function fetchFuelRecordAttachmentBlob(
 }
 
 export function downloadExternalFile(url: string, fileName: string) {
+  const resolvedUrl = resolveApiAssetUrl(url);
   const link = document.createElement("a");
-  link.href = url;
+  link.href = resolvedUrl;
   link.download = fileName;
   link.target = "_blank";
   link.rel = "noreferrer";
   document.body.appendChild(link);
   link.click();
   link.remove();
+}
+
+export function resolveApiAssetUrl(url: string) {
+  if (!url) {
+    return url;
+  }
+  if (/^https?:\/\//i.test(url)) {
+    return url;
+  }
+  return `${apiOrigin}${url.startsWith("/") ? url : `/${url}`}`;
 }
 
 export async function createDocument(payload: Record<string, unknown>) {

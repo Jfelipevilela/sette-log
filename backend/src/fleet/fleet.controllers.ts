@@ -390,6 +390,58 @@ export class MaintenanceController {
   removeOrder(@CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
     return this.fleetService.remove("maintenance-orders", user.tenantId, id);
   }
+
+  @Post("orders/:id/attachments")
+  @ApiConsumes("multipart/form-data")
+  @ApiBody({
+    schema: {
+      type: "object",
+      required: ["file"],
+      properties: {
+        file: {
+          type: "string",
+          format: "binary",
+        },
+      },
+    },
+  })
+  @RequirePermissions(PERMISSIONS.MAINTENANCE_MANAGE)
+  @UseInterceptors(
+    FileInterceptor("file", {
+      storage: memoryStorage(),
+      limits: {
+        fileSize: 10 * 1024 * 1024,
+      },
+    }),
+  )
+  attachOrderFile(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @UploadedFile() file?: UploadedSpreadsheetFile,
+  ) {
+    return this.fleetService.attachMaintenanceOrderFile(user.tenantId, id, file);
+  }
+
+  @Get("orders/:id/attachments/:fileName")
+  @RequirePermissions(PERMISSIONS.MAINTENANCE_VIEW)
+  async downloadOrderFile(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Param("fileName") fileName: string,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const { stream, fileName: originalFileName } =
+      await this.fleetService.maintenanceOrderAttachmentStream(
+        user.tenantId,
+        id,
+        fileName,
+      );
+    response.set({
+      "Content-Type": "application/octet-stream",
+      "Content-Disposition": `attachment; filename="${String(originalFileName ?? fileName).replace(/"/g, "")}"`,
+    });
+    return new StreamableFile(stream);
+  }
 }
 
 @ApiTags("finance")

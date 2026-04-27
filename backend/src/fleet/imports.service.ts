@@ -935,7 +935,7 @@ export class ImportsService {
       vehicles: "veiculo",
       drivers: "motorista",
       "fuel-records": "abastecimento",
-      "maintenance-orders": "manuten????o",
+      "maintenance-orders": "manutenção",
       expenses: "despesa",
       documents: "documento",
     };

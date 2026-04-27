@@ -1,4 +1,4 @@
-﻿import { FormEvent, useMemo, useState } from "react";
+﻿import { FormEvent, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CircleDollarSign,
@@ -14,6 +14,7 @@ import {
   ReceiptText,
   Search,
   Trash2,
+  X,
 } from "lucide-react";
 import { Badge } from "../../components/ui/badge";
 import { ActionMenu } from "../../components/ui/action-menu";
@@ -91,6 +92,7 @@ export function FuelRecordsPage() {
     to: "",
   });
   const [attachmentFile, setAttachmentFile] = useState<File>();
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
   const [previewAttachment, setPreviewAttachment] = useState<{
     recordId: string;
     fileName: string;
@@ -651,7 +653,7 @@ export function FuelRecordsPage() {
                 <thead>
                   <tr>
                     <Th>Data</Th>
-                    <Th>Ve­culo</Th>
+                    <Th>Ve­ículo</Th>
                     <Th>Motorista</Th>
                     <Th>Combustível</Th>
                     <Th>Litros</Th>
@@ -852,6 +854,7 @@ export function FuelRecordsPage() {
             <label className="space-y-2 text-sm font-medium md:col-span-2">
               Nota fiscal / comprovante
               <Input
+                ref={attachmentInputRef}
                 name="attachment"
                 type="file"
                 accept="image/*,.pdf,.xml,.txt,.csv,.xlsx"
@@ -860,6 +863,31 @@ export function FuelRecordsPage() {
               <span className="block text-xs font-normal text-zinc-500">
                 Aceita imagem, PDF, XML, TXT, CSV ou XLSX ate 10 MB.
               </span>
+              {attachmentFile && (
+                <div className="mt-3 flex items-center justify-between gap-3 rounded-md border border-fleet-line bg-white px-3 py-2 text-sm">
+                  <div className="min-w-0">
+                    <span className="block truncate font-medium text-fleet-ink">
+                      {attachmentFile.name}
+                    </span>
+                    <span className="block text-xs text-zinc-500">
+                      {(attachmentFile.size / 1024 / 1024).toFixed(2)} MB
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-full p-1 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700"
+                    onClick={() => {
+                      setAttachmentFile(undefined);
+                      if (attachmentInputRef.current) {
+                        attachmentInputRef.current.value = "";
+                      }
+                    }}
+                    aria-label="Remover anexo"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
             </label>
           </div>
           {formError && (

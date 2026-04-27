@@ -1,6 +1,23 @@
-﻿import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  addMonths,
+  eachDayOfInterval,
+  endOfMonth,
+  endOfWeek,
+  format,
+  isSameDay,
+  isSameMonth,
+  isToday,
+  parseISO,
+  startOfMonth,
+  startOfWeek,
+  subMonths,
+} from "date-fns";
+import { ptBR } from "date-fns/locale";
+import {
+  ChevronLeft,
+  ChevronRight,
   CalendarDays,
   ClipboardList,
   Download,
@@ -11,16 +28,8 @@ import {
   Search,
   Trash2,
   Wrench,
+  X,
 } from "lucide-react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import { Badge } from "../../components/ui/badge";
 import { ActionMenu } from "../../components/ui/action-menu";
 import { AttachmentPreviewModal } from "../../components/ui/attachment-preview-modal";
@@ -41,10 +50,12 @@ import {
   apiErrorMessage,
   createMaintenanceOrder,
   deleteMaintenanceOrder,
+  downloadMaintenanceOrderAttachment,
   downloadResourceExport,
-  downloadExternalFile,
+  fetchMaintenanceOrderAttachmentBlob,
   getVehicles,
   listResource,
+  uploadMaintenanceOrderAttachment,
   updateMaintenanceOrder,
 } from "../../lib/api";
 import {
@@ -77,6 +88,8 @@ const maintenanceStatusOptions = [
   { value: "cancelled", label: "Cancelada" },
 ];
 
+const calendarWeekDays = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sab", "Dom"];
+
 export function MaintenancePage() {
   const queryClient = useQueryClient();
   const [filtersExpanded, setFiltersExpanded] = useState(false);
@@ -94,10 +107,16 @@ export function MaintenancePage() {
     to: "",
     showClosed: false,
   });
+  const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()));
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => new Date());
   const [previewAttachment, setPreviewAttachment] = useState<{
+    objectUrl?: string;
     fileName: string;
-    url: string;
+    orderId: string;
+    url?: string;
   }>();
+  const [attachmentFile, setAttachmentFile] = useState<File>();
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
   const { data: orders = [] } = useQuery({
     queryKey: ["maintenance-orders"],
     queryFn: () => listResource<MaintenanceOrder>("/maintenance/orders"),
@@ -107,12 +126,16 @@ export function MaintenancePage() {
     queryFn: () => getVehicles(),
   });
   const createOrderMutation = useMutation({
-    mutationFn: createMaintenanceOrder,
+    mutationFn: async (payload: Record<string, unknown>) => {
+      const created = await createMaintenanceOrder(payload);
+      if (attachmentFile) {
+        return uploadMaintenanceOrderAttachment(created._id, attachmentFile);
+      }
+      return created;
+    },
     onSuccess: async () => {
-      setIsModalOpen(false);
-      await queryClient.invalidateQueries({ queryKey: ["maintenance-orders"] });
-      await queryClient.invalidateQueries({ queryKey: ["vehicles"] });
-      await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      closeModal();
+      await invalidateMaintenanceData();
     },
     onError: () => setFormError("Não foi possível criar a ordem de serviço."),
   });
@@ -123,7 +146,13 @@ export function MaintenancePage() {
     }: {
       id: string;
       payload: Record<string, unknown>;
-    }) => updateMaintenanceOrder(id, payload),
+    }) =>
+      updateMaintenanceOrder(id, payload).then((updated) => {
+        if (!attachmentFile) {
+          return updated;
+        }
+        return uploadMaintenanceOrderAttachment(id, attachmentFile);
+      }),
     onSuccess: async () => {
       closeModal();
       await invalidateMaintenanceData();
@@ -164,6 +193,48 @@ export function MaintenancePage() {
     setIsModalOpen(false);
     setEditingOrder(undefined);
     setFormError(undefined);
+    setAttachmentFile(undefined);
+    if (attachmentInputRef.current) {
+      attachmentInputRef.current.value = "";
+    }
+  }
+
+  function attachmentFileNameFromUrl(url: string) {
+    return decodeURIComponent(url.split("/").pop() || "anexo");
+  }
+
+  async function openAttachmentPreview(orderId: string, url: string) {
+    const fileName = attachmentFileNameFromUrl(url);
+    try {
+      const blob = await fetchMaintenanceOrderAttachmentBlob(orderId, fileName);
+      const objectUrl = window.URL.createObjectURL(blob);
+      setPreviewAttachment({
+        orderId,
+        fileName,
+        url: objectUrl,
+        objectUrl,
+      });
+    } catch (error) {
+      setFormError(
+        apiErrorMessage(error, "Não foi possível abrir o anexo da OS."),
+      );
+    }
+  }
+
+  function closeAttachmentPreview() {
+    if (previewAttachment?.objectUrl) {
+      window.URL.revokeObjectURL(previewAttachment.objectUrl);
+    }
+    setPreviewAttachment(undefined);
+  }
+
+  function moveCalendarMonth(direction: "prev" | "next") {
+    const nextMonth =
+      direction === "prev"
+        ? subMonths(calendarMonth, 1)
+        : addMonths(calendarMonth, 1);
+    setCalendarMonth(nextMonth);
+    setSelectedCalendarDate(startOfMonth(nextMonth));
   }
 
   const vehicleOptions = vehicles.map((vehicle) => ({
@@ -190,24 +261,69 @@ export function MaintenancePage() {
     });
   }, [orders, filters, vehicleOptions]);
 
-  const chartData = [
-    {
-      status: "Aberta",
-      total: filteredOrders.filter((order) => order.status === "open").length,
-    },
-    {
-      status: "Agendada",
-      total: filteredOrders.filter((order) => order.status === "scheduled").length,
-    },
-    {
-      status: "Execucao",
-      total: filteredOrders.filter((order) => order.status === "in_progress").length,
-    },
-    {
-      status: "Finalizada",
-      total: filteredOrders.filter((order) => order.status === "closed").length,
-    },
-  ];
+  const ordersWithSchedule = useMemo(
+    () =>
+      filteredOrders.filter((order) => order.scheduledAt).map((order) => ({
+        ...order,
+        scheduledDate: parseISO(String(order.scheduledAt)),
+      })),
+    [filteredOrders],
+  );
+
+  const calendarDays = useMemo(() => {
+    const monthStart = startOfMonth(calendarMonth);
+    const monthEnd = endOfMonth(calendarMonth);
+    return eachDayOfInterval({
+      start: startOfWeek(monthStart, { weekStartsOn: 1 }),
+      end: endOfWeek(monthEnd, { weekStartsOn: 1 }),
+    });
+  }, [calendarMonth]);
+
+  const ordersByDay = useMemo(() => {
+    const map = new Map<string, MaintenanceOrder[]>();
+    for (const order of ordersWithSchedule) {
+      const key = format(order.scheduledDate, "yyyy-MM-dd");
+      const current = map.get(key) ?? [];
+      current.push(order);
+      map.set(key, current);
+    }
+    return map;
+  }, [ordersWithSchedule]);
+
+  const selectedDayOrders = useMemo(() => {
+    const key = format(selectedCalendarDate, "yyyy-MM-dd");
+    const current = [...(ordersByDay.get(key) ?? [])];
+    return current.sort((left, right) => {
+      const leftToday = isToday(parseISO(String(left.scheduledAt)));
+      const rightToday = isToday(parseISO(String(right.scheduledAt)));
+      if (leftToday !== rightToday) {
+        return leftToday ? -1 : 1;
+      }
+      const leftPriority =
+        left.priority === "critical"
+          ? 0
+          : left.priority === "high"
+            ? 1
+            : left.priority === "medium"
+              ? 2
+              : 3;
+      const rightPriority =
+        right.priority === "critical"
+          ? 0
+          : right.priority === "high"
+            ? 1
+            : right.priority === "medium"
+              ? 2
+              : 3;
+      if (leftPriority !== rightPriority) {
+        return leftPriority - rightPriority;
+      }
+      return (
+        parseISO(String(left.scheduledAt)).getTime() -
+        parseISO(String(right.scheduledAt)).getTime()
+      );
+    });
+  }, [ordersByDay, selectedCalendarDate]);
 
   return (
     <div className="space-y-6">
@@ -349,7 +465,10 @@ export function MaintenancePage() {
                     <Td>{formatDate(order.scheduledAt)}</Td>
                     <Td>{formatCurrency(order.totalCost)}</Td>
                     <Td>
-                      <Paperclip size={16} className="text-zinc-500" />
+                      <div className="flex items-center gap-2 text-zinc-500">
+                        <Paperclip size={16} className="text-zinc-500" />
+                        <span>{order.attachments?.length ?? 0}</span>
+                      </div>
                     </Td>
                     <Td>
                       <ActionMenu
@@ -389,44 +508,190 @@ export function MaintenancePage() {
 
         <Card>
           <CardHeader>
-            <div>
-              <CardTitle>Calendario operacional</CardTitle>
-              <p className="mt-1 text-sm text-zinc-500">
-                Proximas execucoes e backlog por status.
-              </p>
+            <div className="flex flex-col gap-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <CardTitle>Calendário operacional</CardTitle>
+                  <p className="mt-1 text-sm text-zinc-500">
+                    Agenda mensal com ordens por data e prioridade operacional.
+                  </p>
+                </div>
+                <div className="inline-flex items-center gap-1 rounded-lg border border-fleet-line bg-zinc-50 p-1">
+                  <button
+                    type="button"
+                    className="rounded-md p-2 text-zinc-500 transition hover:bg-white hover:text-fleet-green"
+                    onClick={() => moveCalendarMonth("prev")}
+                    aria-label="Mês anterior"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <div className="min-w-[132px] px-2 text-center text-sm font-semibold text-fleet-ink">
+                    {format(calendarMonth, "MMMM yyyy", { locale: ptBR })}
+                  </div>
+                  <button
+                    type="button"
+                    className="rounded-md p-2 text-zinc-500 transition hover:bg-white hover:text-fleet-green"
+                    onClick={() => moveCalendarMonth("next")}
+                    aria-label="Próximo mês"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-400">
+                {calendarWeekDays.map((day) => (
+                  <span key={day} className="py-1">
+                    {day}
+                  </span>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 gap-1">
+                {calendarDays.map((day) => {
+                  const key = format(day, "yyyy-MM-dd");
+                  const dayOrders = ordersByDay.get(key) ?? [];
+                  const isSelected = isSameDay(day, selectedCalendarDate);
+                  const hasTodayDue = dayOrders.some((order) =>
+                    isToday(parseISO(String(order.scheduledAt))),
+                  );
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setSelectedCalendarDate(day)}
+                      className={[
+                        "min-h-[78px] rounded-xl border p-2 text-left transition",
+                        isSelected
+                          ? "border-fleet-green bg-emerald-50 shadow-[0_0_0_1px_rgba(16,185,129,0.08)]"
+                          : "border-fleet-line bg-white hover:border-emerald-200 hover:bg-zinc-50",
+                        !isSameMonth(day, calendarMonth)
+                          ? "opacity-45"
+                          : "",
+                        hasTodayDue ? "animate-pulse" : "",
+                      ].join(" ")}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span
+                          className={[
+                            "text-sm font-semibold",
+                            isToday(day)
+                              ? "text-fleet-green"
+                              : "text-fleet-ink",
+                          ].join(" ")}
+                        >
+                          {format(day, "d")}
+                        </span>
+                        {dayOrders.length > 0 && (
+                          <span className="rounded-full bg-fleet-green/10 px-2 py-0.5 text-[10px] font-semibold text-fleet-green">
+                            {dayOrders.length}
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-2 space-y-1">
+                        {dayOrders.slice(0, 2).map((order) => (
+                          <div
+                            key={order._id}
+                            className={[
+                              "truncate rounded-md px-2 py-1 text-[11px] font-medium",
+                              order.priority === "critical" || order.priority === "high"
+                                ? "bg-red-50 text-red-700"
+                                : order.priority === "medium"
+                                  ? "bg-amber-50 text-amber-700"
+                                  : "bg-emerald-50 text-emerald-700",
+                            ].join(" ")}
+                          >
+                            {vehicles.find((vehicle) => vehicle._id === order.vehicleId)?.plate ??
+                              order.vehicleId}
+                          </div>
+                        ))}
+                        {dayOrders.length > 2 && (
+                          <div className="text-[10px] font-medium text-zinc-500">
+                            +{dayOrders.length - 2} OS
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="mb-5 grid grid-cols-2 gap-3">
-              {filteredOrders.map((order) => (
-                <div
-                  key={order._id}
-                  className="rounded-lg border border-fleet-line p-3"
-                >
-                  <CalendarDays size={17} className="text-fleet-cyan" />
-                  <strong className="mt-2 block text-sm">
-                    {formatDate(order.scheduledAt)}
-                  </strong>
-                  <span className="text-xs text-zinc-500">
-                    {labelFor(order.type, maintenanceTypeLabels)}
-                  </span>
-                </div>
-              ))}
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-fleet-line bg-zinc-50/80 px-4 py-3">
+              <div>
+                <strong className="block text-sm text-fleet-ink">
+                  {format(selectedCalendarDate, "EEEE, d 'de' MMMM", {
+                    locale: ptBR,
+                  })}
+                </strong>
+                <span className="mt-1 block text-xs text-zinc-500">
+                  {selectedDayOrders.length} ordem(ns) planejada(s) para a data selecionada.
+                </span>
+              </div>
+              {isToday(selectedCalendarDate) && (
+                <Badge tone="green">Hoje</Badge>
+              )}
             </div>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData}>
-                  <CartesianGrid stroke="#e5e7eb" vertical={false} />
-                  <XAxis dataKey="status" tickLine={false} axisLine={false} />
-                  <YAxis
-                    allowDecimals={false}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <Tooltip />
-                  <Bar dataKey="total" fill="#027f9f" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+            <div className="space-y-3">
+              {selectedDayOrders.length === 0 && (
+                <div className="rounded-xl border border-dashed border-fleet-line px-4 py-8 text-center text-sm text-zinc-500">
+                  Nenhuma ordem agendada para esta data.
+                </div>
+              )}
+              {selectedDayOrders.map((order) => {
+                const dueToday = isToday(parseISO(String(order.scheduledAt)));
+                const vehicle = vehicles.find(
+                  (item) => item._id === order.vehicleId,
+                );
+                return (
+                  <div
+                    key={order._id}
+                    className={[
+                      "rounded-xl border px-4 py-3 shadow-[0_10px_25px_rgba(15,23,42,0.04)]",
+                      dueToday
+                        ? "order-first animate-pulse border-amber-300 bg-amber-50/80"
+                        : "border-fleet-line bg-white",
+                    ].join(" ")}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <strong className="block truncate text-sm text-fleet-ink">
+                          {vehicle?.plate ?? order.vehicleId} -{" "}
+                          {labelFor(order.type, maintenanceTypeLabels)}
+                        </strong>
+                        <span className="mt-1 block text-xs text-zinc-500">
+                          {vehicle?.nickname ?? vehicle?.model ?? "Veículo sem apelido"}
+                        </span>
+                      </div>
+                      <Badge
+                        tone={
+                          order.priority === "critical" || order.priority === "high"
+                            ? "red"
+                            : order.priority === "medium"
+                              ? "amber"
+                              : "green"
+                        }
+                      >
+                        {labelFor(order.priority, priorityLabels)}
+                      </Badge>
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+                      <span>{formatDate(order.scheduledAt)}</span>
+                      <span>•</span>
+                      <span>{formatCurrency(order.totalCost)}</span>
+                      <span>•</span>
+                      <span>{labelFor(order.status, maintenanceStatusLabels)}</span>
+                      {dueToday && (
+                        <>
+                          <span>•</span>
+                          <span className="font-semibold text-amber-700">
+                            Vence hoje
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -536,6 +801,67 @@ export function MaintenancePage() {
                 defaultValue={editingOrder?.totalCost ?? 0}
               />
             </label>
+            <label className="space-y-2 text-sm font-medium md:col-span-2">
+              Anexo
+              <Input
+                ref={attachmentInputRef}
+                type="file"
+                accept="image/*,.pdf,.xml,.txt,.csv,.xlsx,.xls,.doc,.docx"
+                onChange={(event) =>
+                  setAttachmentFile(event.target.files?.[0] ?? undefined)
+                }
+              />
+              {attachmentFile && (
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-fleet-line bg-zinc-50 px-3 py-2 text-sm">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-fleet-ink">
+                      {attachmentFile.name}
+                    </p>
+                    <p className="text-xs text-zinc-500">
+                      {(attachmentFile.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="rounded-full border border-fleet-line p-1 text-zinc-500 transition hover:bg-white hover:text-red-600"
+                    onClick={() => {
+                      setAttachmentFile(undefined);
+                      if (attachmentInputRef.current) {
+                        attachmentInputRef.current.value = "";
+                      }
+                    }}
+                    aria-label="Remover anexo"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              )}
+              {editingOrder?.attachments && editingOrder.attachments.length > 0 && (
+                <div className="space-y-2 rounded-lg border border-fleet-line bg-white px-3 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
+                    Anexos atuais
+                  </p>
+                  {editingOrder.attachments.map((url) => {
+                    const fileName = attachmentFileNameFromUrl(url);
+                    return (
+                      <button
+                        key={url}
+                        type="button"
+                        className="flex w-full items-center justify-between gap-3 rounded-md border border-fleet-line px-3 py-2 text-left text-sm transition hover:bg-zinc-50"
+                        onClick={() => void openAttachmentPreview(editingOrder._id, url)}
+                      >
+                        <span className="break-all font-medium text-fleet-ink">
+                          {fileName}
+                        </span>
+                        <span className="shrink-0 text-xs text-zinc-500">
+                          Previsualizar
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </label>
           </div>
           {formError && (
             <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -637,15 +963,10 @@ export function MaintenancePage() {
                 key={url}
                 type="button"
                 className="flex w-full items-center justify-between gap-3 rounded-md border border-fleet-line px-3 py-2 text-left text-sm transition hover:bg-zinc-50"
-                onClick={() =>
-                  setPreviewAttachment({
-                    fileName: url.split("/").pop() || "anexo",
-                    url,
-                  })
-                }
+                onClick={() => void openAttachmentPreview(detailOrder._id, url)}
               >
                 <span className="break-all font-medium text-fleet-ink">
-                  {url.split("/").pop() || url}
+                  {attachmentFileNameFromUrl(url)}
                 </span>
                 <span className="shrink-0 text-xs text-zinc-500">
                   Previsualizar
@@ -661,15 +982,15 @@ export function MaintenancePage() {
         title="Previsualizar anexo"
         fileName={previewAttachment?.fileName ?? ""}
         url={previewAttachment?.url}
-        onClose={() => setPreviewAttachment(undefined)}
-        onDownload={() => {
-          if (previewAttachment) {
-            downloadExternalFile(
-              previewAttachment.url,
-              previewAttachment.fileName,
-            );
-          }
-        }}
+        onClose={closeAttachmentPreview}
+        onDownload={() =>
+          previewAttachment
+            ? void downloadMaintenanceOrderAttachment(
+                previewAttachment.orderId,
+                previewAttachment.fileName,
+              )
+            : undefined
+        }
       />
     </div>
   );

@@ -51,3 +51,41 @@ export class UsersController {
     return this.usersService.remove(user.tenantId, id, user.sub);
   }
 }
+
+@ApiTags('roles')
+@ApiBearerAuth()
+@Controller('roles')
+export class RolesController {
+  constructor(private readonly usersService: UsersService) {}
+
+  @Get()
+  @RequirePermissions(PERMISSIONS.USERS_MANAGE)
+  list(@CurrentUser() user: AuthenticatedUser) {
+    return this.usersService.listRoles(user.tenantId);
+  }
+
+  @Post()
+  @RequirePermissions(PERMISSIONS.USERS_MANAGE)
+  create(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() body: Record<string, unknown>,
+  ) {
+    return this.usersService.createRole(user.tenantId, body);
+  }
+
+  @Patch(':id')
+  @RequirePermissions(PERMISSIONS.USERS_MANAGE)
+  update(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    return this.usersService.updateRole(user.tenantId, id, body);
+  }
+
+  @Delete(':id')
+  @RequirePermissions(PERMISSIONS.USERS_MANAGE)
+  remove(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.usersService.removeRole(user.tenantId, id);
+  }
+}

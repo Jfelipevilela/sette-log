@@ -11,15 +11,17 @@ import { FilterQuery, Model } from "mongoose";
 import { Types } from "mongoose";
 import { PaginationQueryDto } from "../common/dto/pagination-query.dto";
 import { PaginatedResponse } from "../common/types";
-import { ROLE_PERMISSIONS } from "./permissions";
+import { PERMISSIONS, ROLE_PERMISSIONS } from "./permissions";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
+import { Role } from "./schemas/role.schema";
 import { User } from "./schemas/user.schema";
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<User>,
+    @InjectModel(Role.name) private readonly roleModel: Model<Role>,
   ) {}
 
   async findByEmail(email: string, includeSecrets = false) {
@@ -91,7 +93,7 @@ export class UsersService {
       email: dto.email.toLowerCase(),
       branchId: dto.branchId,
       roles,
-      permissions: UsersService.expandPermissions(roles),
+      permissions: await this.expandPermissionsForTenant(tenantId, roles),
       passwordHash: await hash(dto.password, 12),
       status: "active",
     });
@@ -106,7 +108,10 @@ export class UsersService {
       delete update.password;
     }
     if (dto.roles) {
-      update.permissions = UsersService.expandPermissions(dto.roles);
+      update.permissions = await this.expandPermissionsForTenant(
+        tenantId,
+        dto.roles,
+      );
     }
 
     const user = await this.userModel
@@ -197,6 +202,108 @@ export class UsersService {
     return query.exec();
   }
 
+  async listRoles(tenantId: string) {
+    const customRoles = await this.roleModel
+      .find({ tenantId })
+      .sort({ createdAt: -1 })
+      .lean()
+      .exec();
+
+    const systemRoles = Object.entries(ROLE_PERMISSIONS).map(
+      ([key, permissions]) => ({
+        key,
+        name: UsersService.systemRoleLabel(key),
+        description: "Perfil padrão do sistema.",
+        permissions,
+        status: "active",
+        system: true,
+      }),
+    );
+
+    return [
+      ...systemRoles,
+      ...customRoles.map((role) => ({
+        ...this.serialize(role),
+        system: false,
+      })),
+    ];
+  }
+
+  async createRole(tenantId: string, payload: Record<string, unknown>) {
+    const key = UsersService.normalizeRoleKey(payload.key, payload.name);
+    if (ROLE_PERMISSIONS[key]) {
+      throw new ConflictException("Essa chave já pertence a um perfil padrão.");
+    }
+    const existing = await this.roleModel.findOne({ tenantId, key }).lean().exec();
+    if (existing) {
+      throw new ConflictException("Já existe um grupo com essa chave.");
+    }
+    const role = await this.roleModel.create({
+      tenantId,
+      key,
+      name: String(payload.name ?? "").trim(),
+      description: payload.description
+        ? String(payload.description).trim()
+        : undefined,
+      permissions: this.normalizePermissions(payload.permissions),
+      status:
+        String(payload.status ?? "active") === "inactive"
+          ? "inactive"
+          : "active",
+    });
+    return {
+      ...this.serialize(role.toObject()),
+      system: false,
+    };
+  }
+
+  async updateRole(
+    tenantId: string,
+    id: string,
+    payload: Record<string, unknown>,
+  ) {
+    const role = await this.roleModel.findOne({ _id: id, tenantId }).exec();
+    if (!role) {
+      throw new NotFoundException("Grupo de permissões não encontrado.");
+    }
+
+    const nextName = String(payload.name ?? role.name).trim();
+    if (!nextName) {
+      throw new BadRequestException("Nome do grupo é obrigatório.");
+    }
+
+    role.name = nextName;
+    role.description = payload.description
+      ? String(payload.description).trim()
+      : undefined;
+    role.permissions = this.normalizePermissions(
+      payload.permissions ?? role.permissions,
+    );
+    role.status =
+      String(payload.status ?? role.status) === "inactive"
+        ? "inactive"
+        : "active";
+    await role.save();
+    await this.recalculateUsersByRole(tenantId, role.key);
+    return {
+      ...this.serialize(role.toObject()),
+      system: false,
+    };
+  }
+
+  async removeRole(tenantId: string, id: string) {
+    const role = await this.roleModel.findOneAndDelete({ _id: id, tenantId }).lean().exec();
+    if (!role) {
+      throw new NotFoundException("Grupo de permissões não encontrado.");
+    }
+    await this.userModel.updateMany(
+      { tenantId, roles: role.key },
+      { $pull: { roles: role.key } },
+    );
+    await this.recalculateUsersByRole(tenantId);
+    return { success: true, deletedId: id };
+  }
+
   toPublic(user: object) {
     const clone = { ...(this.serialize(user) as Record<string, unknown>) };
     delete clone.passwordHash;
@@ -238,7 +345,85 @@ export class UsersService {
     );
   }
 
+  async expandPermissionsForTenant(tenantId: string, roles: string[]) {
+    const staticPermissions = UsersService.expandPermissions(roles);
+    const customRoles = await this.roleModel
+      .find({
+        tenantId,
+        key: { $in: roles },
+        status: "active",
+      })
+      .select("key permissions")
+      .lean<Array<{ key: string; permissions: string[] }>>()
+      .exec();
+
+    return Array.from(
+      new Set([
+        ...staticPermissions,
+        ...customRoles.flatMap((role) => role.permissions ?? []),
+      ]),
+    );
+  }
+
   private hashApiToken(token: string) {
     return createHash("sha256").update(token).digest("hex");
+  }
+
+  private normalizePermissions(input: unknown) {
+    const validPermissions = new Set(Object.values(PERMISSIONS) as string[]);
+    const values = Array.isArray(input) ? input : [];
+    return Array.from(
+      new Set(
+        values
+          .map((value) => String(value).trim())
+          .filter((value): value is string => validPermissions.has(value)),
+      ),
+    );
+  }
+
+  private async recalculateUsersByRole(tenantId: string, roleKey?: string) {
+    const filter: FilterQuery<User> = roleKey
+      ? { tenantId, roles: roleKey }
+      : { tenantId };
+    const users = await this.userModel.find(filter).select("_id roles").lean().exec();
+    await Promise.all(
+      users.map(async (user) => {
+        const permissions = await this.expandPermissionsForTenant(
+          tenantId,
+          user.roles ?? [],
+        );
+        await this.userModel.updateOne(
+          { _id: user._id, tenantId },
+          { permissions },
+        );
+      }),
+    );
+  }
+
+  private static normalizeRoleKey(key: unknown, name: unknown) {
+    const base = String(key ?? name ?? "")
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+    if (!base) {
+      throw new BadRequestException("Informe uma chave ou nome válido.");
+    }
+    return base;
+  }
+
+  private static systemRoleLabel(key: string) {
+    const labels: Record<string, string> = {
+      super_admin: "Super Admin",
+      fleet_manager: "Gestor de Frota",
+      operator: "Operador",
+      maintenance_analyst: "Analista de Manutenção",
+      finance: "Financeiro",
+      driver: "Motorista",
+      auditor: "Auditor / Visualizador",
+    };
+    return labels[key] ?? key;
   }
 }

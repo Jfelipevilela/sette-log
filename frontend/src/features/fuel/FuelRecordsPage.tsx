@@ -36,25 +36,33 @@ import { SearchableSelect } from "../../components/ui/searchable-select";
 import { Table, Td, Th } from "../../components/ui/table";
 import {
   apiErrorMessage,
+  createDriverFuelPortalRecord,
   createFuelRecord,
   deleteFuelRecord,
   downloadResourceExport,
   downloadFuelRecordAttachment,
+  fetchDriverFuelPortalAttachmentBlob,
   fetchFuelRecordAttachmentBlob,
+  getDriverFuelPortalContext,
+  getDriverFuelPortalRecords,
   getDrivers,
   getVehicles,
   listAllResourcePages,
   listResourcePage,
   updateFuelRecord,
+  uploadDriverFuelPortalAttachment,
   uploadFuelRecordAttachment,
 } from "../../lib/api";
 import type { FuelRecord } from "../../lib/types";
 import { formatCurrency, formatDate, formatDateTime } from "../../lib/utils";
+import { hasPermission, PERMISSIONS } from "../../lib/permissions";
+import { useAuthStore } from "../../store/auth-store";
 
 const fuelLabels: Record<string, string> = {
   gasoline: "Gasolina",
   ethanol: "Etanol",
   diesel: "Diesel",
+  diesel_s10: "Diesel S-10",
   gnv: "GNV",
   electric: "Eletrico",
 };
@@ -63,9 +71,43 @@ const fuelOptions = [
   { value: "gasoline", label: "Gasolina" },
   { value: "ethanol", label: "Etanol" },
   { value: "diesel", label: "Diesel" },
+  { value: "diesel_s10", label: "Diesel S-10" },
   { value: "gnv", label: "GNV" },
   { value: "electric", label: "Eletrico" },
 ];
+
+const driverAttachmentDefinitions = [
+  {
+    category: "dashboard_before",
+    label: "Painel antes do abastecimento",
+    requiredInDriverFlow: true,
+  },
+  {
+    category: "dashboard_after",
+    label: "Painel depois do abastecimento",
+    requiredInDriverFlow: true,
+  },
+  { category: "invoice", label: "Nota fiscal", requiredInDriverFlow: true },
+  {
+    category: "pump",
+    label: "Bomba com valor e litros",
+    requiredInDriverFlow: true,
+  },
+  {
+    category: "vehicle_front",
+    label: "Frente do carro com placa",
+    requiredInDriverFlow: true,
+  },
+  {
+    category: "receipt",
+    label: "Comprovante adicional",
+    requiredInDriverFlow: false,
+  },
+] as const;
+
+const attachmentCategoryLabels = Object.fromEntries(
+  driverAttachmentDefinitions.map((item) => [item.category, item.label]),
+);
 
 function formatKmPerLiter(value?: number) {
   return value
@@ -77,11 +119,13 @@ function formatKmPerLiter(value?: number) {
 
 export function FuelRecordsPage() {
   const queryClient = useQueryClient();
+  const user = useAuthStore((state) => state.user);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<FuelRecord>();
   const [detailRecord, setDetailRecord] = useState<FuelRecord>();
   const [formError, setFormError] = useState<string>();
+  const [driverFlowEnabled, setDriverFlowEnabled] = useState(false);
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({
     search: "",
@@ -91,8 +135,14 @@ export function FuelRecordsPage() {
     from: "",
     to: "",
   });
-  const [attachmentFile, setAttachmentFile] = useState<File>();
-  const attachmentInputRef = useRef<HTMLInputElement>(null);
+  const [attachmentFiles, setAttachmentFiles] = useState<
+    Record<string, File | undefined>
+  >({});
+  const [attachmentInputVersion, setAttachmentInputVersion] = useState(0);
+  const [litersValue, setLitersValue] = useState("");
+  const [pricePerLiterValue, setPricePerLiterValue] = useState("");
+  const [selectedVehicleId, setSelectedVehicleId] = useState("");
+  const [selectedFuelType, setSelectedFuelType] = useState("gasoline");
   const [previewAttachment, setPreviewAttachment] = useState<{
     recordId: string;
     fileName: string;
@@ -101,7 +151,12 @@ export function FuelRecordsPage() {
     url: string;
   }>();
 
-  const { data: recordsPage, isLoading: recordsLoading } = useQuery({
+  const isTechnicianPortal = hasPermission(
+    user,
+    PERMISSIONS.FUEL_DRIVER_PORTAL_ACCESS,
+  );
+
+  const { isLoading: recordsLoading } = useQuery({
     queryKey: ["fuel-records", page],
     queryFn: () =>
       listResourcePage<FuelRecord>("/finance/fuel-records", {
@@ -110,6 +165,7 @@ export function FuelRecordsPage() {
         sortBy: "filledAt",
         sortDir: "desc",
       }),
+    enabled: !isTechnicianPortal,
   });
   const { data: allFuelRecords = [] } = useQuery({
     queryKey: ["fuel-records-all"],
@@ -118,22 +174,62 @@ export function FuelRecordsPage() {
         sortBy: "filledAt",
         sortDir: "desc",
       }),
+    enabled: !isTechnicianPortal,
+  });
+  const { data: driverPortalRecords = [] } = useQuery({
+    queryKey: ["driver-fuel-portal-records"],
+    queryFn: getDriverFuelPortalRecords,
+    enabled: isTechnicianPortal,
   });
   const { data: vehicles = [] } = useQuery({
     queryKey: ["vehicles"],
     queryFn: () => getVehicles(),
+    enabled: !isTechnicianPortal,
   });
   const { data: drivers = [] } = useQuery({
     queryKey: ["drivers"],
     queryFn: () => getDrivers(),
+    enabled: !isTechnicianPortal,
   });
+
+  const { data: driverPortalContext, isLoading: driverPortalContextLoading } = useQuery({
+    queryKey: ["driver-fuel-portal-context"],
+    queryFn: getDriverFuelPortalContext,
+    enabled: isTechnicianPortal,
+  });
+  const driverPortalLoading = isTechnicianPortal && driverPortalContextLoading;
+  const linkedDriver = driverPortalContext?.driver;
+  const linkedVehicle = driverPortalContext?.vehicle;
+  const selectedVehicle = isTechnicianPortal
+    ? linkedVehicle
+    : vehicles.find((item) => item._id === selectedVehicleId);
+  const acceptedFuelOptions = useMemo(() => {
+    const acceptedFuelTypes = selectedVehicle?.acceptedFuelTypes?.length
+      ? selectedVehicle.acceptedFuelTypes
+      : fuelOptions.map((option) => option.value);
+    return fuelOptions.filter((option) =>
+      acceptedFuelTypes.includes(option.value),
+    );
+  }, [selectedVehicle]);
 
   const createMutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
-      const created = await createFuelRecord(payload);
-      if (attachmentFile) {
-        await uploadFuelRecordAttachment(created._id, attachmentFile);
-      }
+      const created = isTechnicianPortal
+        ? await createDriverFuelPortalRecord(payload)
+        : await createFuelRecord(payload);
+      await Promise.all(
+        Object.entries(attachmentFiles)
+          .filter(([, file]) => Boolean(file))
+          .map(([category, file]) =>
+            isTechnicianPortal
+              ? uploadDriverFuelPortalAttachment(
+                  created._id,
+                  file as File,
+                  category,
+                )
+              : uploadFuelRecordAttachment(created._id, file as File, category),
+          ),
+      );
       return created;
     },
     onSuccess: async () => {
@@ -154,9 +250,13 @@ export function FuelRecordsPage() {
       payload: Record<string, unknown>;
     }) => {
       const updated = await updateFuelRecord(id, payload);
-      if (attachmentFile) {
-        await uploadFuelRecordAttachment(id, attachmentFile);
-      }
+      await Promise.all(
+        Object.entries(attachmentFiles)
+          .filter(([, file]) => Boolean(file))
+          .map(([category, file]) =>
+            uploadFuelRecordAttachment(id, file as File, category),
+          ),
+      );
       return updated;
     },
     onSuccess: async () => {
@@ -179,7 +279,9 @@ export function FuelRecordsPage() {
 
   const filteredFuelRecords = useMemo(() => {
     const term = filters.search.trim().toLowerCase();
-    return allFuelRecords.filter((record) => {
+    const source = isTechnicianPortal ? driverPortalRecords : allFuelRecords;
+
+    return source.filter((record) => {
       const vehicleText = vehicleLabel(record.vehicleId).toLowerCase();
       const driverText = driverLabel(record.driverId).toLowerCase();
       const filledAt = record.filledAt?.slice(0, 10) ?? "";
@@ -199,7 +301,7 @@ export function FuelRecordsPage() {
         (!filters.to || filledAt <= filters.to)
       );
     });
-  }, [allFuelRecords, filters, vehicles, drivers]);
+  }, [allFuelRecords, driverPortalRecords, filters, vehicles, drivers, isTechnicianPortal]);
   const records = filteredFuelRecords.slice((page - 1) * 10, page * 10);
   const summary = useMemo(() => {
     const source = filteredFuelRecords;
@@ -278,12 +380,17 @@ export function FuelRecordsPage() {
   async function invalidateFuelData() {
     await queryClient.invalidateQueries({ queryKey: ["fuel-records"] });
     await queryClient.invalidateQueries({ queryKey: ["fuel-records-all"] });
+    await queryClient.invalidateQueries({ queryKey: ["driver-fuel-portal-records"] });
+    await queryClient.invalidateQueries({ queryKey: ["driver-fuel-portal-context"] });
     await queryClient.invalidateQueries({ queryKey: ["vehicles"] });
     await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     await queryClient.invalidateQueries({ queryKey: ["finance-dashboard"] });
   }
 
   function vehicleLabel(vehicleId: string) {
+    if (linkedVehicle?._id === vehicleId) {
+      return `${linkedVehicle.plate} - ${linkedVehicle.nickname ?? linkedVehicle.model}`;
+    }
     const vehicle = vehicles.find((item) => item._id === vehicleId);
     return vehicle
       ? `${vehicle.plate} - ${vehicle.nickname ?? vehicle.model}`
@@ -293,6 +400,9 @@ export function FuelRecordsPage() {
   function driverLabel(driverId?: string) {
     if (!driverId) {
       return "-";
+    }
+    if (linkedDriver?._id === driverId) {
+      return linkedDriver.name;
     }
     return drivers.find((item) => item._id === driverId)?.name ?? driverId;
   }
@@ -308,22 +418,82 @@ export function FuelRecordsPage() {
     searchText: `${driver.name} ${driver.licenseNumber} ${driver.licenseCategory}`,
   }));
 
+  function defaultFuelTypeForVehicle(vehicleId?: string) {
+    const vehicle =
+      (isTechnicianPortal ? linkedVehicle : vehicles.find((item) => item._id === vehicleId)) ??
+      undefined;
+    const acceptedFuelTypes = vehicle?.acceptedFuelTypes?.length
+      ? vehicle.acceptedFuelTypes
+      : fuelOptions.map((option) => option.value);
+    return acceptedFuelTypes.find((fuelType) =>
+      fuelOptions.some((option) => option.value === fuelType),
+    ) ?? "gasoline";
+  }
+
+  function handleVehicleChange(nextVehicleId: string) {
+    setSelectedVehicleId(nextVehicleId);
+    const nextAcceptedFuelOptions = fuelOptions.filter((option) => {
+      const vehicle = vehicles.find((item) => item._id === nextVehicleId);
+      const acceptedFuelTypes = vehicle?.acceptedFuelTypes?.length
+        ? vehicle.acceptedFuelTypes
+        : fuelOptions.map((fuelOption) => fuelOption.value);
+      return acceptedFuelTypes.includes(option.value);
+    });
+    if (!nextAcceptedFuelOptions.some((option) => option.value === selectedFuelType)) {
+      setSelectedFuelType(nextAcceptedFuelOptions[0]?.value ?? "gasoline");
+    }
+  }
+
   function openCreateModal() {
     setEditingRecord(undefined);
     setFormError(undefined);
+    setDriverFlowEnabled(isTechnicianPortal);
+    setAttachmentFiles({});
+    setAttachmentInputVersion((current) => current + 1);
+    setLitersValue("");
+    setPricePerLiterValue("");
+    const nextVehicleId = isTechnicianPortal ? linkedVehicle?._id ?? "" : "";
+    setSelectedVehicleId(nextVehicleId);
+    setSelectedFuelType(defaultFuelTypeForVehicle(nextVehicleId));
     setIsModalOpen(true);
   }
 
   function openEditModal(record: FuelRecord) {
     setEditingRecord(record);
     setFormError(undefined);
+    setDriverFlowEnabled(
+      driverAttachmentDefinitions
+        .filter((item) => item.requiredInDriverFlow)
+        .every((item) =>
+          (record.attachments ?? []).some(
+            (attachment) => attachment.category === item.category,
+          ),
+        ),
+    );
+    setAttachmentFiles({});
+    setAttachmentInputVersion((current) => current + 1);
+    setLitersValue(String(record.liters ?? ""));
+    setPricePerLiterValue(
+      String(
+        record.pricePerLiter ??
+          (record.liters ? Number(record.totalCost ?? 0) / record.liters : ""),
+      ),
+    );
+    setSelectedVehicleId(record.vehicleId);
+    setSelectedFuelType(record.fuelType ?? defaultFuelTypeForVehicle(record.vehicleId));
     setIsModalOpen(true);
   }
 
   function closeModal() {
     setEditingRecord(undefined);
     setFormError(undefined);
-    setAttachmentFile(undefined);
+    setDriverFlowEnabled(isTechnicianPortal);
+    setAttachmentFiles({});
+    setAttachmentInputVersion((current) => current + 1);
+    setLitersValue("");
+    setPricePerLiterValue("");
+    setSelectedVehicleId("");
+    setSelectedFuelType("gasoline");
     setIsModalOpen(false);
   }
 
@@ -332,15 +502,35 @@ export function FuelRecordsPage() {
     setFormError(undefined);
     const form = new FormData(event.currentTarget);
     const liters = Number(form.get("liters") || 0);
-    const totalCost = Number(form.get("totalCost") || 0);
     const pricePerLiter = Number(form.get("pricePerLiter") || 0);
-    const driverId = String(form.get("driverId") ?? "");
-    const vehicleId = String(form.get("vehicleId") ?? "");
+    const totalCost = liters * pricePerLiter;
+    const driverId = isTechnicianPortal
+      ? String(linkedDriver?._id ?? "")
+      : String(form.get("driverId") ?? "");
+    const vehicleId = isTechnicianPortal
+      ? String(linkedVehicle?._id ?? "")
+      : selectedVehicleId;
     const odometerRaw = String(form.get("odometerKm") ?? "").trim();
     const odometerKm = odometerRaw ? Number(odometerRaw) : undefined;
     const vehicle = vehicles.find((item) => item._id === vehicleId);
+    if (isTechnicianPortal && !linkedDriver) {
+      setFormError(
+        "Este usuário técnico não está vinculado a um motorista.",
+      );
+      return;
+    }
+    if (isTechnicianPortal && !linkedVehicle) {
+      setFormError(
+        "O motorista vinculado não possui veículo associado.",
+      );
+      return;
+    }
     if (!vehicleId) {
       setFormError("Selecione o ve??culo do abastecimento.");
+      return;
+    }
+    if (!odometerRaw) {
+      setFormError("Informe o odômetro do abastecimento.");
       return;
     }
     if (
@@ -348,6 +538,17 @@ export function FuelRecordsPage() {
       (!Number.isFinite(odometerKm) || Number(odometerKm) < 0)
     ) {
       setFormError("Informe um odômetro válido.");
+      return;
+    }
+    if (
+      odometerKm !== undefined &&
+      vehicle?.odometerKm !== undefined &&
+      !editingRecord &&
+      odometerKm <= Number(vehicle.odometerKm)
+    ) {
+      setFormError(
+        `O odômetro informado deve ser maior que o odômetro atual do veículo (${Number(vehicle.odometerKm).toLocaleString("pt-BR")} km).`,
+      );
       return;
     }
     if (
@@ -370,10 +571,6 @@ export function FuelRecordsPage() {
       setFormError("Informe o valor pago por litro.");
       return;
     }
-    if (Math.abs(liters * pricePerLiter - totalCost) > 0.05) {
-      setFormError("Litros x valor por litro não conferem com o valor total.");
-      return;
-    }
     const payload = {
       vehicleId,
       driverId: driverId || undefined,
@@ -383,8 +580,33 @@ export function FuelRecordsPage() {
       odometerKm,
       filledAt: String(form.get("filledAt") ?? "") || new Date().toISOString(),
       station: String(form.get("station") ?? ""),
-      fuelType: String(form.get("fuelType") ?? "gasoline"),
+      fuelType: selectedFuelType,
     };
+
+    if (driverFlowEnabled) {
+      const missingCategory = driverAttachmentDefinitions
+        .filter((item) => item.requiredInDriverFlow)
+        .find((item) => {
+          const existingAttachment = editingRecord?.attachments?.some(
+            (attachment) => attachment.category === item.category,
+          );
+          return !attachmentFiles[item.category] && !existingAttachment;
+        });
+      if (missingCategory) {
+        setFormError(
+          `Envie o anexo obrigatório: ${missingCategory.label.toLowerCase()}.`,
+        );
+        return;
+      }
+    } else if (
+      !attachmentFiles.receipt &&
+      !(editingRecord?.attachments?.some(
+        (attachment) => attachment.category === "receipt",
+      ) ?? false)
+    ) {
+      setFormError("Envie ao menos um comprovante do abastecimento.");
+      return;
+    }
 
     if (editingRecord) {
       updateMutation.mutate({ id: editingRecord._id, payload });
@@ -397,10 +619,9 @@ export function FuelRecordsPage() {
     recordId: string,
     attachment: NonNullable<FuelRecord["attachments"]>[number],
   ) {
-    const blob = await fetchFuelRecordAttachmentBlob(
-      recordId,
-      attachment.fileName,
-    );
+    const blob = isTechnicianPortal
+      ? await fetchDriverFuelPortalAttachmentBlob(recordId, attachment.fileName)
+      : await fetchFuelRecordAttachmentBlob(recordId, attachment.fileName);
     setPreviewAttachment({
       recordId,
       fileName: attachment.fileName,
@@ -419,6 +640,88 @@ export function FuelRecordsPage() {
 
   return (
     <div className="space-y-6">
+      {isTechnicianPortal ? (
+        <>
+          <section className="relative overflow-hidden rounded-lg border border-fleet-line bg-white p-5 shadow-sm md:p-6">
+            <span className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-cyan-500 via-fleet-green to-fleet-amber" />
+            <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <span className="mb-2 inline-flex rounded-md bg-cyan-50 px-2.5 py-1 text-xs font-semibold uppercase text-cyan-700">
+                  Portal do técnico
+                </span>
+                <h2 className="text-2xl font-semibold text-fleet-ink">
+                  Abastecimento do veículo associado
+                </h2>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
+                  Preencha o abastecimento com evidências obrigatórias e acompanhe apenas os seus lançamentos.
+                </p>
+              </div>
+              <Button
+                onClick={openCreateModal}
+                disabled={!linkedDriver || !linkedVehicle}
+              >
+                <Plus size={18} />
+                Realizar abastecimento
+              </Button>
+            </div>
+          </section>
+
+          <section className="grid gap-4 lg:grid-cols-2">
+            <Card className="overflow-hidden">
+              <CardHeader className="border-b border-fleet-line bg-zinc-50/70">
+                <CardTitle>Motorista vinculado</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 p-5">
+                {linkedDriver ? (
+                  <>
+                    <strong className="block text-lg text-fleet-ink">
+                      {linkedDriver.name}
+                    </strong>
+                    <p className="text-sm text-zinc-500">
+                      CNH {linkedDriver.licenseNumber} • Categoria {linkedDriver.licenseCategory}
+                    </p>
+                    <p className="text-sm text-zinc-500">
+                      Status: {linkedDriver.status}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-red-600">
+                    Nenhum motorista correspondente foi encontrado para este usuário.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="overflow-hidden">
+              <CardHeader className="border-b border-fleet-line bg-zinc-50/70">
+                <CardTitle>Veículo associado</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 p-5">
+                {linkedVehicle ? (
+                  <>
+                    <strong className="block text-lg text-fleet-ink">
+                      {linkedVehicle.plate} - {linkedVehicle.nickname ?? linkedVehicle.model}
+                    </strong>
+                    <p className="text-sm text-zinc-500">
+                      {linkedVehicle.brand} {linkedVehicle.model}
+                    </p>
+                    <p className="text-sm text-zinc-500">
+                      Odômetro atual: {Number(linkedVehicle.odometerKm ?? 0).toLocaleString("pt-BR")} km
+                    </p>
+                    <p className="text-sm text-zinc-500">
+                      Tanque: {linkedVehicle.tankCapacityLiters ? `${linkedVehicle.tankCapacityLiters} L` : "Não informado"}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-red-600">
+                    O motorista vinculado ainda não possui veículo associado.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </section>
+        </>
+      ) : (
       <section className="relative overflow-hidden rounded-lg border border-fleet-line bg-white p-5 shadow-sm md:p-6">
         <span className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-fleet-green via-cyan-500 to-fleet-amber" />
         <div className="relative flex flex-col justify-between gap-4 md:flex-row md:items-center">
@@ -450,6 +753,8 @@ export function FuelRecordsPage() {
           </div>
         </div>
       </section>
+      )}
+      {!isTechnicianPortal && (
       <FilterPanel
         description="Filtre por veículos, motoristas, combustível e período do abastecimento."
         isExpanded={filtersExpanded}
@@ -564,6 +869,7 @@ export function FuelRecordsPage() {
       >
         {null}
       </FilterPanel>
+      )}
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {fuelKpis.map((item) => {
           const Icon = item.icon;
@@ -637,15 +943,20 @@ export function FuelRecordsPage() {
       <Card className="overflow-hidden">
         <CardHeader className="border-b border-fleet-line bg-zinc-50/70">
           <div>
-            <CardTitle>Histórico de abastecimentos</CardTitle>
+            <CardTitle>
+              {isTechnicianPortal
+                ? "Meus abastecimentos"
+                : "Histórico de abastecimentos"}
+            </CardTitle>
             <p className="mt-1 text-sm text-zinc-500">
-              O km/L usa o odômetro deste lançamento contra o abastecimento
-              anterior do mesmo veículo.
+              {isTechnicianPortal
+                ? "Lista dos abastecimentos enviados por este motorista no veículo associado."
+                : "O km/L usa o odômetro deste lançamento contra o abastecimento anterior do mesmo veículo."}
             </p>
           </div>
         </CardHeader>
         <CardContent className="overflow-x-auto">
-          {recordsLoading ? (
+          {recordsLoading || driverPortalLoading ? (
             <LoadingState label="Carregando abastecimentos..." />
           ) : (
             <div className="space-y-4">
@@ -702,28 +1013,32 @@ export function FuelRecordsPage() {
                         <ActionMenu
                           items={[
                             {
-                              label: "Editar",
-                              icon: <Edit2 size={15} />,
-                              onClick: () => openEditModal(record),
-                            },
-                            {
                               label: "Detalhes",
                               icon: <Eye size={15} />,
                               onClick: () => setDetailRecord(record),
                             },
-                            {
-                              label: "Excluir",
-                              icon: <Trash2 size={15} />,
-                              danger: true,
-                              disabled: deleteMutation.isPending,
-                              onClick: () => {
-                                if (
-                                  window.confirm("Excluir este abastecimento?")
-                                ) {
-                                  deleteMutation.mutate(record._id);
-                                }
-                              },
-                            },
+                            ...(isTechnicianPortal
+                              ? []
+                              : [
+                                  {
+                                    label: "Editar",
+                                    icon: <Edit2 size={15} />,
+                                    onClick: () => openEditModal(record),
+                                  },
+                                  {
+                                    label: "Excluir",
+                                    icon: <Trash2 size={15} />,
+                                    danger: true,
+                                    disabled: deleteMutation.isPending,
+                                    onClick: () => {
+                                      if (
+                                        window.confirm("Excluir este abastecimento?")
+                                      ) {
+                                        deleteMutation.mutate(record._id);
+                                      }
+                                    },
+                                  },
+                                ]),
                           ]}
                         />
                       </Td>
@@ -752,41 +1067,104 @@ export function FuelRecordsPage() {
         onClose={closeModal}
       >
         <form className="space-y-4" onSubmit={handleSubmit}>
+          {isTechnicianPortal && linkedDriver && linkedVehicle && (
+            <div className="grid gap-4 rounded-lg border border-cyan-100 bg-cyan-50/70 p-4 md:grid-cols-2">
+              <div>
+                <span className="block text-xs font-semibold uppercase tracking-wide text-cyan-700">
+                  Motorista
+                </span>
+                <strong className="mt-1 block text-sm text-fleet-ink">
+                  {linkedDriver.name}
+                </strong>
+                <span className="block text-xs text-zinc-500">
+                  CNH {linkedDriver.licenseNumber}
+                </span>
+              </div>
+              <div>
+                <span className="block text-xs font-semibold uppercase tracking-wide text-cyan-700">
+                  Veículo
+                </span>
+                <strong className="mt-1 block text-sm text-fleet-ink">
+                  {linkedVehicle.plate} - {linkedVehicle.nickname ?? linkedVehicle.model}
+                </strong>
+                <span className="block text-xs text-zinc-500">
+                  Odômetro atual {Number(linkedVehicle.odometerKm ?? 0).toLocaleString("pt-BR")} km
+                </span>
+                <span className="block text-xs text-zinc-500">
+                  Combustíveis aceitos:{" "}
+                  {(linkedVehicle.acceptedFuelTypes?.length
+                    ? linkedVehicle.acceptedFuelTypes
+                    : fuelOptions.map((option) => option.value)
+                  )
+                    .map((fuelType) => fuelLabels[fuelType] ?? fuelType)
+                    .join(", ")}
+                </span>
+              </div>
+            </div>
+          )}
           <div className="grid gap-4 md:grid-cols-2">
-            <label className="space-y-2 text-sm font-medium md:col-span-2">
-              Veículo
-              <SearchableSelect
-                name="vehicleId"
-                required
-                defaultValue={editingRecord?.vehicleId ?? ""}
-                placeholder="Selecione"
-                searchPlaceholder="Buscar placa, modelo ou apelido"
-                options={vehicleOptions}
-              />
-            </label>
-            <label className="space-y-2 text-sm font-medium">
-              Motorista
-              <SearchableSelect
-                name="driverId"
-                defaultValue={editingRecord?.driverId ?? ""}
-                placeholder="Não informado"
-                searchPlaceholder="Buscar motorista ou CNH"
-                options={[
-                  { value: "", label: "Não informado" },
-                  ...driverOptions,
-                ]}
-              />
-            </label>
+            {isTechnicianPortal ? (
+              <>
+                <input
+                  type="hidden"
+                  name="vehicleId"
+                  value={linkedVehicle?._id ?? ""}
+                />
+                <input
+                  type="hidden"
+                  name="driverId"
+                  value={linkedDriver?._id ?? ""}
+                />
+              </>
+            ) : (
+              <>
+                <label className="space-y-2 text-sm font-medium md:col-span-2">
+                  Veículo
+                  <SearchableSelect
+                    name="vehicleId"
+                    required
+                    value={selectedVehicleId}
+                    onValueChange={handleVehicleChange}
+                    placeholder="Selecione"
+                    searchPlaceholder="Buscar placa, modelo ou apelido"
+                    options={vehicleOptions}
+                  />
+                </label>
+                <label className="space-y-2 text-sm font-medium">
+                  Motorista
+                  <SearchableSelect
+                    name="driverId"
+                    defaultValue={editingRecord?.driverId ?? ""}
+                    placeholder="Não informado"
+                    searchPlaceholder="Buscar motorista ou CNH"
+                    options={[
+                      { value: "", label: "Não informado" },
+                      ...driverOptions,
+                    ]}
+                  />
+                </label>
+              </>
+            )}
             <label className="space-y-2 text-sm font-medium">
               Combustível
               <SearchableSelect
                 name="fuelType"
-                defaultValue={editingRecord?.fuelType ?? "gasoline"}
-                options={fuelOptions}
+                value={selectedFuelType}
+                onValueChange={setSelectedFuelType}
+                options={acceptedFuelOptions}
                 searchPlaceholder="Buscar combustível"
                 searchable={false}
               />
             </label>
+            {selectedVehicle && (
+              <div className="rounded-lg border border-emerald-100 bg-emerald-50/70 px-3 py-2 text-xs text-emerald-800 md:col-span-2">
+                Este veículo aceita:{" "}
+                {acceptedFuelOptions
+                  .map((option) => option.label)
+                  .join(", ")}
+                .
+              </div>
+            )}
             <label className="space-y-2 text-sm font-medium">
               Litros
               <Input
@@ -794,7 +1172,8 @@ export function FuelRecordsPage() {
                 type="number"
                 min="0.01"
                 step="0.01"
-                defaultValue={editingRecord?.liters}
+                value={litersValue}
+                onChange={(event) => setLitersValue(event.target.value)}
                 required
               />
             </label>
@@ -805,13 +1184,8 @@ export function FuelRecordsPage() {
                 type="number"
                 min="0.01"
                 step="0.01"
-                defaultValue={
-                  editingRecord?.pricePerLiter ??
-                  (editingRecord?.liters
-                    ? Number(editingRecord.totalCost ?? 0) /
-                      editingRecord.liters
-                    : undefined)
-                }
+                value={pricePerLiterValue}
+                onChange={(event) => setPricePerLiterValue(event.target.value)}
                 required
               />
             </label>
@@ -822,8 +1196,12 @@ export function FuelRecordsPage() {
                 type="number"
                 min="0"
                 step="0.01"
-                defaultValue={editingRecord?.totalCost}
-                required
+                value={String(
+                  (
+                    Number(litersValue || 0) * Number(pricePerLiterValue || 0)
+                  ).toFixed(2),
+                )}
+                readOnly
               />
             </label>
             <label className="space-y-2 text-sm font-medium">
@@ -832,6 +1210,7 @@ export function FuelRecordsPage() {
                 name="odometerKm"
                 type="number"
                 min="0"
+                required
                 defaultValue={editingRecord?.odometerKm ?? ""}
               />
             </label>
@@ -851,56 +1230,108 @@ export function FuelRecordsPage() {
                 defaultValue={editingRecord?.station}
               />
             </label>
-            <label className="space-y-2 text-sm font-medium md:col-span-2">
-              Nota fiscal / comprovante
-              <Input
-                ref={attachmentInputRef}
-                name="attachment"
-                type="file"
-                accept="image/*,.pdf,.xml,.txt,.csv,.xlsx"
-                onChange={(event) => setAttachmentFile(event.target.files?.[0])}
-              />
-              <span className="block text-xs font-normal text-zinc-500">
-                Aceita imagem, PDF, XML, TXT, CSV ou XLSX ate 10 MB.
-              </span>
-              {attachmentFile && (
-                <div className="mt-3 flex items-center justify-between gap-3 rounded-md border border-fleet-line bg-white px-3 py-2 text-sm">
-                  <div className="min-w-0">
-                    <span className="block truncate font-medium text-fleet-ink">
-                      {attachmentFile.name}
-                    </span>
-                    <span className="block text-xs text-zinc-500">
-                      {(attachmentFile.size / 1024 / 1024).toFixed(2)} MB
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    className="shrink-0 rounded-full p-1 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700"
-                    onClick={() => {
-                      setAttachmentFile(undefined);
-                      if (attachmentInputRef.current) {
-                        attachmentInputRef.current.value = "";
-                      }
-                    }}
-                    aria-label="Remover anexo"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              )}
-            </label>
+            {!isTechnicianPortal && (
+              <label className="space-y-2 text-sm font-medium md:col-span-2">
+                <span className="flex items-center justify-between gap-3">
+                  <span>Fluxo do motorista</span>
+                  <input
+                    type="checkbox"
+                    checked={driverFlowEnabled}
+                    onChange={(event) =>
+                      setDriverFlowEnabled(event.target.checked)
+                    }
+                    className="h-4 w-4 rounded border-slate-300 text-fleet-green focus:ring-fleet-green"
+                  />
+                </span>
+                <span className="block text-xs font-normal text-zinc-500">
+                  Quando ativo, exige todas as evidências do abastecimento do motorista.
+                </span>
+              </label>
+            )}
+            <div className="grid gap-3 md:col-span-2 md:grid-cols-2">
+              {driverAttachmentDefinitions
+                .filter((item) =>
+                  driverFlowEnabled ? true : item.category === "receipt",
+                )
+                .map((item) => {
+                  const file = attachmentFiles[item.category];
+                  const existingAttachment = editingRecord?.attachments?.find(
+                    (attachment) => attachment.category === item.category,
+                  );
+
+                  return (
+                    <label
+                      key={`${item.category}-${attachmentInputVersion}`}
+                      className="space-y-2 rounded-lg border border-fleet-line bg-zinc-50/60 p-3 text-sm font-medium"
+                    >
+                      <span className="flex items-center justify-between gap-3">
+                        <span>{item.label}</span>
+                        {item.requiredInDriverFlow && driverFlowEnabled ? (
+                          <Badge tone="amber">Obrigatório</Badge>
+                        ) : (
+                          <Badge tone="neutral">Opcional</Badge>
+                        )}
+                      </span>
+                      <Input
+                        type="file"
+                        accept="image/*,.pdf"
+                        onChange={(event) =>
+                          setAttachmentFiles((current) => ({
+                            ...current,
+                            [item.category]: event.target.files?.[0],
+                          }))
+                        }
+                      />
+                      <span className="block text-xs font-normal text-zinc-500">
+                        Aceita imagem ou PDF até 10 MB.
+                      </span>
+                      {file && (
+                        <div className="flex items-center justify-between gap-3 rounded-md border border-fleet-line bg-white px-3 py-2 text-sm">
+                          <div className="min-w-0">
+                            <span className="block truncate font-medium text-fleet-ink">
+                              {file.name}
+                            </span>
+                            <span className="block text-xs text-zinc-500">
+                              {(file.size / 1024 / 1024).toFixed(2)} MB
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            className="shrink-0 rounded-full p-1 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700"
+                            onClick={() =>
+                              setAttachmentFiles((current) => ({
+                                ...current,
+                                [item.category]: undefined,
+                              }))
+                            }
+                            aria-label={`Remover ${item.label}`}
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      )}
+                      {!file && existingAttachment && (
+                        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                          Já anexado: {existingAttachment.originalName}
+                        </div>
+                      )}
+                    </label>
+                  );
+                })}
+            </div>
           </div>
           {formError && (
             <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
               {formError}
             </p>
           )}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={closeModal}>
+          <div className="sticky bottom-0 -mx-4 flex flex-col gap-2 border-t border-fleet-line bg-white px-4 py-3 sm:mx-0 sm:flex-row sm:justify-end sm:px-0">
+            <Button type="button" variant="secondary" onClick={closeModal} className="w-full sm:w-auto">
               Cancelar
             </Button>
             <Button
               type="submit"
+              className="w-full sm:w-auto"
               disabled={createMutation.isPending || updateMutation.isPending}
             >
               {createMutation.isPending || updateMutation.isPending
@@ -994,9 +1425,15 @@ export function FuelRecordsPage() {
                   openAttachmentPreview(detailRecord._id, attachment)
                 }
               >
-                <span className="font-medium text-fleet-ink">
-                  {attachment.originalName}
-                </span>
+                <div className="min-w-0">
+                  <span className="block font-medium text-fleet-ink">
+                    {attachment.originalName}
+                  </span>
+                  <span className="block text-xs text-zinc-500">
+                    {attachmentCategoryLabels[attachment.category ?? "receipt"] ??
+                      "Comprovante"}
+                  </span>
+                </div>
                 <span className="shrink-0 text-xs text-zinc-500">
                   {formatDateTime(attachment.uploadedAt)}
                 </span>
@@ -1013,12 +1450,24 @@ export function FuelRecordsPage() {
         mimeType={previewAttachment?.mimeType}
         url={previewAttachment?.url}
         onClose={closeAttachmentPreview}
-        onDownload={() => {
+        onDownload={async () => {
           if (previewAttachment) {
-            downloadFuelRecordAttachment(
-              previewAttachment.recordId,
-              previewAttachment,
-            );
+            if (isTechnicianPortal) {
+              const blob = await fetchDriverFuelPortalAttachmentBlob(
+                previewAttachment.recordId,
+                previewAttachment.fileName,
+              );
+              const url = window.URL.createObjectURL(blob);
+              const link = document.createElement("a");
+              link.href = url;
+              link.download = previewAttachment.originalName;
+              document.body.appendChild(link);
+              link.click();
+              link.remove();
+              window.URL.revokeObjectURL(url);
+              return;
+            }
+            downloadFuelRecordAttachment(previewAttachment.recordId, previewAttachment);
           }
         }}
       />

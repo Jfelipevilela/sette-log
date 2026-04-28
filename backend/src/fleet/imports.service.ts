@@ -207,7 +207,7 @@ const columnAliases: Record<string, string[]> = {
   issuedAt: ["emissao", "data_emissao", "issued_at", "issuedat"],
   expiresAt: ["vencimento", "validade", "expires_at", "expiresat"],
   fileUrl: ["arquivo", "url", "file_url", "fileurl"],
-  description: ["descricao", "description", "observa????o", "observa????es"],
+  description: ["descricao", "description", "observacao", "observacoes"],
   category: ["categoria", "category", "tipo_despesa", "natureza"],
   subcategory: ["subcategoria", "subcategory", "detalhe"],
   amount: ["valor", "amount", "valor_total", "custo", "despesa"],

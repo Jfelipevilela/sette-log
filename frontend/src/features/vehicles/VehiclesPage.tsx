@@ -15,6 +15,7 @@ import { FilterField, FilterPanel } from "../../components/ui/filter-panel";
 import { Input } from "../../components/ui/input";
 import { LoadingState } from "../../components/ui/loading-state";
 import { Modal } from "../../components/ui/modal";
+import { MultiSearchableSelect } from "../../components/ui/multi-searchable-select";
 import { Pagination } from "../../components/ui/pagination";
 import { SearchableSelect } from "../../components/ui/searchable-select";
 import { Table, Td, Th } from "../../components/ui/table";
@@ -64,12 +65,38 @@ const vehicleStatusOptions = [
   { value: "blocked", label: "Bloqueado" },
 ];
 
+const fuelTypeOptions = [
+  { value: "gasoline", label: "Gasolina" },
+  { value: "ethanol", label: "Etanol" },
+  { value: "diesel", label: "Diesel comum" },
+  { value: "diesel_s10", label: "Diesel S-10" },
+  { value: "gnv", label: "GNV" },
+  { value: "electric", label: "Elétrico" },
+];
+
+const vehicleFuelDefaults: Record<string, string[]> = {
+  car: ["gasoline", "ethanol"],
+  van: ["diesel_s10"],
+  truck: ["diesel_s10"],
+  bus: ["diesel_s10"],
+  motorcycle: ["gasoline"],
+  equipment: ["diesel_s10"],
+};
+
+function defaultFuelTypesForVehicleType(type?: string) {
+  return vehicleFuelDefaults[type ?? "car"] ?? vehicleFuelDefaults.car ?? [];
+}
+
 export function VehiclesPage() {
   const queryClient = useQueryClient();
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle>();
   const [detailVehicle, setDetailVehicle] = useState<Vehicle>();
+  const [vehicleTypeValue, setVehicleTypeValue] = useState("car");
+  const [acceptedFuelTypesValue, setAcceptedFuelTypesValue] = useState<string[]>(
+    defaultFuelTypesForVehicleType("car"),
+  );
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [type, setType] = useState("");
@@ -145,12 +172,20 @@ export function VehiclesPage() {
   function openCreateModal() {
     setEditingVehicle(undefined);
     setFormError(undefined);
+    setVehicleTypeValue("car");
+    setAcceptedFuelTypesValue(defaultFuelTypesForVehicleType("car"));
     setIsModalOpen(true);
   }
 
   function openEditModal(vehicle: Vehicle) {
     setEditingVehicle(vehicle);
     setFormError(undefined);
+    setVehicleTypeValue(vehicle.type ?? "car");
+    setAcceptedFuelTypesValue(
+      vehicle.acceptedFuelTypes?.length
+        ? vehicle.acceptedFuelTypes
+        : defaultFuelTypesForVehicleType(vehicle.type),
+    );
     setIsModalOpen(true);
   }
 
@@ -158,6 +193,15 @@ export function VehiclesPage() {
     setIsModalOpen(false);
     setEditingVehicle(undefined);
     setFormError(undefined);
+    setVehicleTypeValue("car");
+    setAcceptedFuelTypesValue(defaultFuelTypesForVehicleType("car"));
+  }
+
+  function handleVehicleTypeChange(nextType: string) {
+    setVehicleTypeValue(nextType);
+    if (!editingVehicle) {
+      setAcceptedFuelTypesValue(defaultFuelTypesForVehicleType(nextType));
+    }
   }
 
   const filteredVehicles = useMemo(() => {
@@ -185,6 +229,7 @@ export function VehiclesPage() {
       brand: String(form.get("brand") ?? ""),
       model: String(form.get("model") ?? ""),
       nickname: String(form.get("nickname") ?? "") || undefined,
+      vehicleNumber: String(form.get("vehicleNumber") ?? "") || undefined,
       year: Number(form.get("year") || new Date().getFullYear()),
       type: String(form.get("type") || "car"),
       status: String(form.get("status") || "available"),
@@ -194,10 +239,16 @@ export function VehiclesPage() {
         : undefined,
       tankCapacityLiters:
         Number(form.get("tankCapacityLiters") || 0) || undefined,
+      acceptedFuelTypes: acceptedFuelTypesValue,
       costCenter: String(form.get("costCenter") ?? ""),
       sector: String(form.get("sector") ?? ""),
       city: String(form.get("city") ?? ""),
     };
+
+    if (acceptedFuelTypesValue.length === 0) {
+      setFormError("Selecione ao menos um combustível aceito para o veículo.");
+      return;
+    }
 
     if (editingVehicle) {
       updateVehicleMutation.mutate({ id: editingVehicle._id, payload });
@@ -307,6 +358,7 @@ export function VehiclesPage() {
                 <thead>
                   <tr>
                     <Th>Placa</Th>
+                    <Th>Número</Th>
                     <Th>veículo</Th>
                     <Th>Status</Th>
                     <Th>Odômetro</Th>
@@ -321,6 +373,7 @@ export function VehiclesPage() {
                       <Td>
                         <strong>{vehicle.plate}</strong>
                       </Td>
+                      <Td>{vehicle.vehicleNumber ?? "-"}</Td>
                       <Td>
                         <div className="flex items-center gap-3">
                           <VehicleTypeIcon type={vehicle.type} />
@@ -419,8 +472,33 @@ export function VehiclesPage() {
               />
             </label>
             <label className="space-y-2 text-sm font-medium">
+              Número do veículo
+              <Input
+                name="vehicleNumber"
+                placeholder="Ex.: STT-077"
+                defaultValue={editingVehicle?.vehicleNumber}
+              />
+            </label>
+            <label className="space-y-2 text-sm font-medium">
               Tipo
-              <SearchableSelect searchable={false} name="type" defaultValue={editingVehicle?.type ?? "car"} options={vehicleTypeOptions} searchPlaceholder="Buscar tipo" />
+              <SearchableSelect
+                searchable={false}
+                name="type"
+                value={vehicleTypeValue}
+                onValueChange={handleVehicleTypeChange}
+                options={vehicleTypeOptions}
+                searchPlaceholder="Buscar tipo"
+              />
+            </label>
+            <label className="space-y-2 text-sm font-medium md:col-span-2">
+              Combustíveis aceitos
+              <MultiSearchableSelect
+                value={acceptedFuelTypesValue}
+                onValueChange={setAcceptedFuelTypesValue}
+                options={fuelTypeOptions}
+                placeholder="Selecione os combustíveis aceitos"
+                searchPlaceholder="Buscar combustível"
+              />
             </label>
             <label className="space-y-2 text-sm font-medium">
               Marca
@@ -545,6 +623,7 @@ export function VehiclesPage() {
         onClose={() => setDetailVehicle(undefined)}
         fields={[
           { label: "Placa", value: detailVehicle?.plate },
+          { label: "Número do veículo", value: detailVehicle?.vehicleNumber },
           { label: "Marca", value: detailVehicle?.brand },
           { label: "Modelo", value: detailVehicle?.model },
           { label: "Apelido", value: detailVehicle?.nickname },
@@ -572,6 +651,19 @@ export function VehiclesPage() {
             value: detailVehicle?.tankCapacityLiters
               ? `${detailVehicle.tankCapacityLiters.toLocaleString("pt-BR")} L`
               : "-",
+          },
+          {
+            label: "Combustíveis aceitos",
+            value:
+              detailVehicle?.acceptedFuelTypes?.length
+                ? detailVehicle.acceptedFuelTypes
+                    .map(
+                      (fuelType) =>
+                        fuelTypeOptions.find((option) => option.value === fuelType)
+                          ?.label ?? fuelType,
+                    )
+                    .join(", ")
+                : "-",
           },
           { label: "Centro de custo", value: detailVehicle?.costCenter },
           { label: "Setor", value: detailVehicle?.sector },

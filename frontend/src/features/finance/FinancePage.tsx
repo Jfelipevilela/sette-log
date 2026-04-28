@@ -41,6 +41,7 @@ import {
   deleteFinanceResource,
   downloadResourceExport,
   getDrivers,
+  getSettingsParameters,
   getVehicles,
   listAllResourcePages,
   updateFinanceResource,
@@ -73,6 +74,14 @@ type FineRecord = {
   dueAt?: string;
   status?: string;
   infractionCode?: string;
+  description?: string;
+};
+
+type FineCatalogItem = {
+  code: string;
+  title: string;
+  description?: string;
+  defaultAmount?: number;
 };
 
 type IncidentRecord = {
@@ -263,6 +272,10 @@ export function FinancePage() {
     queryKey: ["finance-insurances-all"],
     queryFn: () => listAllResourcePages<InsuranceRecord>("/finance/insurances"),
   });
+  const { data: settingsParameters = [] } = useQuery({
+    queryKey: ["settings-parameters"],
+    queryFn: () => getSettingsParameters(),
+  });
 
   const createEntryMutation = useMutation({
     mutationFn: async ({
@@ -382,6 +395,17 @@ export function FinancePage() {
     value: driver._id,
     label: `${driver.name} - ${driver.licenseNumber}`,
     searchText: `${driver.name} ${driver.licenseNumber} ${driver.email ?? ""}`,
+  }));
+  const fineCatalog = Array.isArray(
+    settingsParameters.find((item) => item.key === "finance.fine_catalog")?.value,
+  )
+    ? (settingsParameters.find((item) => item.key === "finance.fine_catalog")
+        ?.value as FineCatalogItem[])
+    : [];
+  const fineCatalogOptions = fineCatalog.map((item) => ({
+    value: item.code,
+    label: `${item.code} - ${item.title}`,
+    searchText: `${item.code} ${item.title} ${item.description ?? ""}`,
   }));
 
   const vehicleIdSet = new Set(filteredVehicles.map((vehicle) => vehicle._id));
@@ -597,7 +621,10 @@ export function FinancePage() {
         vehicleId: item.vehicleId,
         driverId: item.driverId,
         date: item.occurredAt,
-        description: item.infractionCode || "Multa lançada",
+        description:
+          item.description ||
+          item.infractionCode ||
+          "Multa lançada",
         status:
           item.status === "paid"
             ? "Paga"
@@ -674,14 +701,22 @@ export function FinancePage() {
     }
 
     if (entryType === "fine") {
+      const fineCatalogCode = String(form.get("fineCatalogCode") ?? "").trim();
+      const fineTemplate = fineCatalog.find((item) => item.code === fineCatalogCode);
+      const description = String(form.get("description") ?? "").trim();
       const payload = {
         vehicleId,
         driverId,
-        amount: Number(form.get("amount") ?? 0),
+        amount:
+          Number(form.get("amount") ?? 0) ||
+          Number(fineTemplate?.defaultAmount ?? 0),
         occurredAt: String(form.get("occurredAt") ?? ""),
         dueAt: String(form.get("dueAt") ?? "") || undefined,
         status: String(form.get("status") ?? "open"),
-        infractionCode: String(form.get("infractionCode") ?? "") || undefined,
+        infractionCode:
+          fineCatalogCode || String(form.get("infractionCode") ?? "") || undefined,
+        description:
+          description || fineTemplate?.title || fineTemplate?.description || undefined,
       };
       if (!payload.occurredAt || !Number.isFinite(payload.amount) || payload.amount <= 0) {
         setFormError("Preencha data e valor válidos para a multa.");
@@ -1255,6 +1290,19 @@ export function FinancePage() {
 
             {entryType === "fine" && (
               <>
+                <label className="space-y-2 text-sm font-medium md:col-span-2">
+                  Catálogo de multas
+                  <SearchableSelect
+                    name="fineCatalogCode"
+                    defaultValue={String((editingEntry?.raw.infractionCode as string) ?? "")}
+                    options={[
+                      { value: "", label: "Selecionar do catálogo" },
+                      ...fineCatalogOptions,
+                    ]}
+                    placeholder="Selecionar do catálogo"
+                    searchPlaceholder="Buscar multa cadastrada"
+                  />
+                </label>
                 <label className="space-y-2 text-sm font-medium">
                   Valor
                   <Input name="amount" type="number" min="0" step="0.01" defaultValue={String((editingEntry?.raw.amount as number) ?? "")} />
@@ -1283,6 +1331,14 @@ export function FinancePage() {
                 <label className="space-y-2 text-sm font-medium md:col-span-2">
                   Código da infração
                   <Input name="infractionCode" defaultValue={String((editingEntry?.raw.infractionCode as string) ?? "")} placeholder="Ex.: 745-5 excesso de velocidade" />
+                </label>
+                <label className="space-y-2 text-sm font-medium md:col-span-2">
+                  Descrição
+                  <Input
+                    name="description"
+                    defaultValue={String((editingEntry?.raw.description as string) ?? "")}
+                    placeholder="Ex.: Avançar sinal vermelho"
+                  />
                 </label>
               </>
             )}

@@ -88,6 +88,9 @@ export class Driver {
 
   @Prop({ type: MongooseSchema.Types.Mixed, default: {} })
   metadata: Record<string, unknown>;
+
+  @Prop({ type: [String], default: [] })
+  attachments: string[];
 }
 
 export type DriverDocument = HydratedDocument<Driver>;
@@ -120,6 +123,9 @@ export class Vehicle {
   @Prop({ trim: true })
   nickname?: string;
 
+  @Prop({ trim: true, index: true })
+  vehicleNumber?: string;
+
   @Prop()
   year?: number;
 
@@ -141,6 +147,13 @@ export class Vehicle {
 
   @Prop()
   tankCapacityLiters?: number;
+
+  @Prop({
+    type: [String],
+    enum: ['gasoline', 'ethanol', 'diesel', 'diesel_s10', 'gnv', 'electric'],
+    default: [],
+  })
+  acceptedFuelTypes?: string[];
 
   @Prop()
   costCenter?: string;
@@ -471,6 +484,21 @@ export class MaintenanceOrder {
   @Prop()
   description?: string;
 
+  @Prop()
+  observations?: string;
+
+  @Prop()
+  expectedDeliveryAt?: Date;
+
+  @Prop()
+  completionDescription?: string;
+
+  @Prop({ default: 0 })
+  laborCost?: number;
+
+  @Prop({ default: 0 })
+  partsCost?: number;
+
   @Prop({ type: [String], default: [] })
   attachments: string[];
 }
@@ -544,10 +572,22 @@ export class FuelRecord {
   @Prop()
   station?: string;
 
-  @Prop({ enum: ['gasoline', 'ethanol', 'diesel', 'gnv', 'electric'], default: 'diesel' })
+  @Prop({ enum: ['gasoline', 'ethanol', 'diesel', 'diesel_s10', 'gnv', 'electric'], default: 'diesel' })
   fuelType: string;
 
-  @Prop({ type: [{ originalName: String, fileName: String, mimeType: String, size: Number, uploadedAt: Date }], default: [] })
+  @Prop({
+    type: [
+      {
+        originalName: String,
+        fileName: String,
+        mimeType: String,
+        size: Number,
+        uploadedAt: Date,
+        category: String,
+      },
+    ],
+    default: [],
+  })
   attachments: Array<Record<string, unknown>>;
 }
 
@@ -624,6 +664,9 @@ export class Fine {
 
   @Prop()
   infractionCode?: string;
+
+  @Prop()
+  description?: string;
 }
 
 export type FineDocument = HydratedDocument<Fine>;
@@ -755,7 +798,7 @@ export class ComplianceCheck {
   @Prop({ type: [{ key: String, label: String, section: String, result: String, notes: String }], default: [] })
   items: Array<Record<string, unknown>>;
 
-  @Prop({ type: [{ originalName: String, fileName: String, mimeType: String, size: Number, uploadedAt: Date }], default: [] })
+  @Prop({ type: [{ originalName: String, fileName: String, mimeType: String, size: Number, uploadedAt: Date, category: String }], default: [] })
   attachments: Array<Record<string, unknown>>;
 
   @Prop({ enum: ['passed', 'failed', 'pending'], default: 'pending', index: true })

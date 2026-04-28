@@ -1,4 +1,4 @@
-import { FormEvent, useRef, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
@@ -21,6 +21,7 @@ import {
   UsersRound,
   Webhook,
   X,
+  Plus,
 } from "lucide-react";
 import { Badge } from "../../components/ui/badge";
 import { ActionMenu } from "../../components/ui/action-menu";
@@ -34,31 +35,37 @@ import {
 import { Input } from "../../components/ui/input";
 import { LoadingState } from "../../components/ui/loading-state";
 import { Modal } from "../../components/ui/modal";
+import { MultiSearchableSelect } from "../../components/ui/multi-searchable-select";
 import { Pagination } from "../../components/ui/pagination";
 import { SearchableSelect } from "../../components/ui/searchable-select";
 import { Table, Td, Th } from "../../components/ui/table";
 import {
   apiErrorMessage,
+  createRole,
   createUser,
+  deleteRole,
   disableUserApiAccess,
   deleteUser,
   downloadImportTemplate,
   enableUserApiAccess,
+  getRoles,
+  getSettingsParameters,
   getUsersPage,
   saveSetting,
+  updateRole,
   updateUser,
   uploadLegacySpreadsheet,
   uploadCompleteLegacySpreadsheet,
 } from "../../lib/api";
 import { labelFor } from "../../lib/labels";
-import type { SystemUser } from "../../lib/types";
+import type { PermissionGroup, SystemUser } from "../../lib/types";
 import { formatDateTime } from "../../lib/utils";
 
 const settings = [
   {
     icon: UsersRound,
     title: "Usuários e perfis",
-    detail: "RBAC por papel e permissao granular",
+    detail: "RBAC por perfil e permissao granular",
     status: "ativo",
   },
   {
@@ -179,7 +186,7 @@ const resourceMeta: Record<string, ResourceMeta> = {
       "numero_documento",
     ],
     hint: "Importa despesas operacionais e financeiras para compor Outras despesas no dashboard e no financeiro.",
-    depends: "Placa e CNH s??o opcionais, mas se informados precisam existir no sistema.",
+    depends: "Placa e CNH são opcionais, mas se informados precisam existir no sistema.",
   },
   documents: {
     step: 6,
@@ -203,10 +210,6 @@ const roleOptions = [
   { value: "auditor", label: "Auditor / Visualizador" },
 ];
 
-const roleLabels = Object.fromEntries(
-  roleOptions.map((role) => [role.value, role.label]),
-);
-
 const userStatusOptions = [
   { value: "active", label: "Ativo" },
   { value: "inactive", label: "Inativo" },
@@ -219,9 +222,53 @@ const statusTone: Record<string, "green" | "amber" | "red" | "neutral"> = {
   blocked: "red",
 };
 
+const permissionOptions = [
+  { value: "dashboard:view", label: "Dashboard - visualizar" },
+  { value: "vehicles:view", label: "Veiculos - visualizar" },
+  { value: "vehicles:create", label: "Veiculos - criar" },
+  { value: "vehicles:edit", label: "Veiculos - editar" },
+  { value: "vehicles:delete", label: "Veiculos - excluir" },
+  { value: "tracking:view", label: "Rastreamento - visualizar" },
+  { value: "tracking:export", label: "Rastreamento - exportar" },
+  { value: "drivers:view", label: "Motoristas - visualizar" },
+  { value: "drivers:create", label: "Motoristas - criar" },
+  { value: "drivers:edit", label: "Motoristas - editar" },
+  { value: "drivers:delete", label: "Motoristas - excluir" },
+  { value: "maintenance:view", label: "Manutencao - visualizar" },
+  { value: "maintenance:create", label: "Manutencao - criar" },
+  { value: "maintenance:edit", label: "Manutencao - editar" },
+  { value: "maintenance:delete", label: "Manutencao - excluir" },
+  { value: "finance:view", label: "Financeiro - visualizar" },
+  { value: "finance:create", label: "Financeiro - criar" },
+  { value: "finance:edit", label: "Financeiro - editar" },
+  { value: "finance:delete", label: "Financeiro - excluir" },
+  { value: "fuel_driver_portal:access", label: "Abastecimento do tecnico - acessar portal" },
+  { value: "compliance:view", label: "Compliance - visualizar" },
+  { value: "compliance:create", label: "Compliance - criar" },
+  { value: "compliance:edit", label: "Compliance - editar" },
+  { value: "compliance:delete", label: "Compliance - excluir" },
+  { value: "reports:view", label: "Relatorios - visualizar" },
+  { value: "reports:export", label: "Relatorios - exportar" },
+  { value: "settings:manage", label: "Configuracoes - gerenciar" },
+  { value: "users:manage", label: "Usuarios - gerenciar" },
+  { value: "integrations:manage", label: "Integracoes - gerenciar" },
+  { value: "alerts:manage", label: "Alertas - gerenciar" },
+];
+
+type FineCatalogItem = {
+  code: string;
+  title: string;
+  description?: string;
+  defaultAmount?: number;
+};
+
 export function SettingsPage() {
   const queryClient = useQueryClient();
   const [message, setMessage] = useState<string>();
+  const [maintenanceCatalogMessage, setMaintenanceCatalogMessage] =
+    useState<string>();
+  const [fineCatalogMessage, setFineCatalogMessage] = useState<string>();
+  const [fineCatalogDraft, setFineCatalogDraft] = useState<FineCatalogItem[]>([]);
   const [userPage, setUserPage] = useState(1);
   const [userSearch, setUserSearch] = useState("");
   const [appliedUserSearch, setAppliedUserSearch] = useState("");
@@ -237,6 +284,9 @@ export function SettingsPage() {
     Record<string, string>
   >({});
   const [userError, setUserError] = useState<string>();
+  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
+  const [editingRole, setEditingRole] = useState<PermissionGroup>();
+  const [roleError, setRoleError] = useState<string>();
   const [importResource, setImportResource] = useState("vehicles");
   const [importFile, setImportFile] = useState<File>();
   const [recalculateFuelTotal, setRecalculateFuelTotal] = useState(false);
@@ -258,6 +308,59 @@ export function SettingsPage() {
         sortDir: "desc",
       }),
   });
+  const { data: settingsParameters = [] } = useQuery({
+    queryKey: ["settings-parameters"],
+    queryFn: () => getSettingsParameters(),
+  });
+  const { data: roles = [] } = useQuery({
+    queryKey: ["roles"],
+    queryFn: () => getRoles(),
+  });
+  const settingValue = (key: string) =>
+    settingsParameters.find((item) => item.key === key)?.value;
+  const maintenanceCostCenters = Array.isArray(
+    settingValue("maintenance.cost_centers"),
+  )
+    ? (settingValue("maintenance.cost_centers") as string[])
+    : [];
+  const maintenanceServices = Array.isArray(
+    settingValue("maintenance.services_catalog"),
+  )
+    ? (settingValue("maintenance.services_catalog") as string[])
+    : [];
+  const maintenanceGroups = Array.isArray(
+    settingValue("maintenance.parts_catalog"),
+  )
+    ? (settingValue("maintenance.parts_catalog") as string[])
+    : [];
+  const fineCatalog = Array.isArray(settingValue("finance.fine_catalog"))
+    ? (settingValue("finance.fine_catalog") as FineCatalogItem[])
+    : [];
+  const customRoleOptions = roles
+    .filter((role) => !role.system)
+    .map((role) => ({
+      value: role.key,
+      label: role.name,
+      searchText: `${role.key} ${role.name} ${role.description ?? ""}`,
+    }));
+  const availableRoleOptions = [
+    ...roleOptions,
+    ...customRoleOptions.filter(
+      (customRole) =>
+        !roleOptions.some((baseRole) => baseRole.value === customRole.value),
+    ),
+  ];
+  const resolvedRoleLabels = Object.fromEntries(
+    availableRoleOptions.map((role) => [role.value, role.label]),
+  );
+
+  useEffect(() => {
+    setFineCatalogDraft(
+      fineCatalog.length > 0
+        ? fineCatalog
+        : [{ code: "", title: "", description: "", defaultAmount: undefined }],
+    );
+  }, [settingsParameters]);
   const saveSettingsMutation = useMutation({
     mutationFn: async (payload: {
       speedLimit: number;
@@ -271,10 +374,113 @@ export function SettingsPage() {
       ]);
     },
     onSuccess: async () => {
-      setMessage("Parâmetros salvos com sucesso.");
+      setMessage("Gruporâmetros salvos com sucesso.");
       await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
-    onError: () => setMessage("Não foi possível salvar os parâmetros."),
+    onError: () => setMessage("Não foi possível salvar os gruporâmetros."),
+  });
+
+  const saveMaintenanceCatalogMutation = useMutation({
+    mutationFn: async (payload: {
+      costCenters: string[];
+      services: string[];
+      groups: string[];
+    }) => {
+      await Promise.all([
+        saveSetting("maintenance.cost_centers", payload.costCenters),
+        saveSetting("maintenance.services_catalog", payload.services),
+        saveSetting("maintenance.parts_catalog", payload.groups),
+      ]);
+    },
+    onSuccess: async () => {
+      setMaintenanceCatalogMessage("Catálogo de manutenção salvo com sucesso.");
+      await queryClient.invalidateQueries({ queryKey: ["settings-parameters"] });
+    },
+    onError: () =>
+      setMaintenanceCatalogMessage(
+        "Não foi possível salvar o catálogo de manutenção.",
+      ),
+  });
+
+  const saveFineCatalogMutation = useMutation({
+    mutationFn: async (items: FineCatalogItem[]) => {
+      await saveSetting(
+        "finance.fine_catalog",
+        items
+          .map((item) => ({
+            code: item.code.trim(),
+            title: item.title.trim(),
+            description: item.description?.trim() || undefined,
+            defaultAmount:
+              item.defaultAmount !== undefined && item.defaultAmount !== null
+                ? Number(item.defaultAmount)
+                : undefined,
+          }))
+          .filter((item) => item.code && item.title),
+      );
+    },
+    onSuccess: async () => {
+      setFineCatalogMessage("Catálogo de multas salvo com sucesso.");
+      await queryClient.invalidateQueries({ queryKey: ["settings-parameters"] });
+    },
+    onError: () =>
+      setFineCatalogMessage("Não foi possível salvar o catálogo de multas."),
+  });
+
+  const createRoleMutation = useMutation({
+    mutationFn: createRole,
+    onSuccess: async () => {
+      closeRoleModal();
+      setMessage("Grupo de permissões criado com sucesso.");
+      await queryClient.invalidateQueries({ queryKey: ["roles"] });
+    },
+    onError: (error) =>
+      setRoleError(
+        apiErrorMessage(error, "Não foi possível criar o grupo de permissões."),
+      ),
+  });
+
+  const updateRoleMutation = useMutation({
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: Record<string, unknown>;
+    }) => updateRole(id, payload),
+    onSuccess: async () => {
+      closeRoleModal();
+      setMessage("Grupo de permissões atualizado com sucesso.");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["roles"] }),
+        queryClient.invalidateQueries({ queryKey: ["users"] }),
+      ]);
+    },
+    onError: (error) =>
+      setRoleError(
+        apiErrorMessage(
+          error,
+          "Não foi possível atualizar o grupo de permissões.",
+        ),
+      ),
+  });
+
+  const deleteRoleMutation = useMutation({
+    mutationFn: deleteRole,
+    onSuccess: async () => {
+      setMessage("Grupo de permissões excluído com sucesso.");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["roles"] }),
+        queryClient.invalidateQueries({ queryKey: ["users"] }),
+      ]);
+    },
+    onError: (error) =>
+      setMessage(
+        apiErrorMessage(
+          error,
+          "Não foi possível excluir o grupo de permissões.",
+        ),
+      ),
   });
 
   const importMutation = useMutation({
@@ -444,6 +650,68 @@ export function SettingsPage() {
     });
   }
 
+  function normalizeCatalogList(value: string) {
+    return Array.from(
+      new Set(
+        value
+          .split(/\r?\n|,/)
+          .map((item) => item.trim())
+          .filter(Boolean),
+      ),
+    );
+  }
+
+  function handleSaveMaintenanceCatalog(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    saveMaintenanceCatalogMutation.mutate({
+      costCenters: normalizeCatalogList(String(form.get("costCenters") ?? "")),
+      services: normalizeCatalogList(String(form.get("services") ?? "")),
+      groups: normalizeCatalogList(String(form.get("parts") ?? "")),
+    });
+  }
+
+  function handleSaveFineCatalog(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const normalizedItems = fineCatalogDraft
+      .map((item) => ({
+        code: item.code.trim(),
+        title: item.title.trim(),
+        description: item.description?.trim() || undefined,
+        defaultAmount:
+          item.defaultAmount !== undefined && item.defaultAmount !== null
+            ? Number(item.defaultAmount)
+            : undefined,
+      }))
+      .filter((item) => item.code || item.title);
+
+    const invalidItem = normalizedItems.find((item) => !item.code || !item.title);
+    if (invalidItem) {
+      setFineCatalogMessage("Preencha código e título em todas as multas.");
+      return;
+    }
+
+    saveFineCatalogMutation.mutate(normalizedItems);
+  }
+
+  function openCreateRoleModal() {
+    setEditingRole(undefined);
+    setRoleError(undefined);
+    setIsRoleModalOpen(true);
+  }
+
+  function openEditRoleModal(role: PermissionGroup) {
+    setEditingRole(role);
+    setRoleError(undefined);
+    setIsRoleModalOpen(true);
+  }
+
+  function closeRoleModal() {
+    setEditingRole(undefined);
+    setRoleError(undefined);
+    setIsRoleModalOpen(false);
+  }
+
   function openCreateUserModal() {
     setEditingUser(undefined);
     setUserError(undefined);
@@ -488,6 +756,35 @@ export function SettingsPage() {
     createUserMutation.mutate(payload);
   }
 
+  function handleRoleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setRoleError(undefined);
+    const form = new FormData(event.currentTarget);
+    const permissions = form.getAll("permissions").map(String);
+    const payload = {
+      key: String(form.get("key") ?? ""),
+      name: String(form.get("name") ?? ""),
+      description: String(form.get("description") ?? "") || undefined,
+      status: String(form.get("status") ?? "active"),
+      permissions,
+    };
+
+    if (!payload.name.trim()) {
+      setRoleError("Informe o nome do grupo.");
+      return;
+    }
+    if (permissions.length === 0) {
+      setRoleError("Selecione pelo menos uma permissão.");
+      return;
+    }
+
+    if (editingRole?._id) {
+      updateRoleMutation.mutate({ id: editingRole._id, payload });
+      return;
+    }
+    createRoleMutation.mutate(payload);
+  }
+
   const users = usersPage?.data ?? [];
 
   return (
@@ -515,7 +812,7 @@ export function SettingsPage() {
             <ShieldCheck size={18} />
             {saveSettingsMutation.isPending
               ? "Salvando..."
-              : "Salvar parâmetros"}
+              : "Salvar gruporâmetros"}
           </Button>
         </div>
       </section>
@@ -635,7 +932,7 @@ export function SettingsPage() {
                       <Td>{user.email}</Td>
                       <Td>
                         {user.roles
-                          .map((role) => roleLabels[role] ?? role)
+                          .map((role) => resolvedRoleLabels[role] ?? role)
                           .join(", ")}
                       </Td>
                       <Td>
@@ -1254,10 +1551,253 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
+      <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+        <Card className="overflow-hidden">
+          <CardHeader className="bg-gradient-to-r from-amber-50 via-white to-rose-50">
+            <div>
+              <CardTitle>Catálogo de multas</CardTitle>
+              <p className="mt-1 text-sm text-zinc-500">
+                Cadastre multas grupodrão com código, descrição e valor sugerido
+                para reaproveitar no financeiro.
+              </p>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <form className="space-y-4" onSubmit={handleSaveFineCatalog}>
+              <div className="space-y-3">
+                {fineCatalogDraft.map((item, index) => (
+                  <div
+                    key={`${item.code}-${index}`}
+                    className="rounded-lg border border-fleet-line bg-zinc-50/60 p-4"
+                  >
+                    <div className="grid gap-3 md:grid-cols-[150px_1fr_170px_auto]">
+                      <label className="space-y-2 text-sm font-medium">
+                        Código
+                        <Input
+                          value={item.code}
+                          onChange={(event) =>
+                            setFineCatalogDraft((current) =>
+                              current.map((entry, entryIndex) =>
+                                entryIndex === index
+                                  ? { ...entry, code: event.target.value }
+                                  : entry,
+                              ),
+                            )
+                          }
+                          placeholder="multa_001"
+                        />
+                      </label>
+                      <label className="space-y-2 text-sm font-medium">
+                        Título
+                        <Input
+                          value={item.title}
+                          onChange={(event) =>
+                            setFineCatalogDraft((current) =>
+                              current.map((entry, entryIndex) =>
+                                entryIndex === index
+                                  ? { ...entry, title: event.target.value }
+                                  : entry,
+                              ),
+                            )
+                          }
+                          placeholder="Excesso de velocidade"
+                        />
+                      </label>
+                      <label className="space-y-2 text-sm font-medium">
+                        Valor sugerido
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={
+                            item.defaultAmount !== undefined
+                              ? String(item.defaultAmount)
+                              : ""
+                          }
+                          onChange={(event) =>
+                            setFineCatalogDraft((current) =>
+                              current.map((entry, entryIndex) =>
+                                entryIndex === index
+                                  ? {
+                                      ...entry,
+                                      defaultAmount: event.target.value
+                                        ? Number(event.target.value)
+                                        : undefined,
+                                    }
+                                  : entry,
+                              ),
+                            )
+                          }
+                          placeholder="0,00"
+                        />
+                      </label>
+                      <div className="flex items-end">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          disabled={fineCatalogDraft.length === 1}
+                          onClick={() =>
+                            setFineCatalogDraft((current) =>
+                              current.length === 1
+                                ? current
+                                : current.filter(
+                                    (_entry, entryIndex) => entryIndex !== index,
+                                  ),
+                            )
+                          }
+                        >
+                          <Trash2 size={16} />
+                          Remover
+                        </Button>
+                      </div>
+                    </div>
+                    <label className="mt-3 block space-y-2 text-sm font-medium">
+                      Descrição
+                      <Input
+                        value={item.description ?? ""}
+                        onChange={(event) =>
+                          setFineCatalogDraft((current) =>
+                            current.map((entry, entryIndex) =>
+                              entryIndex === index
+                                ? { ...entry, description: event.target.value }
+                                : entry,
+                            ),
+                          )
+                        }
+                        placeholder="Detalhe grupodrão da infração"
+                      />
+                    </label>
+                  </div>
+                ))}
+              </div>
+
+              {fineCatalogMessage && (
+                <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                  {fineCatalogMessage}
+                </p>
+              )}
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() =>
+                    setFineCatalogDraft((current) => [
+                      ...current,
+                      {
+                        code: "",
+                        title: "",
+                        description: "",
+                        defaultAmount: undefined,
+                      },
+                    ])
+                  }
+                >
+                  <Plus size={16} />
+                  Nova multa
+                </Button>
+                <Button type="submit" disabled={saveFineCatalogMutation.isPending}>
+                  {saveFineCatalogMutation.isPending
+                    ? "Salvando..."
+                    : "Salvar catálogo de multas"}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card className="overflow-hidden">
+          <CardHeader className="bg-gradient-to-r from-violet-50 via-white to-cyan-50">
+            <div>
+              <CardTitle>Grupos de permissões</CardTitle>
+              <p className="mt-1 text-sm text-zinc-500">
+                Monte grupos personalizados para criar, editar, excluir,
+                exportar e administrar módulos específicos.
+              </p>
+            </div>
+            <Button type="button" onClick={openCreateRoleModal}>
+              <ShieldCheck size={18} />
+              Novo grupo
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {roles.map((role) => (
+              <div
+                key={role._id ?? role.key}
+                className="rounded-lg border border-fleet-line bg-white p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <strong className="text-fleet-ink">{role.name}</strong>
+                      <Badge tone={role.system ? "neutral" : "cyan"}>
+                        {role.system ? "Grupodrão" : "Customizado"}
+                      </Badge>
+                      <Badge tone={role.status === "active" ? "green" : "amber"}>
+                        {role.status === "active" ? "Ativo" : "Inativo"}
+                      </Badge>
+                    </div>
+                    <p className="mt-1 text-sm text-zinc-500">
+                      Chave: <span className="font-mono">{role.key}</span>
+                    </p>
+                    {role.description && (
+                      <p className="mt-1 text-sm text-zinc-600">
+                        {role.description}
+                      </p>
+                    )}
+                  </div>
+                  <ActionMenu
+                    items={[
+                      {
+                        label: "Editar",
+                        icon: <Edit2 size={15} />,
+                        disabled: role.system,
+                        onClick: () => openEditRoleModal(role),
+                      },
+                      {
+                        label: "Excluir",
+                        icon: <Trash2 size={15} />,
+                        danger: true,
+                        disabled: role.system || deleteRoleMutation.isPending,
+                        onClick: () => {
+                          if (
+                            role._id &&
+                            window.confirm(
+                              `Excluir o grupo ${role.name}? Usuários vinculados perderão esse perfil.`,
+                            )
+                          ) {
+                            deleteRoleMutation.mutate(role._id);
+                          }
+                        },
+                      },
+                    ]}
+                  />
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {role.permissions.slice(0, 6).map((permission) => (
+                    <span
+                      key={permission}
+                      className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs text-zinc-600"
+                    >
+                      {permission}
+                    </span>
+                  ))}
+                  {role.permissions.length > 6 && (
+                    <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs text-zinc-600">
+                      +{role.permissions.length - 6} permissões
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </section>
+
       <Card className="overflow-hidden">
         <CardHeader className="bg-gradient-to-r from-amber-50 via-white to-emerald-50">
           <div>
-            <CardTitle>Parâmetros de alerta</CardTitle>
+            <CardTitle>Gruporâmetros de alerta</CardTitle>
             <p className="mt-1 text-sm text-zinc-500">
               Limites usados para alertas operacionais e vencimentos.
             </p>
@@ -1319,6 +1859,59 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
+      <Card className="overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-cyan-50 via-white to-emerald-50">
+          <div>
+            <CardTitle>Catálogo de manutenção</CardTitle>
+            <p className="mt-1 text-sm text-zinc-500">
+              Cadastre centros de custo, servicos e grupos para usar nos selects da OS.
+            </p>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <form className="space-y-4" onSubmit={handleSaveMaintenanceCatalog}>
+            <div className="grid gap-4 md:grid-cols-3">
+              <label className="space-y-2 text-sm font-medium">
+                Centros de custo
+                <textarea
+                  name="costCenters"
+                  defaultValue={maintenanceCostCenters.join("\n")}
+                  className="min-h-[180px] w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-fleet-ink outline-none transition placeholder:text-zinc-400 hover:border-emerald-200 focus:border-fleet-green focus:ring-2 focus:ring-emerald-100"
+                />
+              </label>
+              <label className="space-y-2 text-sm font-medium">
+                Serviços
+                <textarea
+                  name="services"
+                  defaultValue={maintenanceServices.join("\n")}
+                  className="min-h-[180px] w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-fleet-ink outline-none transition placeholder:text-zinc-400 hover:border-emerald-200 focus:border-fleet-green focus:ring-2 focus:ring-emerald-100"
+                />
+              </label>
+              <label className="space-y-2 text-sm font-medium">
+                Grupos
+                <textarea
+                  name="parts"
+                  defaultValue={maintenanceGroups.join("\n")}
+                  className="min-h-[180px] w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-fleet-ink outline-none transition placeholder:text-zinc-400 hover:border-emerald-200 focus:border-fleet-green focus:ring-2 focus:ring-emerald-100"
+                />
+              </label>
+            </div>
+            {maintenanceCatalogMessage && (
+              <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                {maintenanceCatalogMessage}
+              </p>
+            )}
+            <div className="flex justify-end">
+              <Button type="submit" disabled={saveMaintenanceCatalogMutation.isPending}>
+                {saveMaintenanceCatalogMutation.isPending
+                  ? "Salvando..."
+                  : "Salvar catálogo"}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
       <Modal
         open={isUserModalOpen}
         title={editingUser ? "Editar usu?rio" : "Novo usu?rio"}
@@ -1349,7 +1942,7 @@ export function SettingsPage() {
               <SearchableSelect
                 name="role"
                 defaultValue={editingUser?.roles?.[0] ?? "operator"}
-                options={roleOptions}
+                options={availableRoleOptions}
                 searchPlaceholder="Buscar perfil"
               />
             </label>
@@ -1401,6 +1994,82 @@ export function SettingsPage() {
               {createUserMutation.isPending || updateUserMutation.isPending
                 ? "Salvando..."
                 : "Salvar usuário"}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        open={isRoleModalOpen}
+        title={editingRole ? "Editar grupo de permissões" : "Novo grupo de permissões"}
+        description="Defina o perfil, status e as permissões liberadas para esse grupo."
+        onClose={closeRoleModal}
+      >
+        <form className="space-y-4" onSubmit={handleRoleSubmit}>
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="space-y-2 text-sm font-medium">
+              Nome do grupo
+              <Input
+                name="name"
+                defaultValue={editingRole?.name ?? ""}
+                placeholder="Ex.: Supervisor de abastecimento"
+              />
+            </label>
+            <label className="space-y-2 text-sm font-medium">
+              Chave técnica
+              <Input
+                name="key"
+                defaultValue={editingRole?.key ?? ""}
+                placeholder="supervisor_abastecimento"
+                disabled={Boolean(editingRole?._id)}
+              />
+            </label>
+            <label className="space-y-2 text-sm font-medium md:col-span-2">
+              Descrição
+              <Input
+                name="description"
+                defaultValue={editingRole?.description ?? ""}
+                placeholder="Grupo voltado a operação com acesso restrito."
+              />
+            </label>
+            <label className="space-y-2 text-sm font-medium">
+              Status
+              <SearchableSelect
+                name="status"
+                defaultValue={editingRole?.status ?? "active"}
+                options={[
+                  { value: "active", label: "Ativo" },
+                  { value: "inactive", label: "Inativo" },
+                ]}
+              />
+            </label>
+            <label className="space-y-2 text-sm font-medium md:col-span-2">
+              Permissões
+              <MultiSearchableSelect
+                name="permissions"
+                defaultValue={editingRole?.permissions ?? []}
+                options={permissionOptions}
+                placeholder="Selecionar permissões"
+                searchPlaceholder="Buscar permissão"
+              />
+            </label>
+          </div>
+          {roleError && (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {roleError}
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={closeRoleModal}>
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              disabled={createRoleMutation.isPending || updateRoleMutation.isPending}
+            >
+              {createRoleMutation.isPending || updateRoleMutation.isPending
+                ? "Salvando..."
+                : "Salvar grupo"}
             </Button>
           </div>
         </form>
@@ -1470,7 +2139,7 @@ export function SettingsPage() {
               </span>
               <strong className="mt-2 block text-fleet-ink">
                 {detailUser?.roles
-                  ?.map((role) => roleLabels[role] ?? role)
+                  ?.map((role) => resolvedRoleLabels[role] ?? role)
                   .join(", ") ?? "-"}
               </strong>
             </div>

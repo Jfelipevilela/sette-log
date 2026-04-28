@@ -6,11 +6,11 @@ import {
 } from "@nestjs/common";
 import { InjectConnection } from "@nestjs/mongoose";
 import { createReadStream } from "fs";
-import { mkdir, writeFile } from "fs/promises";
+import { mkdir, unlink, writeFile } from "fs/promises";
 import { Connection, FilterQuery, Model, Types } from "mongoose";
 import { basename, extname, join, resolve } from "path";
 import { PaginationQueryDto } from "../common/dto/pagination-query.dto";
-import { PaginatedResponse } from "../common/types";
+import { AuthenticatedUser, PaginatedResponse } from "../common/types";
 import {
   Alert,
   AuditLog,
@@ -114,6 +114,15 @@ const searchableFields: Partial<Record<FleetResource, string[]>> = {
   integrations: ["type", "provider"],
   webhooks: ["name", "url"],
   settings: ["key", "scope"],
+};
+
+const vehicleFuelDefaults: Record<string, string[]> = {
+  car: ["gasoline", "ethanol"],
+  van: ["diesel_s10"],
+  truck: ["diesel_s10"],
+  bus: ["diesel_s10"],
+  motorcycle: ["gasoline"],
+  equipment: ["diesel_s10"],
 };
 
 @Injectable()
@@ -538,6 +547,85 @@ export class FleetService {
     }
 
     return result;
+  }
+
+  private async resolveDriverPortalContext(
+    tenantId: string,
+    user: AuthenticatedUser,
+  ) {
+    const normalizedEmail = String(user.email ?? "").trim().toLowerCase();
+    const normalizedName = String(user.name ?? "").trim().toLowerCase();
+
+    const driver =
+      (normalizedEmail
+        ? await this.model("drivers")
+            .findOne({ tenantId, email: normalizedEmail })
+            .lean<AnyRecord>()
+            .exec()
+        : undefined) ??
+      (normalizedName
+        ? await this.model("drivers")
+            .findOne({
+              tenantId,
+              name: { $regex: `^${this.escapeRegex(normalizedName)}$`, $options: "i" },
+            })
+            .lean<AnyRecord>()
+            .exec()
+        : undefined);
+
+    if (!driver) {
+      throw new NotFoundException(
+        "Nenhum motorista vinculado foi encontrado para este usuário.",
+      );
+    }
+
+    if (!driver.assignedVehicleId) {
+      throw new ConflictException(
+        "O motorista vinculado não possui veículo associado.",
+      );
+    }
+
+    const vehicle = await this.model("vehicles")
+      .findOne({ tenantId, _id: driver.assignedVehicleId })
+      .lean<AnyRecord>()
+      .exec();
+
+    if (!vehicle) {
+      throw new NotFoundException(
+        "O veículo associado ao motorista não foi encontrado.",
+      );
+    }
+
+    return { driver, vehicle };
+  }
+
+  private async ensureFuelRecordOwnership(
+    tenantId: string,
+    recordId: string,
+    driverId: string,
+    vehicleId: string,
+  ) {
+    const record = await this.model("fuel-records")
+      .findOne({
+        tenantId,
+        _id: recordId,
+        driverId,
+        vehicleId,
+      })
+      .lean<AnyRecord>()
+      .exec();
+
+    if (!record) {
+      throw new NotFoundException(
+        "Abastecimento não encontrado para este motorista.",
+      );
+    }
+
+    return record;
+  }
+
+  private escapeRegex(value: string) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 
   async get(resource: FleetResource, tenantId: string, id: string) {
@@ -1645,6 +1733,115 @@ export class FleetService {
     });
   }
 
+  async vehicleFuelSeries(
+    tenantId: string,
+    vehicleId?: string,
+    granularity: "day" | "month" | "year" = "day",
+    from?: string,
+    to?: string,
+  ) {
+    const now = new Date();
+    const defaultFrom =
+      granularity === "year"
+        ? new Date(now.getFullYear() - 4, 0, 1)
+        : granularity === "month"
+          ? new Date(now.getFullYear(), now.getMonth() - 11, 1)
+          : new Date(now.getFullYear(), now.getMonth(), 1);
+    const periodFrom = from ? new Date(from) : defaultFrom;
+    const periodTo = to ? new Date(to) : now;
+
+    if (
+      Number.isNaN(periodFrom.getTime()) ||
+      Number.isNaN(periodTo.getTime())
+    ) {
+      throw new BadRequestException(
+        "Periodo invalido para serie de abastecimento.",
+      );
+    }
+
+    periodTo.setHours(23, 59, 59, 999);
+
+    const match: AnyRecord = {
+      tenantId,
+      filledAt: { $gte: periodFrom, $lte: periodTo },
+    };
+    if (vehicleId) {
+      match.vehicleId = vehicleId;
+    }
+
+    const groupId =
+      granularity === "year"
+        ? { year: { $year: "$filledAt" } }
+        : granularity === "month"
+          ? { year: { $year: "$filledAt" }, month: { $month: "$filledAt" } }
+          : {
+              year: { $year: "$filledAt" },
+              month: { $month: "$filledAt" },
+              day: { $dayOfMonth: "$filledAt" },
+            };
+
+    const records = await this.model("fuel-records")
+      .aggregate([
+        { $match: match },
+        {
+          $addFields: {
+            numericTotalCost: {
+              $convert: {
+                input: "$totalCost",
+                to: "double",
+                onError: 0,
+                onNull: 0,
+              },
+            },
+            numericLiters: {
+              $convert: {
+                input: "$liters",
+                to: "double",
+                onError: 0,
+                onNull: 0,
+              },
+            },
+          },
+        },
+        {
+          $group: {
+            _id: groupId,
+            totalCost: { $sum: "$numericTotalCost" },
+            liters: { $sum: "$numericLiters" },
+            records: { $sum: 1 },
+          },
+        },
+        { $sort: { "_id.year": 1, "_id.month": 1, "_id.day": 1 } },
+      ])
+      .exec();
+
+    return this.serialize({
+      granularity,
+      vehicleId,
+      period: {
+        from: periodFrom.toISOString(),
+        to: periodTo.toISOString(),
+      },
+      points: records.map((item) => {
+        const id = item._id as { year: number; month?: number; day?: number };
+        return {
+          label:
+            granularity === "year"
+              ? String(id.year)
+              : granularity === "month"
+                ? `${String(id.month ?? 0).padStart(2, "0")}/${id.year}`
+                : `${String(id.day ?? 0).padStart(2, "0")}/${String(id.month ?? 0).padStart(2, "0")}`,
+          year: id.year,
+          month: id.month,
+          day: id.day,
+          totalCost: Number(item.totalCost ?? 0),
+          liters: Number(item.liters ?? 0),
+          records: Number(item.records ?? 0),
+        };
+      }),
+    });
+  }
+
   async auditTrailForEntity(tenantId: string, entityId: string) {
     const auditLogs = await this.model("audit-logs")
       .find({
@@ -1696,6 +1893,7 @@ export class FleetService {
     tenantId: string,
     id: string,
     file?: UploadedFile,
+    payload?: AnyRecord,
   ) {
     if (!file) {
       throw new BadRequestException('Envie um arquivo no campo "file".');
@@ -1727,6 +1925,7 @@ export class FleetService {
       mimeType: file.mimetype,
       size: file.size,
       uploadedAt: new Date(),
+      category: payload?.category ? String(payload.category).trim() : undefined,
     };
     const updated = await this.model("fuel-records")
       .findOneAndUpdate(
@@ -1773,6 +1972,75 @@ export class FleetService {
       stream: createReadStream(filePath),
       attachment,
     };
+  }
+
+  async driverPortalContext(tenantId: string, user: AuthenticatedUser) {
+    const context = await this.resolveDriverPortalContext(tenantId, user);
+    return {
+      driver: this.serialize(context.driver),
+      vehicle: this.serializeVehicle(context.vehicle),
+    };
+  }
+
+  async driverPortalFuelRecords(
+    tenantId: string,
+    user: AuthenticatedUser,
+    query: PaginationQueryDto,
+  ) {
+    const context = await this.resolveDriverPortalContext(tenantId, user);
+    return this.list("fuel-records", tenantId, {
+      ...query,
+      filters: JSON.stringify({
+        ...(this.parseFilters(query.filters) as Record<string, unknown>),
+        driverId: String(context.driver._id),
+      }),
+    });
+  }
+
+  async createDriverPortalFuelRecord(
+    tenantId: string,
+    user: AuthenticatedUser,
+    payload: AnyRecord,
+  ) {
+    const context = await this.resolveDriverPortalContext(tenantId, user);
+    return this.create("fuel-records", tenantId, {
+      ...payload,
+      driverId: String(context.driver._id),
+      vehicleId: String(context.vehicle._id),
+    });
+  }
+
+  async attachDriverPortalFuelRecordFile(
+    tenantId: string,
+    user: AuthenticatedUser,
+    id: string,
+    file?: UploadedFile,
+    payload?: AnyRecord,
+  ) {
+    const context = await this.resolveDriverPortalContext(tenantId, user);
+    await this.ensureFuelRecordOwnership(
+      tenantId,
+      id,
+      String(context.driver._id),
+      String(context.vehicle._id),
+    );
+    return this.attachFuelRecordFile(tenantId, id, file, payload);
+  }
+
+  async driverPortalFuelRecordAttachmentStream(
+    tenantId: string,
+    user: AuthenticatedUser,
+    id: string,
+    fileName: string,
+  ) {
+    const context = await this.resolveDriverPortalContext(tenantId, user);
+    await this.ensureFuelRecordOwnership(
+      tenantId,
+      id,
+      String(context.driver._id),
+      String(context.vehicle._id),
+    );
+    return this.fuelRecordAttachmentStream(tenantId, id, fileName);
   }
 
   async attachComplianceCheckFiles(
@@ -1945,6 +2213,125 @@ export class FleetService {
     };
   }
 
+  async removeMaintenanceOrderAttachment(
+    tenantId: string,
+    id: string,
+    fileName: string,
+  ) {
+    const safeFileName = basename(fileName);
+    const record = await this.model("maintenance-orders")
+      .findOne({ tenantId, _id: id })
+      .lean<AnyRecord>()
+      .exec();
+    if (!record) {
+      throw new NotFoundException("Ordem de servico nao encontrada.");
+    }
+
+    const attachments = (record.attachments ?? []) as string[];
+    const attachment = attachments.find((item) => {
+      const currentFileName = basename(String(item).split("?")[0] ?? "");
+      return currentFileName === safeFileName;
+    });
+    if (!attachment) {
+      throw new NotFoundException("Anexo nao encontrado.");
+    }
+
+    const filePath = resolve(
+      process.cwd(),
+      "uploads",
+      "maintenance-orders",
+      tenantId,
+      id,
+      safeFileName,
+    );
+
+    try {
+      await unlink(filePath);
+    } catch {
+      // Se o arquivo fisico nao existir, ainda removemos a referencia no banco.
+    }
+
+    const updated = await this.model("maintenance-orders")
+      .findOneAndUpdate(
+        { tenantId, _id: id },
+        { $pull: { attachments: attachment } },
+        { new: true },
+      )
+      .lean<AnyRecord>()
+      .exec();
+
+    return this.serialize(updated);
+  }
+
+  async attachDriverFile(tenantId: string, id: string, file?: UploadedFile) {
+    if (!file) {
+      throw new BadRequestException('Envie um arquivo no campo "file".');
+    }
+    const record = await this.model("drivers")
+      .findOne({ tenantId, _id: id })
+      .lean<AnyRecord>()
+      .exec();
+    if (!record) {
+      throw new NotFoundException("Motorista nao encontrado.");
+    }
+
+    const uploadsRoot = resolve(
+      process.cwd(),
+      "uploads",
+      "drivers",
+      tenantId,
+      id,
+    );
+    await mkdir(uploadsRoot, { recursive: true });
+    const extension = extname(file.originalname).toLowerCase();
+    const generatedFileName = `${Date.now()}-${new Types.ObjectId().toString()}${extension}`;
+    const targetPath = join(uploadsRoot, generatedFileName);
+    await writeFile(targetPath, file.buffer);
+
+    const apiPrefix = process.env.API_PREFIX ?? "api/v1";
+    const attachmentUrl = `/${apiPrefix}/drivers/${id}/attachments/${encodeURIComponent(generatedFileName)}`;
+    const updated = await this.model("drivers")
+      .findOneAndUpdate(
+        { tenantId, _id: id },
+        { $push: { attachments: attachmentUrl } },
+        { new: true },
+      )
+      .lean<AnyRecord>()
+      .exec();
+    return this.serialize(updated);
+  }
+
+  async driverAttachmentStream(tenantId: string, id: string, fileName: string) {
+    const safeFileName = basename(fileName);
+    const record = await this.model("drivers")
+      .findOne({ tenantId, _id: id })
+      .lean<AnyRecord>()
+      .exec();
+    if (!record) {
+      throw new NotFoundException("Motorista nao encontrado.");
+    }
+    const attachments = (record.attachments ?? []) as string[];
+    const attachment = attachments.find((item) => {
+      const currentFileName = basename(String(item).split("?")[0] ?? "");
+      return currentFileName === safeFileName;
+    });
+    if (!attachment) {
+      throw new NotFoundException("Anexo nao encontrado.");
+    }
+    const filePath = resolve(
+      process.cwd(),
+      "uploads",
+      "drivers",
+      tenantId,
+      id,
+      safeFileName,
+    );
+    return {
+      stream: createReadStream(filePath),
+      fileName: safeFileName,
+    };
+  }
+
   private model(resource: FleetResource): Model<AnyRecord> {
     const modelName = resourceModels[resource];
     if (!modelName) {
@@ -2052,6 +2439,9 @@ export class FleetService {
     }
     if (resource === "insurances") {
       return this.prepareInsurance({ ...before, ...payload });
+    }
+    if (resource === "maintenance-orders") {
+      return this.prepareMaintenanceOrder({ ...before, ...payload }, before);
     }
     return payload;
   }
@@ -2232,10 +2622,17 @@ export class FleetService {
     payload: AnyRecord,
     currentId?: string,
   ) {
+    if (payload.type !== undefined) {
+      payload.type = String(payload.type ?? "car").trim() || "car";
+    }
     if (payload.plate) {
       payload.plate = String(payload.plate)
         .toUpperCase()
         .replace(/[^A-Z0-9]/g, "");
+    }
+    if (payload.vehicleNumber !== undefined) {
+      const vehicleNumber = String(payload.vehicleNumber ?? "").trim();
+      payload.vehicleNumber = vehicleNumber || undefined;
     }
     if (
       payload.tankCapacityLiters !== undefined &&
@@ -2265,6 +2662,27 @@ export class FleetService {
     }
     if (!currentId && payload.initialOdometerKm === undefined) {
       payload.initialOdometerKm = Number(payload.odometerKm ?? 0);
+    }
+    const type = String(payload.type ?? "car");
+    if (payload.acceptedFuelTypes !== undefined) {
+      const acceptedFuelTypes = Array.isArray(payload.acceptedFuelTypes)
+        ? payload.acceptedFuelTypes
+        : [payload.acceptedFuelTypes];
+      const normalizedFuelTypes = [
+        ...new Set(
+          acceptedFuelTypes
+            .map((fuelType) => String(fuelType ?? "").trim())
+            .filter(Boolean),
+        ),
+      ];
+      if (normalizedFuelTypes.length === 0) {
+        throw new BadRequestException(
+          "Selecione ao menos um combustível aceito para o veículo.",
+        );
+      }
+      payload.acceptedFuelTypes = normalizedFuelTypes;
+    } else if (!currentId) {
+      payload.acceptedFuelTypes = vehicleFuelDefaults[type] ?? ["gasoline"];
     }
     if (payload.primaryDriverId) {
       const existing = await this.model("vehicles")
@@ -2307,6 +2725,11 @@ export class FleetService {
     if (payload.licenseExpiresAt) {
       payload.licenseExpiresAt = new Date(String(payload.licenseExpiresAt));
     }
+    if (payload.licenseCategory !== undefined) {
+      payload.licenseCategory = String(payload.licenseCategory)
+        .toUpperCase()
+        .replace(/[^A-Z]/g, "");
+    }
     return payload;
   }
 
@@ -2316,10 +2739,14 @@ export class FleetService {
     currentId?: string,
   ) {
     const liters = Number(payload.liters ?? 0);
-    const totalCost = Number(payload.totalCost ?? 0);
-    const pricePerLiter = payload.pricePerLiter
-      ? Number(payload.pricePerLiter)
-      : totalCost / liters;
+    const pricePerLiter = Number(payload.pricePerLiter ?? 0);
+    const informedTotal =
+      payload.totalCost !== undefined &&
+      payload.totalCost !== null &&
+      payload.totalCost !== ""
+        ? Number(payload.totalCost)
+        : undefined;
+    const totalCost = informedTotal ?? liters * pricePerLiter;
     if (liters <= 0 || totalCost < 0) {
       throw new BadRequestException(
         "Abastecimento precisa ter litros e custo validos.",
@@ -2331,7 +2758,7 @@ export class FleetService {
       );
     }
     const expectedTotal = liters * pricePerLiter;
-    if (Math.abs(expectedTotal - totalCost) > 0.05) {
+    if (informedTotal !== undefined && Math.abs(expectedTotal - totalCost) > 0.05) {
       throw new BadRequestException(
         "Litros x valor por litro não conferem com o valor total informado.",
       );
@@ -2343,6 +2770,11 @@ export class FleetService {
       payload.odometerKm !== undefined &&
       payload.odometerKm !== null &&
       payload.odometerKm !== "";
+    if (!hasOdometerInput) {
+      throw new BadRequestException(
+        "Odometro do abastecimento é obrigatório.",
+      );
+    }
     const odometerKm = hasOdometerInput
       ? Number(payload.odometerKm ?? 0)
       : undefined;
@@ -2361,6 +2793,18 @@ export class FleetService {
         .findOne({ tenantId, _id: payload.vehicleId })
         .lean<AnyRecord>()
         .exec();
+      const fuelType = String(payload.fuelType ?? "gasoline");
+      const acceptedFuelTypes = Array.isArray(vehicle?.acceptedFuelTypes)
+        ? (vehicle?.acceptedFuelTypes as string[])
+        : [];
+      if (
+        acceptedFuelTypes.length > 0 &&
+        !acceptedFuelTypes.includes(fuelType)
+      ) {
+        throw new BadRequestException(
+          `O veículo selecionado aceita somente: ${acceptedFuelTypes.join(", ")}.`,
+        );
+      }
       const tankCapacityLiters = Number(vehicle?.tankCapacityLiters ?? 0);
       if (tankCapacityLiters > 0 && liters > tankCapacityLiters) {
         throw new BadRequestException(
@@ -2402,6 +2846,11 @@ export class FleetService {
         vehicle?.odometerKm ?? vehicle?.initialOdometerKm ?? 0,
       );
       if (odometerKm !== undefined) {
+        if (!currentId && odometerKm <= currentVehicleOdometer) {
+          throw new BadRequestException(
+            `Odometro informado (${odometerKm} km) deve ser maior que o odometro atual do veiculo (${currentVehicleOdometer} km).`,
+          );
+        }
         if (odometerKm < currentVehicleOdometer) {
           throw new BadRequestException(
             `Odometro informado (${odometerKm} km) nao pode ser menor que o odometro atual do veiculo (${currentVehicleOdometer} km).`,
@@ -2541,6 +2990,9 @@ export class FleetService {
       dueAt: payload.dueAt ? new Date(String(payload.dueAt)) : undefined,
       infractionCode: payload.infractionCode
         ? String(payload.infractionCode).trim()
+        : undefined,
+      description: payload.description
+        ? String(payload.description).trim()
         : undefined,
     };
   }
@@ -2720,18 +3172,139 @@ export class FleetService {
     };
   }
 
-  private prepareMaintenanceOrder(payload: AnyRecord) {
+  private prepareMaintenanceOrder(payload: AnyRecord, before?: AnyRecord) {
+    const normalizedItems = Array.isArray(payload.items)
+      ? payload.items
+          .map((item) => {
+            const current = item as AnyRecord;
+            const name = String(current?.name ?? "").trim();
+            if (!name) {
+              return undefined;
+            }
+            const quantity = Number(current?.quantity ?? 1);
+            const unitCost = Number(current?.unitCost ?? 0);
+            const totalCost =
+              Number(current?.totalCost ?? quantity * unitCost) || 0;
+            return {
+              name,
+              category:
+                String(current?.category ?? "service").trim() || "service",
+              costCenter:
+                String(current?.costCenter ?? "").trim() || undefined,
+              quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
+              unitCost: Number.isFinite(unitCost) && unitCost >= 0 ? unitCost : 0,
+              totalCost: Number.isFinite(totalCost) && totalCost >= 0 ? totalCost : 0,
+            };
+          })
+          .filter(Boolean)
+      : [];
+    const laborCost = Number(payload.laborCost ?? 0);
+    const partsCost =
+      payload.partsCost !== undefined &&
+      payload.partsCost !== null &&
+      payload.partsCost !== ""
+        ? Number(payload.partsCost)
+        : normalizedItems.reduce(
+            (sum, item) =>
+              sum +
+              (String((item as AnyRecord).category) === "part"
+                ? Number((item as AnyRecord).totalCost ?? 0)
+                : 0),
+            0,
+          );
+    const totalCost =
+      payload.totalCost !== undefined &&
+      payload.totalCost !== null &&
+      payload.totalCost !== ""
+        ? Number(payload.totalCost)
+        : normalizedItems.reduce(
+            (sum, item) => sum + Number((item as AnyRecord).totalCost ?? 0),
+            0,
+          ) + (Number.isFinite(laborCost) ? laborCost : 0);
+    const completionDescription = payload.completionDescription
+      ? String(payload.completionDescription).trim()
+      : undefined;
+    const nextStatus = String(payload.status ?? before?.status ?? "open");
+    if (!before && nextStatus !== "open") {
+      throw new BadRequestException(
+        "Toda ordem de servico deve ser criada inicialmente com status aberta.",
+      );
+    }
+    if (before && String(before.status ?? "open") === "closed") {
+      throw new BadRequestException(
+        "Ordens de servico finalizadas nao podem ser editadas.",
+      );
+    }
+    if (
+      before &&
+      nextStatus === "closed" &&
+      !["open", "in_progress"].includes(String(before.status ?? "open"))
+    ) {
+      throw new BadRequestException(
+        "Somente ordens abertas ou em execucao podem ser finalizadas.",
+      );
+    }
+    if (
+      before &&
+      nextStatus === "in_progress" &&
+      !["open", "in_progress"].includes(String(before.status ?? "open"))
+    ) {
+      throw new BadRequestException(
+        "Somente ordens abertas podem ser movidas para execucao.",
+      );
+    }
+    if (payload.status === "closed" && !completionDescription) {
+      throw new BadRequestException(
+        "Ao finalizar a ordem de servico, informe a descricao do que foi feito.",
+      );
+    }
+    if (nextStatus === "closed") {
+      if (!completionDescription) {
+        throw new BadRequestException(
+          "Ao finalizar a ordem de servico, informe a descricao do que foi feito.",
+        );
+      }
+      if (
+        normalizedItems.length === 0 &&
+        (!Number.isFinite(laborCost) || laborCost <= 0) &&
+        (!Number.isFinite(partsCost) || partsCost <= 0)
+      ) {
+        throw new BadRequestException(
+          "Ao finalizar a ordem de servico, informe itens/servicos ou custos de mão de obra e peças.",
+        );
+      }
+    }
     return {
       ...payload,
+      status: before ? nextStatus : "open",
+      items: normalizedItems,
+      totalCost: Number.isFinite(totalCost) ? totalCost : 0,
+      laborCost: Number.isFinite(laborCost) ? laborCost : 0,
+      partsCost: Number.isFinite(partsCost) ? partsCost : 0,
+      description: payload.description
+        ? String(payload.description).trim()
+        : undefined,
+      observations: payload.observations
+        ? String(payload.observations).trim()
+        : undefined,
+      completionDescription,
       scheduledAt: payload.scheduledAt
         ? new Date(String(payload.scheduledAt))
         : payload.scheduledAt,
+      expectedDeliveryAt: payload.expectedDeliveryAt
+        ? new Date(String(payload.expectedDeliveryAt))
+        : payload.expectedDeliveryAt,
       startedAt: payload.startedAt
         ? new Date(String(payload.startedAt))
         : payload.startedAt,
-      closedAt: payload.closedAt
-        ? new Date(String(payload.closedAt))
-        : payload.closedAt,
+      closedAt:
+        nextStatus === "closed"
+          ? payload.closedAt
+            ? new Date(String(payload.closedAt))
+            : new Date()
+          : payload.closedAt
+            ? new Date(String(payload.closedAt))
+            : undefined,
     };
   }
 

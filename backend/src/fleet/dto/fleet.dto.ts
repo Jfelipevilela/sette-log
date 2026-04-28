@@ -5,6 +5,7 @@ import {
   IsBoolean,
   IsDateString,
   IsIn,
+  IsNotEmpty,
   IsNumber,
   IsObject,
   IsOptional,
@@ -44,6 +45,11 @@ export class CreateVehicleDto {
   @IsOptional()
   @IsString()
   nickname?: string;
+
+  @ApiPropertyOptional({ example: 'V-024' })
+  @IsOptional()
+  @IsString()
+  vehicleNumber?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -104,6 +110,16 @@ export class CreateVehicleDto {
   @IsOptional()
   @IsNumber()
   tankCapacityLiters?: number;
+
+  @ApiPropertyOptional({
+    example: ["gasoline", "ethanol"],
+    isArray: true,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @IsNotEmpty({ each: true })
+  acceptedFuelTypes?: string[];
 }
 
 export class UpdateVehicleDto extends PartialType(CreateVehicleDto) {

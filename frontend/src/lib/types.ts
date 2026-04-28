@@ -37,12 +37,23 @@ export type SystemUser = {
   updatedAt?: string;
 };
 
+export type PermissionGroup = {
+  _id?: string;
+  key: string;
+  name: string;
+  description?: string;
+  permissions: string[];
+  status: "active" | "inactive";
+  system?: boolean;
+};
+
 export type Vehicle = {
   _id: string;
   plate: string;
   brand: string;
   model: string;
   nickname?: string;
+  vehicleNumber?: string;
   year?: number;
   type: string;
   status: string;
@@ -50,6 +61,7 @@ export type Vehicle = {
   currentOdometerKm?: number;
   initialOdometerKm?: number;
   tankCapacityLiters?: number;
+  acceptedFuelTypes?: string[];
   costCenter?: string;
   sector?: string;
   city?: string;
@@ -74,6 +86,7 @@ export type Driver = {
   status: string;
   score: number;
   assignedVehicleId?: string;
+  attachments?: string[];
 };
 
 export type Alert = {
@@ -112,6 +125,20 @@ export type MaintenanceOrder = {
   odometerKm?: number;
   totalCost: number;
   attachments?: string[];
+  description?: string;
+  observations?: string;
+  expectedDeliveryAt?: string;
+  completionDescription?: string;
+  laborCost?: number;
+  partsCost?: number;
+  items?: Array<{
+    name: string;
+    category?: string;
+    costCenter?: string;
+    quantity?: number;
+    unitCost?: number;
+    totalCost?: number;
+  }>;
 };
 
 export type FuelRecord = {
@@ -133,6 +160,7 @@ export type FuelRecord = {
     mimeType: string;
     size: number;
     uploadedAt: string;
+    category?: string;
   }>;
 };
 
@@ -248,6 +276,26 @@ export type Dashboard = {
   };
   recentAlerts: Alert[];
   generatedAt: string;
+};
+
+export type DashboardFuelSeriesPoint = {
+  label: string;
+  year: number;
+  month?: number;
+  day?: number;
+  totalCost: number;
+  liters: number;
+  records: number;
+};
+
+export type DashboardFuelSeries = {
+  granularity: "day" | "month" | "year";
+  vehicleId?: string;
+  period: {
+    from: string;
+    to: string;
+  };
+  points: DashboardFuelSeriesPoint[];
 };
 
 export type TrackingSnapshot = {

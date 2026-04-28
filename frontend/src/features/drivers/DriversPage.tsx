@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Award,
@@ -11,9 +11,12 @@ import {
   Search,
   Trash2,
   UserRound,
+  Paperclip,
+  X,
 } from "lucide-react";
 import { Badge } from "../../components/ui/badge";
 import { ActionMenu } from "../../components/ui/action-menu";
+import { AttachmentPreviewModal } from "../../components/ui/attachment-preview-modal";
 import { Button } from "../../components/ui/button";
 import {
   Card,
@@ -31,9 +34,12 @@ import {
   apiErrorMessage,
   createDriver,
   deleteDriver,
+  downloadDriverAttachment,
   downloadResourceExport,
+  fetchDriverAttachmentBlob,
   getDrivers,
   getVehicles,
+  uploadDriverAttachment,
   updateDriver,
 } from "../../lib/api";
 import { labelFor } from "../../lib/labels";
@@ -77,6 +83,14 @@ export function DriversPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState<Driver>();
   const [detailDriver, setDetailDriver] = useState<Driver>();
+  const [attachmentFile, setAttachmentFile] = useState<File>();
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
+  const [previewAttachment, setPreviewAttachment] = useState<{
+    objectUrl?: string;
+    fileName: string;
+    driverId: string;
+    url?: string;
+  }>();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -91,7 +105,13 @@ export function DriversPage() {
     queryFn: () => getVehicles(),
   });
   const createDriverMutation = useMutation({
-    mutationFn: createDriver,
+    mutationFn: async (payload: Partial<Driver>) => {
+      const created = await createDriver(payload);
+      if (attachmentFile) {
+        return uploadDriverAttachment(created._id, attachmentFile);
+      }
+      return created;
+    },
     onSuccess: async () => {
       setIsModalOpen(false);
       await queryClient.invalidateQueries({ queryKey: ["drivers"] });
@@ -105,7 +125,12 @@ export function DriversPage() {
   });
   const updateDriverMutation = useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: Partial<Driver> }) =>
-      updateDriver(id, payload),
+      updateDriver(id, payload).then((updated) => {
+        if (!attachmentFile) {
+          return updated;
+        }
+        return uploadDriverAttachment(id, attachmentFile);
+      }),
     onSuccess: async () => {
       closeModal();
       await invalidateDriverData();
@@ -146,6 +171,33 @@ export function DriversPage() {
     setIsModalOpen(false);
     setEditingDriver(undefined);
     setFormError(undefined);
+    setAttachmentFile(undefined);
+    if (attachmentInputRef.current) {
+      attachmentInputRef.current.value = "";
+    }
+  }
+
+  function attachmentFileNameFromUrl(url: string) {
+    return decodeURIComponent(url.split("/").pop() || "anexo");
+  }
+
+  async function openAttachmentPreview(driverId: string, url: string) {
+    const fileName = attachmentFileNameFromUrl(url);
+    const blob = await fetchDriverAttachmentBlob(driverId, fileName);
+    const objectUrl = URL.createObjectURL(blob);
+    setPreviewAttachment({
+      driverId,
+      fileName,
+      url: objectUrl,
+      objectUrl,
+    });
+  }
+
+  function closeAttachmentPreview() {
+    if (previewAttachment?.objectUrl) {
+      URL.revokeObjectURL(previewAttachment.objectUrl);
+    }
+    setPreviewAttachment(undefined);
   }
 
   const filteredDrivers = useMemo(() => {
@@ -271,6 +323,7 @@ export function DriversPage() {
                     <Th>CNH</Th>
                     <Th>Validade</Th>
                     <Th>Score</Th>
+                    <Th>Anexos</Th>
                     <Th>Status</Th>
                     <Th>Ações</Th>
                   </tr>
@@ -295,6 +348,12 @@ export function DriversPage() {
                       <Td>{formatDate(driver.licenseExpiresAt)}</Td>
                       <Td>
                         <strong>{driver.score}</strong>
+                      </Td>
+                      <Td>
+                        <span className="inline-flex items-center gap-1 text-sm text-zinc-600">
+                          <Paperclip size={14} />
+                          {driver.attachments?.length ?? 0}
+                        </span>
                       </Td>
                       <Td>
                         <Badge
@@ -469,6 +528,67 @@ export function DriversPage() {
                 searchPlaceholder="Buscar status"
               />
             </label>
+            <label className="space-y-2 text-sm font-medium md:col-span-2">
+              Anexo do motorista
+              <Input
+                ref={attachmentInputRef}
+                type="file"
+                accept="image/*,.pdf,.xml,.txt,.csv,.xlsx,.xls,.doc,.docx"
+                onChange={(event) =>
+                  setAttachmentFile(event.target.files?.[0] ?? undefined)
+                }
+              />
+              {attachmentFile && (
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-fleet-line bg-zinc-50 px-3 py-2 text-sm">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-fleet-ink">
+                      {attachmentFile.name}
+                    </p>
+                    <p className="text-xs text-zinc-500">
+                      {(attachmentFile.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="rounded-full border border-fleet-line p-1 text-zinc-500 transition hover:bg-white hover:text-red-600"
+                    onClick={() => {
+                      setAttachmentFile(undefined);
+                      if (attachmentInputRef.current) {
+                        attachmentInputRef.current.value = "";
+                      }
+                    }}
+                    aria-label="Remover anexo"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              )}
+              {editingDriver?.attachments && editingDriver.attachments.length > 0 && (
+                <div className="space-y-2 rounded-lg border border-fleet-line bg-white px-3 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
+                    Anexos atuais
+                  </p>
+                  {editingDriver.attachments.map((url) => {
+                    const fileName = attachmentFileNameFromUrl(url);
+                    return (
+                      <button
+                        key={url}
+                        type="button"
+                        className="flex w-full items-center justify-between gap-3 rounded-md border border-fleet-line px-3 py-2 text-left text-sm transition hover:bg-zinc-50"
+                        onClick={() => void openAttachmentPreview(editingDriver._id, url)}
+                      >
+                        <span className="break-all font-medium text-fleet-ink">
+                          {fileName}
+                        </span>
+                        <span className="shrink-0 text-xs text-zinc-500">
+                          Previsualizar
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </label>
           </div>
           {formError && (
             <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -523,6 +643,48 @@ export function DriversPage() {
               : "-",
           },
         ]}
+      >
+        <div className="rounded-lg border border-fleet-line p-4">
+          <strong className="block text-sm text-fleet-ink">Anexos</strong>
+          <div className="mt-3 space-y-2">
+            {(detailDriver?.attachments?.length ?? 0) === 0 && (
+              <p className="text-sm text-zinc-500">
+                Nenhum anexo vinculado a este motorista.
+              </p>
+            )}
+            {detailDriver?.attachments?.map((url) => (
+              <button
+                key={url}
+                type="button"
+                className="flex w-full items-center justify-between gap-3 rounded-md border border-fleet-line px-3 py-2 text-left text-sm transition hover:bg-zinc-50"
+                onClick={() => void openAttachmentPreview(detailDriver._id, url)}
+              >
+                <span className="break-all font-medium text-fleet-ink">
+                  {attachmentFileNameFromUrl(url)}
+                </span>
+                <span className="shrink-0 text-xs text-zinc-500">
+                  Previsualizar
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </DetailModal>
+
+      <AttachmentPreviewModal
+        open={Boolean(previewAttachment)}
+        title="Previsualizar anexo"
+        fileName={previewAttachment?.fileName ?? ""}
+        url={previewAttachment?.url}
+        onClose={closeAttachmentPreview}
+        onDownload={() =>
+          previewAttachment
+            ? void downloadDriverAttachment(
+                previewAttachment.driverId,
+                previewAttachment.fileName,
+              )
+            : undefined
+        }
       />
     </div>
   );

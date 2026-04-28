@@ -5,11 +5,13 @@ import type {
   AuditTrailItem,
   AuthUser,
   Dashboard,
+  DashboardFuelSeries,
   Driver,
   FuelRecordsSummary,
   FuelRecord,
   MaintenanceOrder,
   AppNotification,
+  PermissionGroup,
   SystemUser,
   TrackingSnapshot,
   Vehicle,
@@ -136,6 +138,18 @@ export async function login(email: string, password: string) {
 
 export async function getDashboard(filters?: { from?: string; to?: string }) {
   const { data } = await api.get<Dashboard>("/dashboard", {
+    params: filters,
+  });
+  return data;
+}
+
+export async function getDashboardFuelSeries(filters?: {
+  from?: string;
+  to?: string;
+  vehicleId?: string;
+  granularity?: "day" | "month" | "year";
+}) {
+  const { data } = await api.get<DashboardFuelSeries>("/dashboard/fuel-series", {
     params: filters,
   });
   return data;
@@ -371,6 +385,57 @@ export async function updateDriver(id: string, payload: Partial<Driver>) {
   return data;
 }
 
+export async function uploadDriverAttachment(id: string, file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+  const { data } = await api.post<Driver>(`/drivers/${id}/attachments`, formData, {
+    timeout: 60_000,
+  });
+  return data;
+}
+
+export async function getRoles() {
+  const { data } = await api.get<PermissionGroup[]>("/roles");
+  return data;
+}
+
+export async function createRole(payload: Record<string, unknown>) {
+  const { data } = await api.post<PermissionGroup>("/roles", payload);
+  return data;
+}
+
+export async function updateRole(id: string, payload: Record<string, unknown>) {
+  const { data } = await api.patch<PermissionGroup>(`/roles/${id}`, payload);
+  return data;
+}
+
+export async function deleteRole(id: string) {
+  const { data } = await api.delete<{ success: boolean; deletedId: string }>(
+    `/roles/${id}`,
+  );
+  return data;
+}
+
+export async function fetchDriverAttachmentBlob(id: string, fileName: string) {
+  const { data } = await api.get<Blob>(
+    `/drivers/${id}/attachments/${encodeURIComponent(fileName)}`,
+    { responseType: "blob" },
+  );
+  return data;
+}
+
+export async function downloadDriverAttachment(id: string, fileName: string) {
+  const data = await fetchDriverAttachmentBlob(id, fileName);
+  const url = window.URL.createObjectURL(data);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
 export async function deleteDriver(id: string) {
   const { data } = await api.delete<{ success: boolean; deletedId: string }>(
     `/drivers/${id}`,
@@ -450,6 +515,36 @@ export async function createFuelRecord(payload: Record<string, unknown>) {
   return data;
 }
 
+export async function getDriverFuelPortalContext() {
+  const { data } = await api.get<{ driver: Driver; vehicle: Vehicle }>(
+    "/finance/driver-portal/context",
+  );
+  return data;
+}
+
+export async function getDriverFuelPortalRecords() {
+  const { data } = await api.get<ApiPage<FuelRecord>>(
+    "/finance/driver-portal/fuel-records",
+    {
+      params: {
+        page: 1,
+        limit: 100,
+        sortBy: "filledAt",
+        sortDir: "desc",
+      },
+    },
+  );
+  return data.data;
+}
+
+export async function createDriverFuelPortalRecord(payload: Record<string, unknown>) {
+  const { data } = await api.post<FuelRecord>(
+    "/finance/driver-portal/fuel-records",
+    payload,
+  );
+  return data;
+}
+
 export async function updateFuelRecord(
   id: string,
   payload: Record<string, unknown>,
@@ -507,9 +602,16 @@ export async function deleteFinanceResource(
   return data;
 }
 
-export async function uploadFuelRecordAttachment(id: string, file: File) {
+export async function uploadFuelRecordAttachment(
+  id: string,
+  file: File,
+  category?: string,
+) {
   const formData = new FormData();
   formData.append("file", file);
+  if (category) {
+    formData.append("category", category);
+  }
   const { data } = await api.post<FuelRecord>(
     `/finance/fuel-records/${id}/attachments`,
     formData,
@@ -541,6 +643,19 @@ export async function fetchFuelRecordAttachmentBlob(
 ) {
   const { data } = await api.get<Blob>(
     `/finance/fuel-records/${id}/attachments/${encodeURIComponent(fileName)}`,
+    {
+      responseType: "blob",
+    },
+  );
+  return data;
+}
+
+export async function fetchDriverFuelPortalAttachmentBlob(
+  id: string,
+  fileName: string,
+) {
+  const { data } = await api.get<Blob>(
+    `/finance/driver-portal/fuel-records/${id}/attachments/${encodeURIComponent(fileName)}`,
     {
       responseType: "blob",
     },
@@ -657,16 +772,33 @@ export async function deleteComplianceCheck(id: string) {
   return data;
 }
 
-export async function saveSetting(
-  key: string,
-  value: number | string | boolean,
-) {
+export async function saveSetting(key: string, value: unknown) {
   const { data } = await api.post("/settings/parameters", {
     scope: "tenant",
     key,
     value,
   });
   return data;
+}
+
+export async function getSettingsParameters() {
+  const { data } = await api.get<
+    ApiPage<{
+      _id: string;
+      key: string;
+      value: unknown;
+      scope: string;
+      scopeId?: string;
+    }>
+  >("/settings/parameters", {
+    params: {
+      page: 1,
+      limit: 100,
+      sortBy: "updatedAt",
+      sortDir: "desc",
+    },
+  });
+  return data.data;
 }
 
 export async function uploadLegacySpreadsheet(
@@ -700,6 +832,36 @@ export async function uploadLegacySpreadsheet(
       apiErrorMessage(error, "Não foi possível importar a planilha."),
     );
   }
+}
+
+export async function deleteMaintenanceOrderAttachment(
+  id: string,
+  fileName: string,
+) {
+  const { data } = await api.delete<MaintenanceOrder>(
+    `/maintenance/orders/${id}/attachments/${encodeURIComponent(fileName)}`,
+  );
+  return data;
+}
+
+export async function uploadDriverFuelPortalAttachment(
+  id: string,
+  file: File,
+  category?: string,
+) {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (category) {
+    formData.append("category", category);
+  }
+  const { data } = await api.post<FuelRecord>(
+    `/finance/driver-portal/fuel-records/${id}/attachments`,
+    formData,
+    {
+      timeout: 60_000,
+    },
+  );
+  return data;
 }
 
 export async function downloadImportTemplate() {

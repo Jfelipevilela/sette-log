@@ -34,9 +34,14 @@ import {
 } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { LoadingState } from "../../components/ui/loading-state";
+import { SearchableSelect } from "../../components/ui/searchable-select";
 import { StatCard } from "../../components/ui/stat-card";
 import { VehicleTypeIcon } from "../../components/vehicle-type-icon";
-import { getDashboard } from "../../lib/api";
+import {
+  getDashboard,
+  getDashboardFuelSeries,
+  getVehicles,
+} from "../../lib/api";
 import {
   labelFor,
   maintenanceTypeLabels,
@@ -167,7 +172,7 @@ function FuelByDayTooltip({
 
   const point = payload[0]?.payload ?? {};
   const liters = safeNumber(point.liters);
-  const total = safeNumber(point.total);
+  const total = safeNumber(point.total ?? point.totalCost);
 
   return (
     <div
@@ -209,6 +214,10 @@ export function DashboardPage() {
     .slice(0, 10);
   const [from, setFrom] = useState(firstDayOfMonth);
   const [to, setTo] = useState(lastDayOfMonth);
+  const [selectedFuelVehicleId, setSelectedFuelVehicleId] = useState("");
+  const [fuelSeriesGranularity, setFuelSeriesGranularity] = useState<
+    "day" | "month" | "year"
+  >("day");
   const {
     data = {
       kpis: {
@@ -246,6 +255,27 @@ export function DashboardPage() {
     queryFn: () => getDashboard({ from, to }),
     refetchInterval: 30_000,
   });
+  const { data: vehicles = [] } = useQuery({
+    queryKey: ["vehicles"],
+    queryFn: () => getVehicles(),
+  });
+  const { data: fuelSeries } = useQuery({
+    queryKey: [
+      "dashboard-fuel-series",
+      from,
+      to,
+      selectedFuelVehicleId,
+      fuelSeriesGranularity,
+    ],
+    queryFn: () =>
+      getDashboardFuelSeries({
+        from,
+        to,
+        vehicleId: selectedFuelVehicleId || undefined,
+        granularity: fuelSeriesGranularity,
+      }),
+    refetchInterval: 30_000,
+  });
 
   const costByMonth = data.costByMonth.slice(-12).map((point) => ({
     month: `${String(point._id.month).padStart(2, "0")}/${point._id.year}`,
@@ -266,16 +296,26 @@ export function DashboardPage() {
       expenseCost: safeNumber(point.expenseCost),
     })) || [];
 
-  const fuelByDay = costByDay.map((point) => ({
-    day: point.day,
-    liters: safeNumber(point.liters),
-    total: safeNumber(point.fuelCost),
-  }));
+  const dashboardVehicleOptions = [
+    { value: "", label: "Todos os veículos" },
+    ...vehicles.map((vehicle) => ({
+      value: vehicle._id,
+      label: `${vehicle.plate} - ${vehicle.nickname ?? vehicle.model}`,
+      searchText: `${vehicle.plate} ${vehicle.nickname ?? ""} ${vehicle.brand} ${vehicle.model}`,
+    })),
+  ];
+  const fuelSeriesData =
+    fuelSeries?.points.map((point) => ({
+      label: point.label,
+      liters: safeNumber(point.liters),
+      totalCost: safeNumber(point.totalCost),
+      records: safeNumber(point.records),
+    })) ?? [];
 
   const hasDailyData = costByDay.some(
     (point) => Number(point.total) > 0 || Number(point.liters) > 0,
   );
-  const hasFuelByDay = fuelByDay.some((point) => Number(point.liters) > 0);
+  const hasFuelSeries = fuelSeriesData.some((point) => point.liters > 0);
   const totalOperationalCost =
     data.kpis.totalOperationalCost ??
     safeNumber(data.kpis.totalFuelCost) +
@@ -315,6 +355,13 @@ export function DashboardPage() {
     }))
     .reverse();
   const totalVehicles = safeNumber(data.kpis.totalVehicles);
+  const efficiencyRanking = data.fuelByVehicle
+    .filter((vehicle) => safeNumber(vehicle.averageKmPerLiter) > 0)
+    .slice()
+    .sort(
+      (left, right) =>
+        safeNumber(right.averageKmPerLiter) - safeNumber(left.averageKmPerLiter),
+    );
   const operationalDistribution = statusOperationalData.map((item) => ({
     ...item,
     percent: totalVehicles ? (item.value / totalVehicles) * 100 : 0,
@@ -534,22 +581,47 @@ export function DashboardPage() {
         <Card className="overflow-hidden">
           <CardHeader className="border-b border-fleet-line bg-zinc-50/70">
             <div>
-              <CardTitle>Abastecimentos por dia</CardTitle>
+              <CardTitle>Abastecimento por veículo</CardTitle>
               <p className="mt-1 text-sm text-zinc-500">
-                Volume abastecido no período filtrado.
+                Litros abastecidos por dia, mês ou ano, com filtro por carro.
               </p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Badge tone="cyan">
-                Litros por dia
-              </Badge>
+            <div className="flex w-full flex-col gap-3 md:max-w-[360px] md:items-end">
+              <SearchableSelect
+                value={selectedFuelVehicleId}
+                onValueChange={setSelectedFuelVehicleId}
+                options={dashboardVehicleOptions}
+                placeholder="Selecionar veículo"
+                searchPlaceholder="Buscar placa ou apelido"
+                className="w-full"
+              />
+              <div className="flex w-full flex-wrap gap-2 md:justify-end">
+                {(["day", "month", "year"] as const).map((granularity) => (
+                  <button
+                    key={granularity}
+                    type="button"
+                    onClick={() => setFuelSeriesGranularity(granularity)}
+                    className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition ${
+                      fuelSeriesGranularity === granularity
+                        ? "border-cyan-200 bg-cyan-50 text-cyan-700"
+                        : "border-zinc-200 bg-white text-zinc-500 hover:border-zinc-300"
+                    }`}
+                  >
+                    {granularity === "day"
+                      ? "Dia"
+                      : granularity === "month"
+                        ? "Mês"
+                        : "Ano"}
+                  </button>
+                ))}
+              </div>
             </div>
           </CardHeader>
           <CardContent className="h-96 bg-white">
-            {hasFuelByDay ? (
+            {hasFuelSeries ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
-                  data={fuelByDay}
+                  data={fuelSeriesData}
                   margin={{ top: 18, right: 12, left: -12, bottom: 4 }}
                 >
                   <CartesianGrid
@@ -558,7 +630,7 @@ export function DashboardPage() {
                     strokeDasharray="4 4"
                   />
                   <XAxis
-                    dataKey="day"
+                    dataKey="label"
                     tickLine={false}
                     axisLine={false}
                     tick={{ fill: "#71717a", fontSize: 12 }}
@@ -581,7 +653,7 @@ export function DashboardPage() {
               </ResponsiveContainer>
             ) : (
               <div className="flex h-96 items-center justify-center text-sm text-zinc-500">
-                Nenhum abastecimento encontrado no período selecionado.
+                Nenhum abastecimento encontrado para o filtro selecionado.
               </div>
             )}
           </CardContent>
@@ -1067,7 +1139,7 @@ export function DashboardPage() {
         <Card className="overflow-hidden">
           <CardHeader className="border-b border-fleet-line bg-zinc-50/70">
             <div>
-              <CardTitle>Consumo médio por carro</CardTitle>
+              <CardTitle>Ranking de km/L médio</CardTitle>
               <p className="mt-1 text-sm text-zinc-500">
                 Km/L calculado a partir do odômetro inicial no primeiro
                 abastecimento e, depois, pela sequência dos abastecimentos.
@@ -1075,7 +1147,7 @@ export function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-3 p-5">
-            {data.fuelByVehicle.slice(0, 6).map((vehicle) => (
+            {efficiencyRanking.slice(0, 6).map((vehicle, index) => (
               <div
                 key={vehicle.vehicleId}
                 className="rounded-lg border border-fleet-line p-3"
@@ -1085,7 +1157,7 @@ export function DashboardPage() {
                     <VehicleTypeIcon type={vehicle.type} />
                     <div className="min-w-0">
                       <strong className="block truncate text-sm">
-                        {vehicle.plate}
+                        {index + 1}. {vehicle.plate}
                       </strong>
                       <span className="block truncate text-xs text-zinc-500">
                         {vehicle.label}
@@ -1110,7 +1182,7 @@ export function DashboardPage() {
                 </p>
               </div>
             ))}
-            {data.fuelByVehicle.length === 0 && (
+            {efficiencyRanking.length === 0 && (
               <p className="text-sm text-zinc-500">
                 Sem abastecimentos no período.
               </p>

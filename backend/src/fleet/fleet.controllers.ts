@@ -34,7 +34,7 @@ import {
 import { FleetResource, FleetService } from "./fleet.service";
 import { ImportsService } from "./imports.service";
 import { TemplateGeneratorService } from "./template-generator.service";
-import { DashboardQueryDto } from "./dto/dashboard.dto";
+import { DashboardQueryDto, FuelSeriesQueryDto } from "./dto/dashboard.dto";
 
 type GenericBody = Record<string, unknown>;
 const financeResources: FleetResource[] = [
@@ -77,6 +77,21 @@ export class DashboardController {
     @Query() query: DashboardQueryDto,
   ) {
     return this.fleetService.dashboard(user.tenantId, query.from, query.to);
+  }
+
+  @Get("fuel-series")
+  @RequirePermissions(PERMISSIONS.DASHBOARD_VIEW)
+  fuelSeries(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: FuelSeriesQueryDto,
+  ) {
+    return this.fleetService.vehicleFuelSeries(
+      user.tenantId,
+      query.vehicleId,
+      query.granularity,
+      query.from,
+      query.to,
+    );
   }
 }
 
@@ -243,9 +258,61 @@ export class DriversController {
   }
 
   @Delete(":id")
-  @RequirePermissions(PERMISSIONS.DRIVERS_EDIT)
+  @RequirePermissions(PERMISSIONS.DRIVERS_DELETE)
   remove(@CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
     return this.fleetService.remove("drivers", user.tenantId, id);
+  }
+
+  @Post(":id/attachments")
+  @ApiConsumes("multipart/form-data")
+  @ApiBody({
+    schema: {
+      type: "object",
+      required: ["file"],
+      properties: {
+        file: {
+          type: "string",
+          format: "binary",
+        },
+      },
+    },
+  })
+  @RequirePermissions(PERMISSIONS.DRIVERS_EDIT)
+  @UseInterceptors(
+    FileInterceptor("file", {
+      storage: memoryStorage(),
+      limits: {
+        fileSize: 10 * 1024 * 1024,
+      },
+    }),
+  )
+  attachDriverFile(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @UploadedFile() file?: UploadedSpreadsheetFile,
+  ) {
+    return this.fleetService.attachDriverFile(user.tenantId, id, file);
+  }
+
+  @Get(":id/attachments/:fileName")
+  @RequirePermissions(PERMISSIONS.DRIVERS_VIEW)
+  async downloadDriverFile(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Param("fileName") fileName: string,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const { stream, fileName: originalFileName } =
+      await this.fleetService.driverAttachmentStream(
+        user.tenantId,
+        id,
+        fileName,
+      );
+    response.set({
+      "Content-Type": "application/octet-stream",
+      "Content-Disposition": `attachment; filename="${String(originalFileName ?? fileName).replace(/"/g, "")}"`,
+    });
+    return new StreamableFile(stream);
   }
 }
 
@@ -344,7 +411,7 @@ export class MaintenanceController {
   }
 
   @Post("plans")
-  @RequirePermissions(PERMISSIONS.MAINTENANCE_MANAGE)
+  @RequirePermissions(PERMISSIONS.MAINTENANCE_CREATE)
   createPlan(
     @CurrentUser() user: AuthenticatedUser,
     @Body() body: GenericBody,
@@ -362,7 +429,7 @@ export class MaintenanceController {
   }
 
   @Post("orders")
-  @RequirePermissions(PERMISSIONS.MAINTENANCE_MANAGE)
+  @RequirePermissions(PERMISSIONS.MAINTENANCE_CREATE)
   createOrder(
     @CurrentUser() user: AuthenticatedUser,
     @Body() body: GenericBody,
@@ -371,7 +438,7 @@ export class MaintenanceController {
   }
 
   @Patch("orders/:id")
-  @RequirePermissions(PERMISSIONS.MAINTENANCE_MANAGE)
+  @RequirePermissions(PERMISSIONS.MAINTENANCE_EDIT)
   updateOrder(
     @CurrentUser() user: AuthenticatedUser,
     @Param("id") id: string,
@@ -386,7 +453,7 @@ export class MaintenanceController {
   }
 
   @Delete("orders/:id")
-  @RequirePermissions(PERMISSIONS.MAINTENANCE_MANAGE)
+  @RequirePermissions(PERMISSIONS.MAINTENANCE_DELETE)
   removeOrder(@CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
     return this.fleetService.remove("maintenance-orders", user.tenantId, id);
   }
@@ -405,7 +472,7 @@ export class MaintenanceController {
       },
     },
   })
-  @RequirePermissions(PERMISSIONS.MAINTENANCE_MANAGE)
+  @RequirePermissions(PERMISSIONS.MAINTENANCE_EDIT)
   @UseInterceptors(
     FileInterceptor("file", {
       storage: memoryStorage(),
@@ -442,6 +509,20 @@ export class MaintenanceController {
     });
     return new StreamableFile(stream);
   }
+
+  @Delete("orders/:id/attachments/:fileName")
+  @RequirePermissions(PERMISSIONS.MAINTENANCE_DELETE)
+  removeOrderFile(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Param("fileName") fileName: string,
+  ) {
+    return this.fleetService.removeMaintenanceOrderAttachment(
+      user.tenantId,
+      id,
+      fileName,
+    );
+  }
 }
 
 @ApiTags("finance")
@@ -465,8 +546,99 @@ export class FinanceController {
     return this.fleetService.fuelRecordsSummary(user.tenantId);
   }
 
+  @Get("driver-portal/context")
+  @RequirePermissions(PERMISSIONS.FUEL_DRIVER_PORTAL_ACCESS)
+  driverPortalContext(@CurrentUser() user: AuthenticatedUser) {
+    return this.fleetService.driverPortalContext(user.tenantId, user);
+  }
+
+  @Get("driver-portal/fuel-records")
+  @RequirePermissions(PERMISSIONS.FUEL_DRIVER_PORTAL_ACCESS)
+  driverPortalFuelRecords(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: PaginationQueryDto,
+  ) {
+    return this.fleetService.driverPortalFuelRecords(user.tenantId, user, query);
+  }
+
+  @Post("driver-portal/fuel-records")
+  @RequirePermissions(PERMISSIONS.FUEL_DRIVER_PORTAL_ACCESS)
+  driverPortalCreateFuelRecord(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() body: GenericBody,
+  ) {
+    return this.fleetService.createDriverPortalFuelRecord(
+      user.tenantId,
+      user,
+      body,
+    );
+  }
+
+  @Post("driver-portal/fuel-records/:id/attachments")
+  @ApiConsumes("multipart/form-data")
+  @ApiBody({
+    schema: {
+      type: "object",
+      required: ["file"],
+      properties: {
+        file: {
+          type: "string",
+          format: "binary",
+        },
+        category: {
+          type: "string",
+        },
+      },
+    },
+  })
+  @RequirePermissions(PERMISSIONS.FUEL_DRIVER_PORTAL_ACCESS)
+  @UseInterceptors(
+    FileInterceptor("file", {
+      storage: memoryStorage(),
+      limits: {
+        fileSize: 10 * 1024 * 1024,
+      },
+    }),
+  )
+  driverPortalAttachFuelRecordFile(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() body: GenericBody,
+    @UploadedFile() file?: UploadedSpreadsheetFile,
+  ) {
+    return this.fleetService.attachDriverPortalFuelRecordFile(
+      user.tenantId,
+      user,
+      id,
+      file,
+      body,
+    );
+  }
+
+  @Get("driver-portal/fuel-records/:id/attachments/:fileName")
+  @RequirePermissions(PERMISSIONS.FUEL_DRIVER_PORTAL_ACCESS)
+  async driverPortalDownloadFuelRecordFile(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Param("fileName") fileName: string,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const { stream, attachment } =
+      await this.fleetService.driverPortalFuelRecordAttachmentStream(
+        user.tenantId,
+        user,
+        id,
+        fileName,
+      );
+    response.set({
+      "Content-Type": String(attachment.mimeType ?? "application/octet-stream"),
+      "Content-Disposition": `attachment; filename="${String(attachment.originalName ?? fileName).replace(/"/g, "")}"`,
+    });
+    return new StreamableFile(stream);
+  }
+
   @Post("fuel-records")
-  @RequirePermissions(PERMISSIONS.FINANCE_MANAGE)
+  @RequirePermissions(PERMISSIONS.FINANCE_CREATE)
   createFuelRecord(
     @CurrentUser() user: AuthenticatedUser,
     @Body() body: GenericBody,
@@ -475,7 +647,7 @@ export class FinanceController {
   }
 
   @Patch("fuel-records/:id")
-  @RequirePermissions(PERMISSIONS.FINANCE_MANAGE)
+  @RequirePermissions(PERMISSIONS.FINANCE_EDIT)
   updateFuelRecord(
     @CurrentUser() user: AuthenticatedUser,
     @Param("id") id: string,
@@ -485,7 +657,7 @@ export class FinanceController {
   }
 
   @Delete("fuel-records/:id")
-  @RequirePermissions(PERMISSIONS.FINANCE_MANAGE)
+  @RequirePermissions(PERMISSIONS.FINANCE_DELETE)
   removeFuelRecord(
     @CurrentUser() user: AuthenticatedUser,
     @Param("id") id: string,
@@ -512,7 +684,7 @@ export class FinanceController {
       },
     },
   })
-  @RequirePermissions(PERMISSIONS.FINANCE_MANAGE)
+  @RequirePermissions(PERMISSIONS.FINANCE_EDIT)
   @UseInterceptors(
     FileInterceptor("file", {
       storage: memoryStorage(),
@@ -524,9 +696,15 @@ export class FinanceController {
   attachFuelRecordFile(
     @CurrentUser() user: AuthenticatedUser,
     @Param("id") id: string,
+    @Body() body: GenericBody,
     @UploadedFile() file?: UploadedSpreadsheetFile,
   ) {
-    return this.fleetService.attachFuelRecordFile(user.tenantId, id, file);
+    return this.fleetService.attachFuelRecordFile(
+      user.tenantId,
+      id,
+      file,
+      body,
+    );
   }
 
   @Get("fuel-records/:id/attachments/:fileName")
@@ -568,7 +746,7 @@ export class FinanceController {
   }
 
   @Post(":resource")
-  @RequirePermissions(PERMISSIONS.FINANCE_MANAGE)
+  @RequirePermissions(PERMISSIONS.FINANCE_CREATE)
   createResource(
     @CurrentUser() user: AuthenticatedUser,
     @Param("resource") resource: string,
@@ -585,7 +763,7 @@ export class FinanceController {
   }
 
   @Patch(":resource/:id")
-  @RequirePermissions(PERMISSIONS.FINANCE_MANAGE)
+  @RequirePermissions(PERMISSIONS.FINANCE_EDIT)
   updateResource(
     @CurrentUser() user: AuthenticatedUser,
     @Param("resource") resource: string,
@@ -604,7 +782,7 @@ export class FinanceController {
   }
 
   @Delete(":resource/:id")
-  @RequirePermissions(PERMISSIONS.FINANCE_MANAGE)
+  @RequirePermissions(PERMISSIONS.FINANCE_DELETE)
   removeResource(
     @CurrentUser() user: AuthenticatedUser,
     @Param("resource") resource: string,
@@ -637,7 +815,7 @@ export class ComplianceController {
   }
 
   @Post("documents")
-  @RequirePermissions(PERMISSIONS.COMPLIANCE_MANAGE)
+  @RequirePermissions(PERMISSIONS.COMPLIANCE_CREATE)
   createDocument(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateDocumentDto,
@@ -650,7 +828,7 @@ export class ComplianceController {
   }
 
   @Patch("documents/:id")
-  @RequirePermissions(PERMISSIONS.COMPLIANCE_MANAGE)
+  @RequirePermissions(PERMISSIONS.COMPLIANCE_EDIT)
   updateDocument(
     @CurrentUser() user: AuthenticatedUser,
     @Param("id") id: string,
@@ -660,7 +838,7 @@ export class ComplianceController {
   }
 
   @Delete("documents/:id")
-  @RequirePermissions(PERMISSIONS.COMPLIANCE_MANAGE)
+  @RequirePermissions(PERMISSIONS.COMPLIANCE_DELETE)
   removeDocument(
     @CurrentUser() user: AuthenticatedUser,
     @Param("id") id: string,
@@ -678,7 +856,7 @@ export class ComplianceController {
   }
 
   @Post("checks")
-  @RequirePermissions(PERMISSIONS.COMPLIANCE_MANAGE)
+  @RequirePermissions(PERMISSIONS.COMPLIANCE_CREATE)
   createCheck(
     @CurrentUser() user: AuthenticatedUser,
     @Body() body: GenericBody,
@@ -687,7 +865,7 @@ export class ComplianceController {
   }
 
   @Patch("checks/:id")
-  @RequirePermissions(PERMISSIONS.COMPLIANCE_MANAGE)
+  @RequirePermissions(PERMISSIONS.COMPLIANCE_EDIT)
   updateCheck(
     @CurrentUser() user: AuthenticatedUser,
     @Param("id") id: string,
@@ -702,7 +880,7 @@ export class ComplianceController {
   }
 
   @Delete("checks/:id")
-  @RequirePermissions(PERMISSIONS.COMPLIANCE_MANAGE)
+  @RequirePermissions(PERMISSIONS.COMPLIANCE_DELETE)
   removeCheck(@CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
     return this.fleetService.remove("compliance-checks", user.tenantId, id);
   }
@@ -723,7 +901,7 @@ export class ComplianceController {
       },
     },
   })
-  @RequirePermissions(PERMISSIONS.COMPLIANCE_MANAGE)
+  @RequirePermissions(PERMISSIONS.COMPLIANCE_EDIT)
   @UseInterceptors(
     FilesInterceptor("files", 10, {
       storage: memoryStorage(),

@@ -5,33 +5,49 @@ import {
   Fuel,
   Gauge,
   Home,
-  Map,
+  LogOut,
   Menu,
   Settings,
   ShieldCheck,
   UserRound,
   Wrench,
-  LogOut,
 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Button } from "../ui/button";
-import { useAuthStore } from "../../store/auth-store";
-import { cn } from "../../lib/utils";
 import { getNotifications, markNotificationRead } from "../../lib/api";
+import { hasAnyPermission, PERMISSIONS } from "../../lib/permissions";
+import { cn } from "../../lib/utils";
+import { useAuthStore } from "../../store/auth-store";
+import { Button } from "../ui/button";
 
 const navItems = [
-  { to: "/", label: "Dashboard", icon: Home },
-  { to: "/vehicles", label: "Veículos", icon: Car },
-  // { to: "/tracking", label: "Rastreamento", icon: Map },
-  { to: "/drivers", label: "Motoristas", icon: UserRound },
-  { to: "/maintenance", label: "Manutenção", icon: Wrench },
-  { to: "/fuel", label: "Abastecimentos", icon: Fuel },
-  { to: "/finance", label: "Financeiro", icon: Gauge },
-  { to: "/compliance", label: "Compliance", icon: ShieldCheck },
-  { to: "/reports", label: "BI e Relatórios", icon: BarChart3 },
-  { to: "/settings", label: "Configurações", icon: Settings },
+  { to: "/", label: "Dashboard", icon: Home, permissions: [PERMISSIONS.DASHBOARD_VIEW] },
+  { to: "/vehicles", label: "Veículos", icon: Car, permissions: [PERMISSIONS.VEHICLES_VIEW] },
+  { to: "/drivers", label: "Motoristas", icon: UserRound, permissions: [PERMISSIONS.DRIVERS_VIEW] },
+  { to: "/maintenance", label: "Manutenção", icon: Wrench, permissions: [PERMISSIONS.MAINTENANCE_VIEW] },
+  {
+    to: "/fuel",
+    label: "Abastecimentos",
+    icon: Fuel,
+    permissions: [
+      PERMISSIONS.FINANCE_VIEW,
+      PERMISSIONS.FUEL_DRIVER_PORTAL_ACCESS,
+    ],
+  },
+  { to: "/finance", label: "Financeiro", icon: Gauge, permissions: [PERMISSIONS.FINANCE_VIEW] },
+  { to: "/compliance", label: "Compliance", icon: ShieldCheck, permissions: [PERMISSIONS.COMPLIANCE_VIEW] },
+  { to: "/reports", label: "BI e Relatórios", icon: BarChart3, permissions: [PERMISSIONS.REPORTS_VIEW] },
+  {
+    to: "/settings",
+    label: "Configurações",
+    icon: Settings,
+    permissions: [
+      PERMISSIONS.SETTINGS_MANAGE,
+      PERMISSIONS.USERS_MANAGE,
+      PERMISSIONS.INTEGRATIONS_MANAGE,
+    ],
+  },
 ];
 
 export function AdminLayout() {
@@ -46,6 +62,7 @@ export function AdminLayout() {
     queryKey: ["notifications"],
     queryFn: getNotifications,
     refetchInterval: 30_000,
+    enabled: hasAnyPermission(user, [PERMISSIONS.DASHBOARD_VIEW]),
   });
   const markReadMutation = useMutation({
     mutationFn: markNotificationRead,
@@ -55,6 +72,9 @@ export function AdminLayout() {
   const unreadCount = notifications.filter(
     (notification) => notification.status !== "read",
   ).length;
+  const visibleNavItems = navItems.filter((item) =>
+    hasAnyPermission(user, item.permissions),
+  );
 
   useEffect(() => {
     if (!notificationsOpen) {
@@ -94,10 +114,9 @@ export function AdminLayout() {
   return (
     <div className="min-h-screen text-fleet-ink">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-72 border-r border-emerald-950/40 bg-[linear-gradient(180deg,#041010_0%,#041313_45%,#020b0b_100%)] text-white shadow-[16px_0_45px_rgba(2,12,12,0.34)] lg:flex lg:flex-col">
-        {" "}
-        <div className="flex flex-col gap-3 border-b border-white/8 px-4 py-4 flex-none">
+        <div className="flex flex-col gap-3 border-b border-white/8 px-4 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl  shadow-lg shadow-emerald-950/25">
+            <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl shadow-lg shadow-emerald-950/25">
               <img
                 src="/brand/logo-sette-log.png"
                 alt="SETTE Log"
@@ -106,14 +125,12 @@ export function AdminLayout() {
             </div>
             <div>
               <strong className="block text-lg font-semibold">SETTE Log</strong>
-              <span className="text-xs text-zinc-300">
-                Operação corporativa
-              </span>
+              <span className="text-xs text-zinc-300">Operação corporativa</span>
             </div>
           </div>
         </div>
-        <nav className="flex-1 space-y-1.5 px-3 py-4 overflow-y-auto">
-          {navItems.map((item) => (
+        <nav className="flex-1 space-y-1.5 overflow-y-auto px-3 py-4">
+          {visibleNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -154,7 +171,7 @@ export function AdminLayout() {
                 <UserRound size={16} />
               </div>
               <div className="min-w-0 truncate">
-                <div className="text-sm font-medium text-white truncate">
+                <div className="truncate text-sm font-medium text-white">
                   {user?.name ?? "Operador"}
                 </div>
                 <div className="text-xs text-zinc-400">
@@ -166,7 +183,7 @@ export function AdminLayout() {
               onClick={handleLogout}
               variant="ghost"
               size="sm"
-              className="h-8 w-8 p-0 text-white hover:bg-white/20 hover:text-white border border-white/30 rounded flex items-center justify-center"
+              className="flex h-8 w-8 items-center justify-center rounded border border-white/30 p-0 text-white hover:bg-white/20 hover:text-white"
               title="Sair"
               aria-label="Sair"
             >
@@ -196,26 +213,28 @@ export function AdminLayout() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button
-              ref={notificationsButtonRef}
-              type="button"
-              className="relative flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 bg-white text-zinc-700 shadow-[0_8px_20px_rgba(15,23,42,0.06)] transition hover:-translate-y-px hover:border-emerald-200 hover:bg-emerald-50/40"
-              onClick={() => setNotificationsOpen((current) => !current)}
-            >
-              <Bell size={18} />
-              {unreadCount > 0 && (
-                <span className="absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-fleet-red px-1 text-[10px] font-bold text-white">
-                  {unreadCount}
-                </span>
-              )}
-            </button>
-            {notificationsOpen && (
+            {hasAnyPermission(user, [PERMISSIONS.DASHBOARD_VIEW]) && (
+              <>
+                <button
+                  ref={notificationsButtonRef}
+                  type="button"
+                  className="relative flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 bg-white text-zinc-700 shadow-[0_8px_20px_rgba(15,23,42,0.06)] transition hover:-translate-y-px hover:border-emerald-200 hover:bg-emerald-50/40"
+                  onClick={() => setNotificationsOpen((current) => !current)}
+                >
+                  <Bell size={18} />
+                  {unreadCount > 0 && (
+                    <span className="absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-fleet-red px-1 text-[10px] font-bold text-white">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+                {notificationsOpen && (
               <div
                 ref={notificationsPanelRef}
                 className="absolute right-4 top-16 z-50 w-[min(360px,calc(100vw-2rem))] rounded-lg border border-white/80 bg-white/95 p-2 shadow-[0_22px_60px_rgba(15,23,42,0.20)] ring-1 ring-slate-200/80 backdrop-blur-xl lg:right-8"
               >
                 <div className="flex items-center justify-between gap-3 px-2 py-2">
-                  <strong className="text-sm">{"Notifica\u00e7\u00f5es"}</strong>
+                  <strong className="text-sm">Notificações</strong>
                   <button
                     type="button"
                     className="rounded-md px-2 py-1 text-xs font-medium text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-700"
@@ -227,7 +246,7 @@ export function AdminLayout() {
                 <div className="max-h-96 space-y-1 overflow-y-auto">
                   {notifications.length === 0 && (
                     <p className="px-2 py-4 text-sm text-zinc-500">
-                      {"Nenhuma notifica\u00e7\u00e3o."}
+                      Nenhuma notificação.
                     </p>
                   )}
                   {notifications.map((notification) => (
@@ -252,6 +271,8 @@ export function AdminLayout() {
                   ))}
                 </div>
               </div>
+                )}
+              </>
             )}
           </div>
         </header>
@@ -265,10 +286,13 @@ export function AdminLayout() {
           className="fixed inset-0 z-50 bg-black/45 lg:hidden"
           onClick={() => setMobileOpen(false)}
         >
-          <aside className="fixed inset-y-0 left-0 z-30 flex w-72 flex-col border-r border-white/10 bg-[linear-gradient(180deg,#111714_0%,#1b2a23_52%,#111b17_100%)] text-white shadow-[12px_0_35px_rgba(22,24,22,0.18)]">
-            <div className="flex flex-col gap-3 px-4 py-4 border-b border-white/8 flex-none">
+          <aside
+            className="fixed inset-y-0 left-0 z-30 flex w-72 flex-col border-r border-white/10 bg-[linear-gradient(180deg,#041010_0%,#041313_45%,#020b0b_100%)] text-white shadow-[12px_0_35px_rgba(22,24,22,0.18)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex flex-col gap-3 border-b border-white/8 px-4 py-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-white/5 shadow-lg shadow-emerald-950/25">
+                <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl shadow-lg shadow-emerald-950/25">
                   <img
                     src="/brand/logo-sette-log.png"
                     alt="SETTE Log"
@@ -285,8 +309,8 @@ export function AdminLayout() {
                 </div>
               </div>
             </div>
-            <nav className="flex-1 space-y-1.5 px-3 py-4 overflow-y-auto">
-              {navItems.map((item) => (
+            <nav className="flex-1 space-y-1.5 overflow-y-auto px-3 py-4">
+              {visibleNavItems.map((item) => (
                 <NavLink
                   key={item.to}
                   to={item.to}
@@ -328,7 +352,7 @@ export function AdminLayout() {
                     <UserRound size={16} />
                   </div>
                   <div className="min-w-0 truncate">
-                    <div className="text-sm font-medium text-white truncate">
+                    <div className="truncate text-sm font-medium text-white">
                       {user?.name ?? "Operador"}
                     </div>
                     <div className="text-xs text-zinc-400">
@@ -343,7 +367,7 @@ export function AdminLayout() {
                   }}
                   variant="ghost"
                   size="sm"
-                  className="h-8 w-8 p-0 text-white hover:bg-white/20 hover:text-white border border-white/30 rounded flex items-center justify-center"
+                  className="flex h-8 w-8 items-center justify-center rounded border border-white/30 p-0 text-white hover:bg-white/20 hover:text-white"
                   title="Sair"
                   aria-label="Sair"
                 >

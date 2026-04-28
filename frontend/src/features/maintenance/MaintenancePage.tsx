@@ -73,7 +73,7 @@ import { formatCurrency, formatDate } from "../../lib/utils";
 const maintenanceTypeOptions = [
   { value: "preventive", label: "Preventiva" },
   { value: "corrective", label: "Corretiva" },
-  { value: "predictive", label: "Preditiva" },
+  // { value: "predictive", label: "Preditiva" },
 ];
 
 const priorityOptions = [

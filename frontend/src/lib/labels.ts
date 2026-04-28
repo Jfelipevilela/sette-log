@@ -61,7 +61,7 @@ export const priorityLabels: Record<string, string> = {
 export const maintenanceTypeLabels: Record<string, string> = {
   preventive: 'Preventiva',
   corrective: 'Corretiva',
-  predictive: 'Preditiva'
+  // predictive: 'Preditiva'
 };
 
 export const severityLabels: Record<string, string> = {

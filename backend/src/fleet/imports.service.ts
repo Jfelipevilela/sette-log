@@ -1165,9 +1165,9 @@ export class ImportsService {
     if (["corrective", "corretiva"].includes(normalized)) {
       return "corrective";
     }
-    if (["predictive", "preditiva"].includes(normalized)) {
-      return "predictive";
-    }
+    // if (["predictive", "preditiva"].includes(normalized)) {
+    //   return "predictive";
+    // }
     return "preventive";
   }
 

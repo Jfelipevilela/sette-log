@@ -209,7 +209,7 @@ const instrucoes = [
   ["manutencoes", "placa"],
   [
     "* Campo obrigatório: placa (veículo deve estar cadastrado previamente).",
-    "tipo aceita: preventiva, corretiva, preditiva.",
+    "tipo aceita: preventiva, corretiva.",
     "prioridade aceita: baixa, media, alta, critica.",
     "status aceita: aberta, agendada, em_andamento, concluida, cancelada.",
     "valor_total: custo total da manutenção (peças + mão de obra).",
@@ -984,7 +984,7 @@ const estruturaDados = [
   ["MANUTENÇÕES", ""],
   ["Coluna", "Descrição"],
   ["placa *", "Placa do veículo (deve estar cadastrado)"],
-  ["tipo", "Tipo: preventiva, corretiva, preditiva"],
+  ["tipo", "Tipo: preventiva, corretiva"],
   ["prioridade", "Prioridade: baixa, media, alta, critica"],
   ["status", "Status: aberta, agendada, em_andamento, concluida, cancelada"],
   ["agendamento", "Data de agendamento (DD/MM/AAAA)"],

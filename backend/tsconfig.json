@@ -19,7 +19,7 @@
 
     "incremental": true,
     "strictPropertyInitialization": false,
-    "ignoreDeprecations": "6.0",
+    "ignoreDeprecations": "5.0",
 
     "moduleResolution": "node",
     "baseUrl": ".",

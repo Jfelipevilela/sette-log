@@ -19,14 +19,14 @@ import type {
 import { notify } from "./toast";
 
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? "http://localhost:3333/api/v1",
+  baseURL: import.meta.env.VITE_API_URL ?? "/api/v1",
   timeout: 8000,
 });
 
 const apiOrigin = (() => {
   try {
     return new URL(
-      import.meta.env.VITE_API_URL ?? "http://localhost:3333/api/v1",
+      import.meta.env.VITE_API_URL ?? "/api/v1",
     ).origin;
   } catch {
     return window.location.origin;
@@ -799,6 +799,73 @@ export async function getSettingsParameters() {
     },
   });
   return data.data;
+}
+
+export async function downloadSystemExport() {
+  try {
+    const response = await api.get("/settings/system-export", {
+      responseType: "blob",
+      timeout: 120_000,
+    });
+
+    const blob = response.data as Blob;
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "sette-log-dados-completos.xlsx");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    throw new Error(
+      apiErrorMessage(error, "Não foi possível exportar os dados completos."),
+    );
+  }
+}
+
+export async function getBackups() {
+  const { data } = await api.get<
+    Array<{
+      fileName: string;
+      size: number;
+      createdAt: string;
+      updatedAt: string;
+    }>
+  >("/settings/backups");
+  return data;
+}
+
+export async function runManualBackup() {
+  const { data } = await api.post<{ success: boolean; filePath: string }>(
+    "/settings/backups/run",
+  );
+  return data;
+}
+
+export async function downloadBackupFile(fileName: string) {
+  try {
+    const response = await api.get(
+      `/settings/backups/${encodeURIComponent(fileName)}`,
+      {
+        responseType: "blob",
+        timeout: 120_000,
+      },
+    );
+    const blob = response.data as Blob;
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", fileName);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    throw new Error(
+      apiErrorMessage(error, "Não foi possível baixar o backup."),
+    );
+  }
 }
 
 export async function uploadLegacySpreadsheet(

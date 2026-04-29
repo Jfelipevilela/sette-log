@@ -18,7 +18,9 @@ import { FileInterceptor, FilesInterceptor } from "@nestjs/platform-express";
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from "@nestjs/swagger";
 import { Response } from "express";
 import { memoryStorage } from "multer";
+import { BackupService } from "../backup/backup.service";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
+import { Public } from "../common/decorators/public.decorator";
 import { RequirePermissions } from "../common/decorators/roles.decorator";
 import { PaginationQueryDto } from "../common/dto/pagination-query.dto";
 import { AuthenticatedUser } from "../common/types";
@@ -35,6 +37,8 @@ import { FleetResource, FleetService } from "./fleet.service";
 import { ImportsService } from "./imports.service";
 import { TemplateGeneratorService } from "./template-generator.service";
 import { DashboardQueryDto, FuelSeriesQueryDto } from "./dto/dashboard.dto";
+import { InjectConnection } from "@nestjs/mongoose";
+import { Connection } from "mongoose";
 
 type GenericBody = Record<string, unknown>;
 const financeResources: FleetResource[] = [
@@ -63,6 +67,45 @@ type UploadedSpreadsheetFile = {
   buffer: Buffer;
   size: number;
 };
+
+@ApiTags("health")
+@Controller("health")
+export class HealthController {
+  constructor(@InjectConnection() private readonly connection: Connection) {}
+
+  @Get()
+  @Public()
+  health() {
+    return {
+      status: "ok",
+      service: "sette-log-api",
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  @Get("ready")
+  @Public()
+  async readiness() {
+    const dbState = this.connection.readyState;
+    const pingOk =
+      dbState === 1
+        ? await this.connection.db
+            ?.admin()
+            .ping()
+            .then(() => true)
+            .catch(() => false)
+        : false;
+
+    return {
+      status: pingOk ? "ready" : "degraded",
+      database: {
+        connected: dbState === 1,
+        ping: Boolean(pingOk),
+      },
+      timestamp: new Date().toISOString(),
+    };
+  }
+}
 
 @ApiTags("dashboard")
 @ApiBearerAuth()
@@ -989,7 +1032,11 @@ export class AlertsController {
 @ApiBearerAuth()
 @Controller("settings")
 export class SettingsController {
-  constructor(private readonly fleetService: FleetService) {}
+  constructor(
+    private readonly fleetService: FleetService,
+    private readonly templateGenerator: TemplateGeneratorService,
+    private readonly backupService: BackupService,
+  ) {}
 
   @Get("branches")
   @RequirePermissions(PERMISSIONS.SETTINGS_MANAGE)
@@ -1061,6 +1108,55 @@ export class SettingsController {
     @Body() body: GenericBody,
   ) {
     return this.fleetService.upsertSetting(user.tenantId, body);
+  }
+
+  @Get("system-export")
+  @RequirePermissions(PERMISSIONS.SETTINGS_MANAGE)
+  async downloadSystemExport(
+    @CurrentUser() user: AuthenticatedUser,
+    @Res() response: Response,
+  ) {
+    const buffer = await this.templateGenerator.generateSystemExport(
+      user.tenantId,
+    );
+    response.set({
+      "Content-Type":
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition":
+        "attachment; filename=sette-log-dados-completos.xlsx",
+      "Content-Length": buffer.length,
+    });
+    response.send(buffer);
+  }
+
+  @Get("backups")
+  @RequirePermissions(PERMISSIONS.SETTINGS_MANAGE)
+  listBackups() {
+    return this.backupService.listBackups();
+  }
+
+  @Post("backups/run")
+  @RequirePermissions(PERMISSIONS.SETTINGS_MANAGE)
+  async runBackup() {
+    const filePath = await this.backupService.runBackup();
+    return {
+      success: true,
+      filePath,
+    };
+  }
+
+  @Get("backups/:fileName")
+  @RequirePermissions(PERMISSIONS.SETTINGS_MANAGE)
+  async downloadBackup(
+    @Param("fileName") fileName: string,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const file = await this.backupService.backupStream(fileName);
+    response.set({
+      "Content-Type": "application/gzip",
+      "Content-Disposition": `attachment; filename="${file.fileName.replace(/"/g, "")}"`,
+    });
+    return new StreamableFile(file.stream);
   }
 }
 

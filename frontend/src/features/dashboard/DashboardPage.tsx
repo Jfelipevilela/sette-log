@@ -460,7 +460,7 @@ export function DashboardPage() {
         <StatCard
           label="Disponibilidade"
           value={formatPercent(data.kpis.availability)}
-          detail={`${data.kpis.availableVehicles} liberados`}
+          detail={`${data.kpis.availableVehicles} disponíveis`}
           icon={Gauge}
           tone="cyan"
         />

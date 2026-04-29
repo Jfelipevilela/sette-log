@@ -2,7 +2,14 @@ import { Injectable } from "@nestjs/common";
 import { InjectConnection } from "@nestjs/mongoose";
 import ExcelJS from "exceljs";
 import { Connection } from "mongoose";
-import { Driver, Vehicle } from "./schemas/fleet.schemas";
+import {
+  DocumentRecord,
+  Driver,
+  Expense,
+  FuelRecord,
+  MaintenanceOrder,
+  Vehicle,
+} from "./schemas/fleet.schemas";
 
 type TemplateColumn = {
   label: string;
@@ -19,7 +26,7 @@ type TemplateSheet = {
   rules: string[];
 };
 
-const DATA_SHEETS: TemplateSheet[] = [
+export const DATA_SHEETS: TemplateSheet[] = [
   {
     name: "veiculos",
     title: "Veículos",
@@ -200,6 +207,147 @@ export class TemplateGeneratorService {
     return buffer as unknown as Buffer;
   }
 
+  async generateSystemExport(tenantId: string): Promise<Buffer> {
+    const [
+      vehicles,
+      drivers,
+      fuelRecords,
+      maintenanceOrders,
+      expenses,
+      documents,
+    ] = await Promise.all([
+      this.connection
+        .model(Vehicle.name)
+        .find({ tenantId })
+        .sort({ createdAt: -1 })
+        .lean(),
+      this.connection
+        .model(Driver.name)
+        .find({ tenantId })
+        .sort({ createdAt: -1 })
+        .lean(),
+      this.connection
+        .model(FuelRecord.name)
+        .find({ tenantId })
+        .sort({ filledAt: -1, createdAt: -1 })
+        .lean(),
+      this.connection
+        .model(MaintenanceOrder.name)
+        .find({ tenantId })
+        .sort({ createdAt: -1 })
+        .lean(),
+      this.connection
+        .model(Expense.name)
+        .find({ tenantId })
+        .sort({ occurredAt: -1, createdAt: -1 })
+        .lean(),
+      this.connection
+        .model(DocumentRecord.name)
+        .find({ tenantId })
+        .sort({ createdAt: -1 })
+        .lean(),
+    ]);
+
+    const vehicleById = new Map(
+      vehicles.map((vehicle: Record<string, any>) => [String(vehicle._id), vehicle]),
+    );
+    const driverById = new Map(
+      drivers.map((driver: Record<string, any>) => [String(driver._id), driver]),
+    );
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = "Sette Log";
+    workbook.lastModifiedBy = "Sette Log";
+    workbook.created = new Date();
+    workbook.modified = new Date();
+
+    this.buildInstructions(workbook);
+    this.buildRules(workbook);
+
+    const exportRowsBySheet: Record<string, unknown[][]> = {
+      veiculos: vehicles.map((vehicle: Record<string, any>) => [
+        vehicle.plate ?? "",
+        vehicle.brand ?? "",
+        vehicle.model ?? "",
+        vehicle.nickname ?? "",
+        vehicle.year ?? "",
+        vehicle.type ?? "",
+        vehicle.status ?? "",
+        vehicle.odometerKm ?? 0,
+        vehicle.initialOdometerKm ?? vehicle.odometerKm ?? 0,
+        vehicle.tankCapacityLiters ?? "",
+        vehicle.costCenter ?? "",
+        vehicle.sector ?? "",
+        vehicle.city ?? "",
+      ]),
+      motoristas: drivers.map((driver: Record<string, any>) => [
+        driver.name ?? "",
+        driver.licenseNumber ?? "",
+        driver.licenseCategory ?? "",
+        this.formatDate(driver.licenseExpiresAt),
+        driver.cpf ?? "",
+        driver.phone ?? "",
+        driver.email ?? "",
+        driver.status ?? "",
+      ]),
+      abastecimentos: fuelRecords.map((record: Record<string, any>) => [
+        vehicleById.get(String(record.vehicleId))?.plate ?? "",
+        record.liters ?? 0,
+        record.totalCost ?? 0,
+        driverById.get(String(record.driverId))?.licenseNumber ?? "",
+        record.pricePerLiter ?? "",
+        record.odometerKm ?? "",
+        this.formatDate(record.filledAt),
+        record.station ?? "",
+        record.fuelType ?? "",
+      ]),
+      "manutenções": maintenanceOrders.map((order: Record<string, any>) => [
+        vehicleById.get(String(order.vehicleId))?.plate ?? "",
+        order.type ?? "",
+        order.priority ?? "",
+        order.status ?? "",
+        this.formatDate(order.scheduledAt),
+        order.odometerKm ?? "",
+        order.totalCost ?? 0,
+        order.description ?? "",
+      ]),
+      despesas: expenses.map((expense: Record<string, any>) => [
+        vehicleById.get(String(expense.vehicleId))?.plate ?? "",
+        driverById.get(String(expense.driverId))?.licenseNumber ?? "",
+        expense.category ?? "",
+        expense.subcategory ?? "",
+        expense.description ?? "",
+        expense.amount ?? 0,
+        this.formatDate(expense.occurredAt),
+        expense.costCenter ?? "",
+        expense.vendor ?? "",
+        expense.documentNumber ?? "",
+      ]),
+      documentos: documents.map((document: Record<string, any>) => [
+        document.entityType ?? "",
+        document.entityType === "driver"
+          ? (driverById.get(String(document.entityId))?.licenseNumber ?? "")
+          : (vehicleById.get(String(document.entityId))?.plate ?? ""),
+        document.type ?? "",
+        document.number ?? "",
+        this.formatDate(document.issuedAt),
+        this.formatDate(document.expiresAt),
+        document.fileUrl ?? "",
+      ]),
+    };
+
+    DATA_SHEETS.forEach((sheet) =>
+      this.buildDataSheet(
+        workbook,
+        sheet,
+        exportRowsBySheet[sheet.name] ?? [],
+      ),
+    );
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    return buffer as unknown as Buffer;
+  }
+
   private buildInstructions(workbook: ExcelJS.Workbook) {
     const sheet = workbook.addWorksheet("instrucoes");
     sheet.columns = [{ width: 34 }, { width: 95 }];
@@ -308,6 +456,17 @@ export class TemplateGeneratorService {
       ]);
     }
     return undefined;
+  }
+
+  private formatDate(value?: unknown) {
+    if (!value) {
+      return "";
+    }
+    const date = value instanceof Date ? value : new Date(String(value));
+    if (Number.isNaN(date.getTime())) {
+      return "";
+    }
+    return date.toLocaleDateString("pt-BR");
   }
 
   private title(sheet: ExcelJS.Worksheet, text: string, columns: number) {

@@ -1,26 +1,25 @@
 # Sette Log
 
-Plataforma corporativa de gestão de frotas com frontend administrativo, API REST, MongoDB, autenticação JWT, RBAC, auditoria, telemetria, rastreamento, manutenção, financeiro, compliance, BI e base preparada para IoT/eventos.
+Plataforma corporativa de gestão de frotas com frontend administrativo, API REST, MongoDB, autenticação JWT, RBAC, auditoria, manutenção, financeiro, compliance, BI e base preparada para integrações futuras.
 
 ## ETAPA 1 - Arquitetura proposta
 
-O projeto nasce como monorepo com separação clara entre `backend` e `frontend`.
+O projeto foi estruturado como monorepo com separação clara entre `backend` e `frontend`.
 
 - API NestJS em camadas: controllers, services, DTOs, guards, interceptors e schemas.
-- Banco MongoDB com Mongoose, colecoes operacionais e historicas.
-- Autenticação JWT com access token e refresh token hash no usuário.
-- RBAC com perfis e permissoes granulares.
-- Auditoria global para ações de escrita.
-- Frontend React com layout administrativo, rotas protegidas, React Query e componentes reutilizaveis.
-- Redis preparado no Docker Compose para filas/cache e evolção para ingestão assincrona.
-- Swagger/OpenAPI em `/api/v1/docs`.
+- MongoDB com Mongoose para dados operacionais e históricos.
+- Autenticação JWT com access token e refresh token.
+- RBAC com grupos, permissões granulares e trilha de auditoria.
+- Frontend React com layout administrativo, rotas protegidas, React Query e componentes reutilizáveis.
+- Redis preparado para cache e filas.
+- Swagger em `/api/v1/docs`.
 
 ## ETAPA 2 - Stack final
 
-- Frontend: React, TypeScript, Vite, Tailwind CSS, TanStack Query, React Hook Form, Zod, Recharts, Leaflet, Zustand.
-- Backend: Node.js, TypeScript, NestJS, Mongoose, Passport JWT, class-validator, Swagger, Helmet, rate limit.
-- Banco: MongoDB.
-- Infra: Docker Compose com MongoDB, Redis, API e Web.
+- Frontend: React, TypeScript, Vite, Tailwind CSS, TanStack Query, React Hook Form, Zod, Recharts, Leaflet e Zustand.
+- Backend: Node.js, TypeScript, NestJS, Mongoose, Passport JWT, class-validator, Swagger, Helmet e rate limit.
+- Banco de dados: MongoDB.
+- Infraestrutura: Docker Compose com MongoDB, Redis, API e Web.
 
 ## ETAPA 3 - Estrutura de pastas
 
@@ -30,8 +29,8 @@ backend/
     auth/
     common/
     fleet/
-    imports/
     users/
+    backup/
     app.module.ts
     main.ts
     seed.ts
@@ -42,12 +41,14 @@ frontend/
     lib/
     store/
 docker-compose.yml
+docker-compose.prod.yml
 .env.example
+.env.production.example
 ```
 
 ## ETAPA 4 - Modelagem do banco
 
-Colecoes criadas com timestamps, status e indices:
+Coleções principais com timestamps, status e índices:
 
 - `users`, `roles`
 - `branches`, `vehicles`, `drivers`, `trackers`
@@ -58,40 +59,39 @@ Colecoes criadas com timestamps, status e indices:
 - `notifications`, `alerts`, `audit_logs`
 - `integrations`, `webhooks`, `settings`
 
-Principais indices:
+Índices principais:
 
-- `tenantId + plate` único em veículos.
-- `tenantId + licenseNumber` único em motoristas.
-- `tenantId + email` único em usuários.
-- `tenantId + vehicleId + occurredAt` em telemetria e GPS.
-- `2dsphere` em posições e geocercas.
-- `tenantId + status + triggeredAt` em alertas.
-- `tenantId + actorUserId + createdAt` em auditoria.
+- `tenantId + plate` único em veículos
+- `tenantId + licenseNumber` único em motoristas
+- `tenantId + email` único em usuários
+- `tenantId + vehicleId + occurredAt` em telemetria e GPS
+- `2dsphere` em posições e geocercas
+- `tenantId + status + triggeredAt` em alertas
+- `tenantId + actorUserId + createdAt` em auditoria
 
-## ETAPA 5 - Modulos e regras de negocio
+## ETAPA 5 - Módulos e regras de negócio
 
-Modulos implementados na base:
+Módulos já implementados:
 
-- Plataforma central: dashboard, KPIs, alertas e saude operacional.
-- Rastreamento: snapshot ao vivo, posições, geocercas e playback.
-- Telemetria: ingestão de eventos, atualização de veículo e alertas.
-- Manutenção: planos, ordens e histórico.
-- Motoristas: cadastro, CNH, score e vínculo com veículo.
-- Financeiro: abastecimentos, despesas, multas, sinistros e seguros.
-- Compliance: documentos, checklists e auditoria.
-- Integrações: providers, webhooks e parâmetros.
+- Dashboard operacional
+- Veículos
+- Motoristas
+- Manutenção
+- Abastecimentos
+- Financeiro
+- Compliance
+- Configurações
+- Importação, exportação e backup
 
-Regras já codificadas:
+Regras importantes já aplicadas:
 
-- Motorista principal não pode ficar vinculado a dois veículos.
-- Veículo não pode receber motorista principal já associado a outro veículo.
+- Um motorista principal não pode estar vinculado a dois veículos ao mesmo tempo.
 - Documento vencido ou próximo do vencimento gera alerta.
-- Abastecimento atualiza custo e litros acumulados do veículo.
-- Despesas, multas e sinistros impactam resumo financeiro do veículo.
-- Telemetria atualiza ultima posição, status, resumo e GPS histórico.
-- Excesso de velocidade e bateria baixa geram alerta.
-- Entrada/saida de geocerca circular gera alerta.
-- Ordem em execução move veículo para manutenção; ordem fechada libera veículo e registra histórico.
+- Abastecimento atualiza custos e consumo do veículo.
+- Despesas, multas e sinistros impactam o resumo financeiro.
+- Ordens de serviço em execução impactam o status operacional do veículo.
+- OS finalizada não pode mais ser editada.
+- Veículo com OS em execução não pode ter status alterado.
 - Ações críticas geram log de auditoria.
 
 ## ETAPA 6 - Backend base
@@ -103,11 +103,7 @@ Endpoints principais:
 - `POST /api/v1/auth/logout`
 - `GET /api/v1/dashboard`
 - `GET|POST|PATCH|DELETE /api/v1/vehicles`
-- `GET|POST|PATCH /api/v1/drivers`
-- `GET /api/v1/tracking/live`
-- `GET /api/v1/tracking/vehicles/:vehicleId/playback`
-- `POST /api/v1/telemetry/ingest`
-- `GET|POST /api/v1/maintenance/plans`
+- `GET|POST|PATCH|DELETE /api/v1/drivers`
 - `GET|POST|PATCH /api/v1/maintenance/orders`
 - `GET|POST /api/v1/finance/fuel-records`
 - `GET|POST /api/v1/finance/expenses`
@@ -122,28 +118,42 @@ Endpoints principais:
 - `GET|POST /api/v1/settings/integrations`
 - `GET|POST /api/v1/settings/webhooks`
 - `GET|POST /api/v1/settings/parameters`
+- `GET /api/v1/settings/system-export`
+- `GET /api/v1/settings/backups`
+- `POST /api/v1/settings/backups/run`
+- `GET /api/v1/settings/backups/:fileName`
 - `POST /api/v1/imports/spreadsheet`
-- `GET /api/v1/exports/:resource`
 
-## Backup diario
+## Backup diário
 
-O backend agenda automaticamente um backup diario do MongoDB quando a API sobe.
-O arquivo e salvo em JSON compactado (`.json.gz`) na pasta configurada.
+O backend agenda backup diário automaticamente quando a API sobe.
 
-Variaveis:
+Estratégia atual:
+
+- tenta usar `mongodump` e gerar arquivo `.archive.gz`
+- se `mongodump` não estiver disponível, usa fallback `.json.gz`
+- remove arquivos antigos conforme a retenção configurada
+
+Variáveis:
 
 - `BACKUP_ENABLED=true`
 - `BACKUP_HOUR=2`
 - `BACKUP_RETENTION_DAYS=30`
 - `BACKUP_DIR=../backups/mongodb`
+- `MONGODUMP_PATH=mongodump`
+- `MONGODUMP_READ_PREFERENCE=secondaryPreferred`
 
-Padrao atual: gera um backup todos os dias as 02:00 e remove arquivos mais antigos que 30 dias.
+Endpoints:
+
+- `GET /api/v1/settings/backups`
+- `POST /api/v1/settings/backups/run`
+- `GET /api/v1/settings/backups/:fileName`
 
 ## Exportação CSV
 
-As telas principais possuem botão de exportação CSV. O backend exporta todos os registros do recurso, não apenas a página atual.
+As telas principais possuem exportação CSV. O backend exporta todos os registros do recurso, não apenas a página atual.
 
-Recursos exportaveis:
+Recursos exportáveis:
 
 - `vehicles`
 - `drivers`
@@ -160,23 +170,20 @@ Recursos exportaveis:
 
 ## Importação de planilhas antigas
 
-A tela `Configurações` permite subir planilhas de sistemas anteriores para migrar dados históricos. O backend tambem expoe o endpoint `POST /api/v1/imports/spreadsheet` com `multipart/form-data`.
+A tela `Configurações` permite subir planilhas de sistemas anteriores para migrar dados históricos.
 
-Template pronto:
+Endpoint:
 
-- Arquivo local: `templates/sette-log-importação-template.xlsx`
-- Download pela aplicação: `http://localhost:5173/templates/sette-log-importação-template.xlsx`
-
-O template possui abas separadas: `veiculos`, `motoristas`, `abastecimentos`, `manutenções` e `documentos`. Ao importar um XLSX com várias abas, o sistema usa a aba correspondente ao tipo selecionado na tela.
+- `POST /api/v1/imports/spreadsheet`
 
 Formatos aceitos:
 
 - `.csv`
 - `.xlsx`
 
-CSV pode usar separador por virgula, ponto e virgula ou tab. O importador tambem aceita datas em formato brasileiro, ISO ou serial numerico do Excel.
+CSV pode usar vírgula, ponto e vírgula ou tab. O importador também aceita datas em formato brasileiro, ISO e serial numérico do Excel.
 
-Tipos de importação aceitos no campo `resource`:
+Tipos aceitos no campo `resource`:
 
 - `vehicles`
 - `drivers`
@@ -192,61 +199,66 @@ Ordem recomendada:
 4. `maintenance-orders`
 5. `documents`
 
-A primeira linha da planilha precisa conter cabecalhos. O importador aceita nomes comuns em portugues e ingles. Exemplos:
+O template possui abas separadas para:
 
-- Veículos: `placa`, `marca`, `modelo`, `ano`, `tipo`, `odometro`, `centro_custo`
-- Motoristas: `nome`, `cnh`, `categoria_cnh`, `validade_cnh`, `cpf`, `telefone`, `email`
-- Abastecimentos: `placa`, `cnh`, `litros`, `valor_total`, `preco_litro`, `odometro`, `data_abastecimento`, `posto`, `combustível`
-- Manutenções: `placa`, `tipo`, `prioridade`, `status`, `agendamento`, `odometro`, `valor`
-- Documentos: `entidade`, `referencia`, `documento`, `numero`, `emissao`, `vencimento`, `url`
-
-Planilhas de abastecimento, manutenção e documentos usam `placa` ou `cnh` para vincular os históricos aos cadastros já importados. O limite atual e de 5000 linhas por arquivo para manter a importação previsível no ambiente inicial.
-
-Reimportar veículos, motoristas e documentos atualiza registros existentes quando encontra a mesma placa, CNH ou chave documental.
+- `veiculos`
+- `motoristas`
+- `abastecimentos`
+- `manutencoes`
+- `despesas`
+- `documentos`
 
 ## ETAPA 7 - Frontend base
 
-Telas criadas:
+Telas principais:
 
-- Login.
-- Dashboard principal.
-- Gestão de veículos.
-- Rastreamento em tempo real com mapa.
-- Gestão de motoristas.
-- Manutenção.
-- Financeiro.
-- Compliance.
-- Analytics e BI.
-- Configurações.
+- Login
+- Dashboard principal
+- Veículos
+- Motoristas
+- Manutenção
+- Abastecimentos
+- Financeiro
+- Compliance
+- BI e Relatórios
+- Configurações
+- Documentação pública da API
 
-## ETAPA 8 - Autenticação e permissoes
+## ETAPA 8 - Autenticação e permissões
 
-Perfis seedados:
+Perfis e grupos:
 
 - `super_admin`
-- `fleet_manager`
-- `operator`
-- `maintenance_analyst`
-- `finance`
-- `driver`
-- `auditor`
+- grupos editáveis por tenant
 
-Cada perfil expande permissoes via `ROLE_PERMISSIONS`. O guard global aceita `super_admin` como bypass e exige permissoes por endpoint com `@RequirePermissions`.
+O `super_admin` é o único grupo de sistema e recebe todas as permissões possíveis.
 
-## ETAPA 9 - Dashboard e modulos iniciais
+O sistema já suporta permissões por ação, com granularidade de:
+
+- visualização
+- criação
+- edição
+- exclusão
+- exportação
+- acessos específicos, como portal do técnico
+
+## ETAPA 9 - Dashboard e módulos iniciais
 
 O dashboard agrega:
 
-- Total de veículos.
-- Disponibilidade.
-- Motoristas ativos.
-- Alertas abertos.
-- Custo de combustível.
-- Despesas.
-- Preço médio por litro.
-- Status operacional.
-- Manutenção proxima.
-- Documentos vencendo.
+- total de veículos
+- disponibilidade
+- motoristas ativos
+- alertas abertos
+- custo total
+- combustível
+- manutenção
+- outras despesas
+- custo por dia
+- histórico 12 meses
+- ranking de consumo
+- ranking de maior gasto
+- abastecimento por veículo
 
 ## ETAPA 10 - Como rodar
 
@@ -256,7 +268,13 @@ Copie o arquivo de ambiente:
 cp .env.example .env
 ```
 
-Instale dependencias:
+No Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Instale as dependências:
 
 ```bash
 npm install
@@ -268,20 +286,20 @@ Suba MongoDB e Redis:
 docker compose up -d mongo redis
 ```
 
-Rode os seeds:
+Rode o seed:
 
 ```bash
 npm run seed
 ```
 
-Inicie API e frontend em terminais separados pela raiz:
+Inicie backend e frontend em terminais separados, pela raiz:
 
 ```bash
 npm run dev:backend
 npm run dev:frontend
 ```
 
-Ou rode cada projeto pela propria pasta:
+Ou rode cada projeto pela própria pasta:
 
 ```bash
 cd backend
@@ -293,7 +311,7 @@ cd frontend
 npm run dev
 ```
 
-Acesse:
+Acessos:
 
 - Web: `http://localhost:5173`
 - API: `http://localhost:3333/api/v1`
@@ -308,25 +326,25 @@ admin123
 
 ## Onde alterar o banco de dados
 
-Altere a variavel `MONGODB_URI` no arquivo `.env` na raiz do projeto:
+Altere a variável `MONGODB_URI` no arquivo `.env` na raiz do projeto:
 
 ```text
 MONGODB_URI=mongodb://usuario:senha@host:porta/nome_do_banco?authSource=admin
 ```
 
-Para o ambiente Docker local, o valor padrao e:
+Para o ambiente Docker local, o valor padrão é:
 
 ```text
 MONGODB_URI=mongodb://root:root@localhost:27017/sette_log?authSource=admin
 ```
 
-Também existem estes pontos relacionados:
+Pontos relacionados:
 
-- `.env.example`: modelo de variaveis para outros ambientes.
-- `docker-compose.yml`: banco MongoDB local do Docker e nome do database inicial.
-- `backend/src/app.module.ts`: fallback tecnico usado somente se `MONGODB_URI` não existir.
+- `.env.example`
+- `docker-compose.yml`
+- `backend/src/app.module.ts`
 
-Em producao, não altere `app.module.ts`; configure `MONGODB_URI` no ambiente do servidor, container, CI/CD ou painel de deploy.
+Em produção, não altere `app.module.ts`. Configure `MONGODB_URI` no ambiente do servidor, container, CI/CD ou painel de deploy.
 
 Também é possível subir tudo com Docker:
 
@@ -334,14 +352,143 @@ Também é possível subir tudo com Docker:
 docker compose up --build
 ```
 
+## Produção
+
+O projeto já está preparado para subir em container com:
+
+- `docker-compose.prod.yml`
+- `.env.production.example`
+- proxy interno do frontend para `/api/v1`
+- healthchecks de `mongo`, `redis`, `api` e `web`
+- backup com preferência por `mongodump`
+
+### 1. Preparar variáveis de ambiente
+
+Crie o arquivo `.env.production` a partir do exemplo:
+
+```bash
+cp .env.production.example .env.production
+```
+
+No Windows PowerShell:
+
+```powershell
+Copy-Item .env.production.example .env.production
+```
+
+Revise obrigatoriamente:
+
+- `MONGO_INITDB_ROOT_PASSWORD`
+- `JWT_ACCESS_SECRET`
+- `JWT_REFRESH_SECRET`
+- `FRONTEND_URL`
+- `MONGODB_URI`, se usar Mongo externo
+
+### 2. Subir em produção
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+```
+
+O frontend publica a aplicação na porta `80` e faz proxy de `/api/*` para o container `api`.
+
+### 3. Popular dados iniciais
+
+Depois dos containers subirem, execute o seed:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production exec api npm run seed
+```
+
+Credenciais padrão do seed:
+
+- email: `admin@settelog.local`
+- senha: `admin123`
+
+Troque essa senha após o primeiro acesso.
+
+### 4. Validar o ambiente
+
+Endpoints importantes:
+
+- aplicação: `http://SEU_HOST/`
+- healthcheck simples: `http://SEU_HOST/api/v1/health`
+- readiness: `http://SEU_HOST/api/v1/health/ready`
+- Swagger: `http://SEU_HOST/api/v1/docs`
+
+Checks esperados:
+
+- `/api/v1/health` retorna `status: ok`
+- `/api/v1/health/ready` retorna `status: ready`
+- login do `super_admin` funciona
+- `Configurações > Exportação e backup` gera exportação e backup manual
+
+### 5. Backup
+
+O backup do sistema funciona assim:
+
+1. tenta gerar snapshot com `mongodump` em `.archive.gz`
+2. se `mongodump` não estiver disponível, usa fallback `.json.gz`
+
+No compose de produção, a imagem da API já instala `mongodb-database-tools`, incluindo `mongodump`.
+
+Valide no servidor:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production exec api mongodump --version
+```
+
+Se esse comando falhar, o backup continuará funcional, mas cairá no fallback JSON compactado.
+
+### 6. Arquivos persistidos
+
+O compose de produção usa:
+
+- `./backups` para backups
+- `./storage/uploads` para anexos
+
+Isso funciona, mas para produção mais robusta o ideal é mover anexos para storage externo:
+
+- Amazon S3
+- Cloudflare R2
+- Azure Blob Storage
+
+### 7. Recomendações objetivas de deploy
+
+- coloque a aplicação atrás de HTTPS
+- use domínio real
+- restrinja ou desative o Swagger em produção
+- use segredos fortes para JWT
+- teste restore de backup periodicamente
+- monitore o espaço em disco de `backups` e `storage/uploads`
+
+## MongoDB e volume de dados
+
+Para o cenário atual, sem telemetria pesada em produção, o MongoDB atende bem.
+
+Os pontos que mais crescem neste sistema:
+
+- anexos
+- histórico de abastecimentos
+- auditoria
+- manutenções
+- documentos
+
+O MongoDB suporta esse cenário desde que você mantenha:
+
+- índices corretos
+- backup validado
+- storage adequado para anexos
+- retenção para dados que crescerem muito no futuro
+
 ## Evolução planejada
 
-A base já considera `tenantId`, `branchId`, eventos de telemetria, históricos temporais, webhooks, integrações e Redis. Isso deixa o sistema preparado para:
+A base já considera `tenantId`, `branchId`, eventos, webhooks, integrações e Redis. Isso deixa o sistema preparado para:
 
-- App mobile do motorista.
-- Ingestão MQTT/HTTP de rastreadores.
-- Filas com BullMQ/Redis.
-- Processamento assincrono de eventos.
-- Scoring avancado de direcao.
-- Modelos preditivos de manutenção.
-- Multiempresa e SaaS.
+- app mobile do motorista
+- ingestão MQTT/HTTP de rastreadores
+- filas com BullMQ/Redis
+- processamento assíncrono de eventos
+- scoring avançado de direção
+- modelos preditivos de manutenção
+- multiempresa e SaaS

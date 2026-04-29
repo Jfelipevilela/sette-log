@@ -701,10 +701,10 @@ export function VehiclesPage() {
                 : "-"
               : undefined,
           },
-          {
-            label: "Ultima posição",
-            value: detailVehicle?.lastPosition?.address,
-          },
+          // {
+          //   label: "Ultima posição",
+          //   value: detailVehicle?.lastPosition?.address,
+          // },
         ]}
       />
     </div>

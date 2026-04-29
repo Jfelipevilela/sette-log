@@ -47,9 +47,13 @@ import {
   disableUserApiAccess,
   deleteUser,
   downloadImportTemplate,
+  downloadBackupFile,
+  downloadSystemExport,
   enableUserApiAccess,
+  getBackups,
   getRoles,
   getSettingsParameters,
+  runManualBackup,
   getUsersPage,
   saveSetting,
   updateRole,
@@ -265,6 +269,19 @@ type FineCatalogItem = {
   description?: string;
 };
 
+function formatFileSize(size: number) {
+  if (!Number.isFinite(size) || size <= 0) {
+    return "0 B";
+  }
+  const units = ["B", "KB", "MB", "GB"];
+  const exponent = Math.min(
+    Math.floor(Math.log(size) / Math.log(1024)),
+    units.length - 1,
+  );
+  const value = size / 1024 ** exponent;
+  return `${value.toFixed(exponent === 0 ? 0 : 1)} ${units[exponent]}`;
+}
+
 export function SettingsPage() {
   const queryClient = useQueryClient();
   const [message, setMessage] = useState<string>();
@@ -329,6 +346,10 @@ export function SettingsPage() {
   const { data: roles = [] } = useQuery({
     queryKey: ["roles"],
     queryFn: () => getRoles(),
+  });
+  const { data: backups = [], isLoading: backupsLoading } = useQuery({
+    queryKey: ["settings-backups"],
+    queryFn: () => getBackups(),
   });
   const settingValue = (key: string) =>
     settingsParameters.find((item) => item.key === key)?.value;
@@ -576,6 +597,18 @@ export function SettingsPage() {
           : "Não foi possível importar a planilha completa.",
       );
     },
+  });
+
+  const runBackupMutation = useMutation({
+    mutationFn: runManualBackup,
+    onSuccess: async () => {
+      setMessage("Backup manual gerado com sucesso.");
+      await queryClient.invalidateQueries({ queryKey: ["settings-backups"] });
+    },
+    onError: (error) =>
+      setMessage(
+        apiErrorMessage(error, "Não foi possível gerar o backup manual."),
+      ),
   });
 
   const createUserMutation = useMutation({
@@ -855,6 +888,138 @@ export function SettingsPage() {
           </Card>
         ))}
       </section>
+
+      <Card className="overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-slate-50 via-white to-emerald-50">
+          <div>
+            <CardTitle>Exportação e backup</CardTitle>
+            <p className="mt-1 text-sm text-zinc-500">
+              Exporte todos os dados do sistema em XLSX no formato do template e
+              acompanhe os backups do banco.
+            </p>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
+            <div className="rounded-xl border border-fleet-line bg-zinc-50/70 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-fleet-ink">
+                    Exportação completa do sistema
+                  </h3>
+                  <p className="mt-1 text-sm text-zinc-500">
+                    Gera uma planilha com as abas de veículos, motoristas,
+                    abastecimentos, manutenções, despesas e documentos.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await downloadSystemExport();
+                      setMessage("Exportação completa gerada com sucesso.");
+                    } catch (error) {
+                      setMessage(
+                        error instanceof Error
+                          ? error.message
+                          : "Não foi possível exportar os dados completos.",
+                      );
+                    }
+                  }}
+                >
+                  <FileSpreadsheet size={16} />
+                  Exportar tudo em XLSX
+                </Button>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-fleet-line bg-zinc-50/70 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-fleet-ink">
+                    Backup manual
+                  </h3>
+                  <p className="mt-1 text-sm text-zinc-500">
+                    Gera um snapshot compactado do banco com retenção igual ao
+                    backup diário.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={runBackupMutation.isPending}
+                  onClick={() => runBackupMutation.mutate()}
+                >
+                  {runBackupMutation.isPending ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Upload size={16} />
+                  )}
+                  Gerar backup agora
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-fleet-line bg-white">
+            <div className="border-b border-fleet-line px-4 py-3">
+              <h3 className="text-sm font-semibold text-fleet-ink">
+                Backups disponíveis
+              </h3>
+              <p className="mt-1 text-xs text-zinc-500">
+                Arquivos `.json.gz` gerados automaticamente e manualmente.
+              </p>
+            </div>
+            <div className="divide-y divide-fleet-line">
+              {backupsLoading ? (
+                <div className="p-4">
+                  <LoadingState label="Carregando backups..." />
+                </div>
+              ) : backups.length === 0 ? (
+                <div className="p-4 text-sm text-zinc-500">
+                  Nenhum backup encontrado.
+                </div>
+              ) : (
+                backups.map((backup) => (
+                  <div
+                    key={backup.fileName}
+                    className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-fleet-ink">
+                        {backup.fileName}
+                      </p>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        {formatDateTime(backup.updatedAt)} ·{" "}
+                        {formatFileSize(backup.size)}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={async () => {
+                        try {
+                          await downloadBackupFile(backup.fileName);
+                          setMessage("Backup baixado com sucesso.");
+                        } catch (error) {
+                          setMessage(
+                            error instanceof Error
+                              ? error.message
+                              : "Não foi possível baixar o backup.",
+                          );
+                        }
+                      }}
+                    >
+                      <FileCode2 size={16} />
+                      Baixar backup
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="overflow-hidden">
         <CardHeader className="bg-gradient-to-r from-sky-50 via-white to-emerald-50">

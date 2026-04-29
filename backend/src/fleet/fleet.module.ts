@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
+import { BackupModule } from "../backup/backup.module";
 import {
   AlertsController,
   ComplianceController,
@@ -7,6 +8,7 @@ import {
   DriversController,
   ExportsController,
   FinanceController,
+  HealthController,
   ImportsController,
   MaintenanceController,
   NotificationsController,
@@ -21,9 +23,10 @@ import { TemplateGeneratorService } from "./template-generator.service";
 import { fleetSchemaDefinitions } from "./schemas/fleet.schemas";
 
 @Module({
-  imports: [MongooseModule.forFeature(fleetSchemaDefinitions)],
+  imports: [MongooseModule.forFeature(fleetSchemaDefinitions), BackupModule],
   controllers: [
     DashboardController,
+    HealthController,
     ExportsController,
     VehiclesController,
     DriversController,

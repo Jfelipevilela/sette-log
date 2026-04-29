@@ -151,10 +151,9 @@ export function FuelRecordsPage() {
     url: string;
   }>();
 
-  const isTechnicianPortal = hasPermission(
-    user,
-    PERMISSIONS.FUEL_DRIVER_PORTAL_ACCESS,
-  );
+  const isTechnicianPortal =
+    hasPermission(user, PERMISSIONS.FUEL_DRIVER_PORTAL_ACCESS) &&
+    !hasPermission(user, PERMISSIONS.FINANCE_VIEW);
 
   const { isLoading: recordsLoading } = useQuery({
     queryKey: ["fuel-records", page],

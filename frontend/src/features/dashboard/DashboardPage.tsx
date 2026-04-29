@@ -362,6 +362,22 @@ export function DashboardPage() {
       (left, right) =>
         safeNumber(right.averageKmPerLiter) - safeNumber(left.averageKmPerLiter),
     );
+  const efficiencyRankingChartData = efficiencyRanking
+    .slice(0, 8)
+    .map((vehicle, index) => ({
+      name: vehicle.plate,
+      label: vehicle.label,
+      averageKmPerLiter: safeNumber(vehicle.averageKmPerLiter),
+      distanceKm: safeNumber(vehicle.distanceKm),
+      efficiencyLiters: safeNumber(vehicle.efficiencyLiters),
+      fill:
+        index === 0
+          ? "#0f8f63"
+          : index < 3
+            ? "#10b981"
+            : "#027f9f",
+    }))
+    .reverse();
   const operationalDistribution = statusOperationalData.map((item) => ({
     ...item,
     percent: totalVehicles ? (item.value / totalVehicles) * 100 : 0,
@@ -1146,47 +1162,96 @@ export function DashboardPage() {
               </p>
             </div>
           </CardHeader>
-          <CardContent className="space-y-3 p-5">
-            {efficiencyRanking.slice(0, 6).map((vehicle, index) => (
-              <div
-                key={vehicle.vehicleId}
-                className="rounded-lg border border-fleet-line p-3"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <VehicleTypeIcon type={vehicle.type} />
-                    <div className="min-w-0">
-                      <strong className="block truncate text-sm">
-                        {index + 1}. {vehicle.plate}
-                      </strong>
-                      <span className="block truncate text-xs text-zinc-500">
-                        {vehicle.label}
-                      </span>
-                    </div>
-                  </div>
-                  <Badge tone="green">
-                    {vehicle.averageKmPerLiter
-                      ? `${vehicle.averageKmPerLiter.toLocaleString("pt-BR", {
-                          maximumFractionDigits: 2,
+          <CardContent className="space-y-4 p-5">
+            <div className="h-72">
+              {efficiencyRankingChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={efficiencyRankingChartData}
+                    layout="vertical"
+                    margin={{ top: 4, right: 8, left: 8, bottom: 4 }}
+                  >
+                    <CartesianGrid stroke="#e5e7eb" horizontal={false} />
+                    <XAxis
+                      type="number"
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(value) =>
+                        `${Number(value).toLocaleString("pt-BR", {
+                          maximumFractionDigits: 1,
                         })} km/L`
-                      : "Sem base"}
-                  </Badge>
+                      }
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      tickLine={false}
+                      axisLine={false}
+                      width={70}
+                    />
+                    <Tooltip
+                      contentStyle={chartTooltipStyle}
+                      formatter={(value) => [
+                        `${Number(value).toLocaleString("pt-BR", {
+                          maximumFractionDigits: 2,
+                        })} km/L`,
+                        "Média",
+                      ]}
+                      labelFormatter={(label) => `Veículo ${label}`}
+                    />
+                    <Bar
+                      dataKey="averageKmPerLiter"
+                      radius={[0, 6, 6, 0]}
+                    >
+                      {efficiencyRankingChartData.map((entry) => (
+                        <Cell key={entry.name} fill={entry.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex h-full items-center justify-center text-sm text-zinc-500">
+                  Sem abastecimentos no período.
                 </div>
-                <p className="mt-2 text-xs text-zinc-500">
-                  {Number(vehicle.distanceKm ?? 0).toLocaleString("pt-BR")} km
-                  analisados com{" "}
-                  {Number(vehicle.efficiencyLiters ?? 0).toLocaleString(
-                    "pt-BR",
-                  )}{" "}
-                  L vinculados ao consumo.
-                </p>
-              </div>
-            ))}
-            {efficiencyRanking.length === 0 && (
-              <p className="text-sm text-zinc-500">
-                Sem abastecimentos no período.
-              </p>
-            )}
+              )}
+            </div>
+            <div className="max-h-[168px] space-y-2 overflow-y-auto pr-1">
+              {efficiencyRanking.slice(0, 6).map((vehicle, index) => (
+                <div
+                  key={vehicle.vehicleId}
+                  className="rounded-lg border border-fleet-line p-3"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <VehicleTypeIcon type={vehicle.type} />
+                      <div className="min-w-0">
+                        <strong className="block truncate text-sm">
+                          {index + 1}. {vehicle.plate}
+                        </strong>
+                        <span className="block truncate text-xs text-zinc-500">
+                          {vehicle.label}
+                        </span>
+                      </div>
+                    </div>
+                    <Badge tone="green">
+                      {vehicle.averageKmPerLiter
+                        ? `${vehicle.averageKmPerLiter.toLocaleString("pt-BR", {
+                            maximumFractionDigits: 2,
+                          })} km/L`
+                        : "Sem base"}
+                    </Badge>
+                  </div>
+                  <p className="mt-2 text-xs text-zinc-500">
+                    {Number(vehicle.distanceKm ?? 0).toLocaleString("pt-BR")} km
+                    analisados com{" "}
+                    {Number(vehicle.efficiencyLiters ?? 0).toLocaleString(
+                      "pt-BR",
+                    )}{" "}
+                    L vinculados ao consumo.
+                  </p>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
 

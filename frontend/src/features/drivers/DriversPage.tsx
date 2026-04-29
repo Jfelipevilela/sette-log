@@ -83,7 +83,7 @@ export function DriversPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState<Driver>();
   const [detailDriver, setDetailDriver] = useState<Driver>();
-  const [attachmentFile, setAttachmentFile] = useState<File>();
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const [previewAttachment, setPreviewAttachment] = useState<{
     objectUrl?: string;
@@ -107,8 +107,12 @@ export function DriversPage() {
   const createDriverMutation = useMutation({
     mutationFn: async (payload: Partial<Driver>) => {
       const created = await createDriver(payload);
-      if (attachmentFile) {
-        return uploadDriverAttachment(created._id, attachmentFile);
+      if (attachmentFiles.length > 0) {
+        let updated = created;
+        for (const file of attachmentFiles) {
+          updated = await uploadDriverAttachment(created._id, file);
+        }
+        return updated;
       }
       return created;
     },
@@ -126,10 +130,14 @@ export function DriversPage() {
   const updateDriverMutation = useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: Partial<Driver> }) =>
       updateDriver(id, payload).then((updated) => {
-        if (!attachmentFile) {
+        if (attachmentFiles.length === 0) {
           return updated;
         }
-        return uploadDriverAttachment(id, attachmentFile);
+        return attachmentFiles.reduce<Promise<Driver>>(
+          (promise, file) =>
+            promise.then(() => uploadDriverAttachment(id, file)),
+          Promise.resolve(updated),
+        );
       }),
     onSuccess: async () => {
       closeModal();
@@ -171,7 +179,7 @@ export function DriversPage() {
     setIsModalOpen(false);
     setEditingDriver(undefined);
     setFormError(undefined);
-    setAttachmentFile(undefined);
+    setAttachmentFiles([]);
     if (attachmentInputRef.current) {
       attachmentInputRef.current.value = "";
     }
@@ -236,6 +244,11 @@ export function DriversPage() {
 
     if (!licenseCategory) {
       setFormError("Selecione ao menos uma categoria de CNH.");
+      return;
+    }
+    const existingAttachmentsCount = editingDriver?.attachments?.length ?? 0;
+    if (existingAttachmentsCount + attachmentFiles.length > 4) {
+      setFormError("O motorista pode ter no máximo 4 anexos.");
       return;
     }
 
@@ -529,38 +542,72 @@ export function DriversPage() {
               />
             </label>
             <label className="space-y-2 text-sm font-medium md:col-span-2">
-              Anexo do motorista
+              Anexos do motorista
               <Input
                 ref={attachmentInputRef}
                 type="file"
                 accept="image/*,.pdf,.xml,.txt,.csv,.xlsx,.xls,.doc,.docx"
-                onChange={(event) =>
-                  setAttachmentFile(event.target.files?.[0] ?? undefined)
-                }
+                onChange={(event) => {
+                  const nextFile = event.target.files?.[0];
+                  if (!nextFile) {
+                    return;
+                  }
+                  setAttachmentFiles((current) => {
+                    const duplicate = current.some(
+                      (file) =>
+                        file.name === nextFile.name &&
+                        file.size === nextFile.size &&
+                        file.lastModified === nextFile.lastModified,
+                    );
+                    if (duplicate) {
+                      return current;
+                    }
+                    return [...current, nextFile];
+                  });
+                  event.currentTarget.value = "";
+                }}
               />
-              {attachmentFile && (
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-fleet-line bg-zinc-50 px-3 py-2 text-sm">
-                  <div className="min-w-0">
-                    <p className="truncate font-medium text-fleet-ink">
-                      {attachmentFile.name}
-                    </p>
-                    <p className="text-xs text-zinc-500">
-                      {(attachmentFile.size / 1024 / 1024).toFixed(2)} MB
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className="rounded-full border border-fleet-line p-1 text-zinc-500 transition hover:bg-white hover:text-red-600"
-                    onClick={() => {
-                      setAttachmentFile(undefined);
-                      if (attachmentInputRef.current) {
-                        attachmentInputRef.current.value = "";
-                      }
-                    }}
-                    aria-label="Remover anexo"
-                  >
-                    <X size={16} />
-                  </button>
+              <p className="text-xs font-normal text-zinc-500">
+                Envie um arquivo por vez, até 4 anexos por motorista.
+              </p>
+              {attachmentFiles.length > 0 && (
+                <div className="space-y-2">
+                  {attachmentFiles.map((file, index) => (
+                    <div
+                      key={`${file.name}-${index}`}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-fleet-line bg-zinc-50 px-3 py-2 text-sm"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-fleet-ink">
+                          {file.name}
+                        </p>
+                        <p className="text-xs text-zinc-500">
+                          {(file.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="rounded-full border border-fleet-line p-1 text-zinc-500 transition hover:bg-white hover:text-red-600"
+                        onClick={() => {
+                          setAttachmentFiles((current) => {
+                            const nextFiles = current.filter(
+                              (_, currentIndex) => currentIndex !== index,
+                            );
+                            if (
+                              nextFiles.length === 0 &&
+                              attachmentInputRef.current
+                            ) {
+                              attachmentInputRef.current.value = "";
+                            }
+                            return nextFiles;
+                          });
+                        }}
+                        aria-label={`Remover anexo ${file.name}`}
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
               {editingDriver?.attachments && editingDriver.attachments.length > 0 && (

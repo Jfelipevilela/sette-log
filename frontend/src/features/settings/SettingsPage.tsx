@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useRef, useState } from "react";
+﻿import { FormEvent, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
@@ -64,13 +64,13 @@ import { formatDateTime } from "../../lib/utils";
 const settings = [
   {
     icon: UsersRound,
-    title: "Usuários e perfis",
+    title: "UsuÃ¡rios e perfis",
     detail: "RBAC por perfil e permissao granular",
     status: "ativo",
   },
   {
     icon: PlugZap,
-    title: "Integrações",
+    title: "IntegraÃ§Ãµes",
     detail: "ERP, TMS, WMS, mapas e rastreadores",
     status: "preparado",
   },
@@ -83,13 +83,13 @@ const settings = [
   {
     icon: KeyRound,
     title: "Tokens de API",
-    detail: "Credenciais para clientes e serviços externos",
+    detail: "Credenciais para clientes e serviÃ§os externos",
     status: "preparado",
   },
 ];
 
 const importResources = [
-  { value: "vehicles", label: "Veículos" },
+  { value: "vehicles", label: "Veí­culos" },
   { value: "drivers", label: "Motoristas" },
   { value: "fuel-records", label: "Abastecimentos" },
   { value: "maintenance-orders", label: "Ordens de Manutenção" },
@@ -125,7 +125,7 @@ const resourceMeta: Record<string, ResourceMeta> = {
       "capacidade_tanque",
       "centro_custo",
     ],
-    hint: "Se a placa já existir, o veículo será atualizado. Preencha odômetro_base_consumo para calcular o primeiro km/L.",
+    hint: "Se a placa jÃ¡ existir, o veÃ­culo serÃ¡ atualizado. Preencha odÃ´metro_base_consumo para calcular o primeiro km/L.",
   },
   drivers: {
     step: 2,
@@ -134,7 +134,7 @@ const resourceMeta: Record<string, ResourceMeta> = {
     borderColor: "border-blue-200",
     required: ["nome", "cnh", "categoria_cnh", "validade_cnh"],
     optional: ["cpf", "telefone", "email", "status"],
-    hint: "Se o número de CNH já existir, o motorista será atualizado. Pode ser importado junto com veículos.",
+    hint: "Se o nÃºmero de CNH jÃ¡ existir, o motorista serÃ¡ atualizado. Pode ser importado junto com veÃ­culos.",
   },
   "fuel-records": {
     step: 3,
@@ -148,10 +148,10 @@ const resourceMeta: Record<string, ResourceMeta> = {
       "odometro",
       "data_abastecimento",
       "posto",
-      "combustível",
+      "combustÃ­vel",
     ],
-    hint: "Sempre inserido como novo registro. Preencha o odômetro para calcular km/litro automaticamente.",
-    depends: "Requer veículos (e opcionalmente motoristas) já importados.",
+    hint: "Sempre inserido como novo registro. Preencha o odÃ´metro para calcular km/litro automaticamente.",
+    depends: "Requer veÃ­culos (e opcionalmente motoristas) jÃ¡ importados.",
   },
   "maintenance-orders": {
     step: 4,
@@ -169,7 +169,7 @@ const resourceMeta: Record<string, ResourceMeta> = {
       "descricao",
     ],
     hint: "Sempre inserida como nova ordem. tipo: preventiva, corretiva, preditiva.",
-    depends: "Requer veículos já importados.",
+    depends: "Requer veÃ­culos jÃ¡ importados.",
   },
   expenses: {
     step: 5,
@@ -186,7 +186,8 @@ const resourceMeta: Record<string, ResourceMeta> = {
       "numero_documento",
     ],
     hint: "Importa despesas operacionais e financeiras para compor Outras despesas no dashboard e no financeiro.",
-    depends: "Placa e CNH são opcionais, mas se informados precisam existir no sistema.",
+    depends:
+      "Placa e CNH são opcionais, mas se informados precisam existir no sistema.",
   },
   documents: {
     step: 6,
@@ -195,19 +196,19 @@ const resourceMeta: Record<string, ResourceMeta> = {
     borderColor: "border-purple-200",
     required: ["entidade", "referencia", "documento"],
     optional: ["numero", "emissao", "vencimento", "url"],
-    hint: "entidade = veículo ou motorista | referencia = placa ou CNH | documento = crlv, ipva, cnh, seguro...",
+    hint: "entidade = veículos ou motorista | referencia = placa ou CNH | documento = crlv, ipva, cnh, seguro...",
     depends: "Requer veículos e/ou motoristas já importados.",
   },
 };
 
 const roleOptions = [
   { value: "super_admin", label: "Super Admin" },
-  { value: "fleet_manager", label: "Gestor de Frota" },
-  { value: "operator", label: "Operador" },
-  { value: "maintenance_analyst", label: "Analista de Manutenção" },
-  { value: "finance", label: "Financeiro" },
-  { value: "driver", label: "Motorista" },
-  { value: "auditor", label: "Auditor / Visualizador" },
+  // { value: "fleet_manager", label: "Gestor de Frota" },
+  // { value: "operator", label: "Operador" },
+  // { value: "maintenance_analyst", label: "Analista de ManutenManutençãoo" },
+  // { value: "finance", label: "Financeiro" },
+  // { value: "driver", label: "Motorista" },
+  // { value: "auditor", label: "Auditor / Visualizador" },
 ];
 
 const userStatusOptions = [
@@ -242,7 +243,10 @@ const permissionOptions = [
   { value: "finance:create", label: "Financeiro - criar" },
   { value: "finance:edit", label: "Financeiro - editar" },
   { value: "finance:delete", label: "Financeiro - excluir" },
-  { value: "fuel_driver_portal:access", label: "Abastecimento do tecnico - acessar portal" },
+  {
+    value: "fuel_driver_portal:access",
+    label: "Abastecimento do tecnico - acessar portal",
+  },
   { value: "compliance:view", label: "Compliance - visualizar" },
   { value: "compliance:create", label: "Compliance - criar" },
   { value: "compliance:edit", label: "Compliance - editar" },
@@ -259,7 +263,6 @@ type FineCatalogItem = {
   code: string;
   title: string;
   description?: string;
-  defaultAmount?: number;
 };
 
 export function SettingsPage() {
@@ -268,7 +271,17 @@ export function SettingsPage() {
   const [maintenanceCatalogMessage, setMaintenanceCatalogMessage] =
     useState<string>();
   const [fineCatalogMessage, setFineCatalogMessage] = useState<string>();
-  const [fineCatalogDraft, setFineCatalogDraft] = useState<FineCatalogItem[]>([]);
+  const [fineCatalogDraft, setFineCatalogDraft] = useState<FineCatalogItem[]>(
+    [],
+  );
+  const [maintenanceCostCentersDraft, setMaintenanceCostCentersDraft] =
+    useState<string[]>([]);
+  const [maintenanceServicesDraft, setMaintenanceServicesDraft] = useState<
+    string[]
+  >([]);
+  const [maintenanceGroupsDraft, setMaintenanceGroupsDraft] = useState<
+    string[]
+  >([]);
   const [userPage, setUserPage] = useState(1);
   const [userSearch, setUserSearch] = useState("");
   const [appliedUserSearch, setAppliedUserSearch] = useState("");
@@ -287,6 +300,7 @@ export function SettingsPage() {
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<PermissionGroup>();
   const [roleError, setRoleError] = useState<string>();
+  const [rolesExpanded, setRolesExpanded] = useState(true);
   const [importResource, setImportResource] = useState("vehicles");
   const [importFile, setImportFile] = useState<File>();
   const [recalculateFuelTotal, setRecalculateFuelTotal] = useState(false);
@@ -355,10 +369,15 @@ export function SettingsPage() {
   );
 
   useEffect(() => {
-    setFineCatalogDraft(
-      fineCatalog.length > 0
-        ? fineCatalog
-        : [{ code: "", title: "", description: "", defaultAmount: undefined }],
+    setFineCatalogDraft(fineCatalog.length > 0 ? fineCatalog : []);
+    setMaintenanceCostCentersDraft(
+      maintenanceCostCenters.length > 0 ? maintenanceCostCenters : [],
+    );
+    setMaintenanceServicesDraft(
+      maintenanceServices.length > 0 ? maintenanceServices : [],
+    );
+    setMaintenanceGroupsDraft(
+      maintenanceGroups.length > 0 ? maintenanceGroups : [],
     );
   }, [settingsParameters]);
   const saveSettingsMutation = useMutation({
@@ -374,10 +393,11 @@ export function SettingsPage() {
       ]);
     },
     onSuccess: async () => {
-      setMessage("Gruporâmetros salvos com sucesso.");
+      setMessage("Grupos salvos com sucesso.");
       await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
-    onError: () => setMessage("Não foi possível salvar os gruporâmetros."),
+    onError: () =>
+      setMessage("Não foi possível salvar os grupos de parâmetros."),
   });
 
   const saveMaintenanceCatalogMutation = useMutation({
@@ -394,7 +414,9 @@ export function SettingsPage() {
     },
     onSuccess: async () => {
       setMaintenanceCatalogMessage("Catálogo de manutenção salvo com sucesso.");
-      await queryClient.invalidateQueries({ queryKey: ["settings-parameters"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["settings-parameters"],
+      });
     },
     onError: () =>
       setMaintenanceCatalogMessage(
@@ -411,17 +433,15 @@ export function SettingsPage() {
             code: item.code.trim(),
             title: item.title.trim(),
             description: item.description?.trim() || undefined,
-            defaultAmount:
-              item.defaultAmount !== undefined && item.defaultAmount !== null
-                ? Number(item.defaultAmount)
-                : undefined,
           }))
           .filter((item) => item.code && item.title),
       );
     },
     onSuccess: async () => {
       setFineCatalogMessage("Catálogo de multas salvo com sucesso.");
-      await queryClient.invalidateQueries({ queryKey: ["settings-parameters"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["settings-parameters"],
+      });
     },
     onError: () =>
       setFineCatalogMessage("Não foi possível salvar o catálogo de multas."),
@@ -533,7 +553,7 @@ export function SettingsPage() {
       const totalUpdated = result.summary.totalUpdated;
       const totalFailed = result.summary.totalFailed;
       setMessage(
-        `✅ Importação completa conclu?da: ${totalImported} inseridos, ${totalUpdated} atualizados, ${totalFailed} falhas.`,
+        `Importação completa concluída: ${totalImported} inseridos, ${totalUpdated} atualizados, ${totalFailed} falhas.`,
       );
       setImportFile(undefined);
       fileInputRef.current?.removeAttribute("value");
@@ -591,7 +611,7 @@ export function SettingsPage() {
   const deleteUserMutation = useMutation({
     mutationFn: deleteUser,
     onSuccess: async () => {
-      setMessage("Usuário excluido com sucesso.");
+      setMessage("Usuário excluído com sucesso.");
       await queryClient.invalidateQueries({ queryKey: ["users"] });
     },
     onError: (error) =>
@@ -631,7 +651,7 @@ export function SettingsPage() {
         return next;
       });
       setDetailUser((current) => (current?._id === user._id ? user : current));
-      setMessage("Acesso à API removido com sucesso.");
+      setMessage("Acesso Ã  API removido com sucesso.");
       await queryClient.invalidateQueries({ queryKey: ["users"] });
     },
     onError: (error) =>
@@ -650,24 +670,18 @@ export function SettingsPage() {
     });
   }
 
-  function normalizeCatalogList(value: string) {
+  function normalizeDraftList(items: string[]) {
     return Array.from(
-      new Set(
-        value
-          .split(/\r?\n|,/)
-          .map((item) => item.trim())
-          .filter(Boolean),
-      ),
+      new Set(items.map((item) => item.trim()).filter(Boolean)),
     );
   }
 
   function handleSaveMaintenanceCatalog(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
     saveMaintenanceCatalogMutation.mutate({
-      costCenters: normalizeCatalogList(String(form.get("costCenters") ?? "")),
-      services: normalizeCatalogList(String(form.get("services") ?? "")),
-      groups: normalizeCatalogList(String(form.get("parts") ?? "")),
+      costCenters: normalizeDraftList(maintenanceCostCentersDraft),
+      services: normalizeDraftList(maintenanceServicesDraft),
+      groups: normalizeDraftList(maintenanceGroupsDraft),
     });
   }
 
@@ -678,14 +692,12 @@ export function SettingsPage() {
         code: item.code.trim(),
         title: item.title.trim(),
         description: item.description?.trim() || undefined,
-        defaultAmount:
-          item.defaultAmount !== undefined && item.defaultAmount !== null
-            ? Number(item.defaultAmount)
-            : undefined,
       }))
       .filter((item) => item.code || item.title);
 
-    const invalidItem = normalizedItems.find((item) => !item.code || !item.title);
+    const invalidItem = normalizedItems.find(
+      (item) => !item.code || !item.title,
+    );
     if (invalidItem) {
       setFineCatalogMessage("Preencha código e título em todas as multas.");
       return;
@@ -812,7 +824,7 @@ export function SettingsPage() {
             <ShieldCheck size={18} />
             {saveSettingsMutation.isPending
               ? "Salvando..."
-              : "Salvar gruporâmetros"}
+              : "Salvar grupos de parâmetros"}
           </Button>
         </div>
       </section>
@@ -850,13 +862,15 @@ export function SettingsPage() {
             <CardTitle>Documentação da API</CardTitle>
             <p className="mt-1 text-sm text-zinc-500">
               Acesse a central pública de integração com exemplos de requisição,
-              resposta, erros HTTP, filtros por módulo e coleções para Postman
-              e Insomnia.
+              resposta, erros HTTP, filtros por módulo e coleções para Postman e
+              Insomnia.
             </p>
           </div>
           <Button
             type="button"
-            onClick={() => window.open("/api-docs", "_blank", "noopener,noreferrer")}
+            onClick={() =>
+              window.open("/api-docs", "_blank", "noopener,noreferrer")
+            }
           >
             <FileCode2 size={18} />
             Abrir documentação
@@ -905,7 +919,7 @@ export function SettingsPage() {
           </div>
 
           {usersLoading ? (
-            <LoadingState label="Carregando usuários..." />
+            <LoadingState label="Carregando usuÃ¡rios..." />
           ) : (
             <div className="space-y-4 overflow-x-auto">
               <Table>
@@ -1015,7 +1029,7 @@ export function SettingsPage() {
                               onClick: () => {
                                 if (
                                   window.confirm(
-                                    `Excluir o usuário ${user.name}?`,
+                                    `Excluir o usuÃ¡rio ${user.name}?`,
                                   )
                                 ) {
                                   deleteUserMutation.mutate(user._id);
@@ -1040,7 +1054,7 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* �?????��?????� Importar dados antigos �?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????��?????� */}
+      {/* ï¿½?????ï¿½ï¿½?????ï¿½ Importar dados antigos ï¿½?????ï¿½ï¿½?????ï¿½ï¿½?????ï¿½ï¿½?????ï¿½ï¿½?????ï¿½ï¿½?????ï¿½ï¿½?????ï¿½ï¿½?????ï¿½ï¿½?????ï¿½ï¿½?????ï¿½ï¿½?????ï¿½ï¿½?????ï¿½ï¿½?????ï¿½ï¿½?????ï¿½ï¿½?????ï¿½ï¿½?????ï¿½ï¿½?????ï¿½ï¿½?????ï¿½ï¿½?????ï¿½ï¿½?????ï¿½ï¿½?????ï¿½ï¿½?????ï¿½ï¿½?????ï¿½ï¿½?????ï¿½ï¿½?????ï¿½ï¿½?????ï¿½ï¿½?????ï¿½ï¿½?????ï¿½ï¿½?????ï¿½ï¿½?????ï¿½ï¿½?????ï¿½ï¿½?????ï¿½ï¿½?????ï¿½ï¿½?????ï¿½ */}
       <Card className="overflow-hidden">
         <CardHeader className="relative bg-gradient-to-r from-emerald-50 via-white to-cyan-50">
           <span className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-fleet-green via-cyan-500 to-fleet-amber" />
@@ -1132,7 +1146,7 @@ export function SettingsPage() {
                   <div className="space-y-2 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
-                        Obrigatorios
+                        Obrigatórios
                       </span>
                       {meta.required.map((col) => (
                         <span
@@ -1223,8 +1237,7 @@ export function SettingsPage() {
                     {importFile.name}
                   </p>
                   <p className="mt-0.5 text-xs text-zinc-500">
-                    {(importFile.size / 1024).toFixed(1)} KB · Clique para
-                    trocar
+                    {(importFile.size / 1024).toFixed(1)} KB. Clique para trocar
                   </p>
                 </div>
                 <button
@@ -1253,7 +1266,7 @@ export function SettingsPage() {
                     </span>
                   </p>
                   <p className="mt-1 text-xs text-zinc-400">
-                    CSV ou XLSX · máximo 5.000 linhas
+                    CSV ou XLSX Â· máximo 5.000 linhas
                   </p>
                 </div>
               </>
@@ -1311,7 +1324,7 @@ export function SettingsPage() {
             {/* Import complete spreadsheet */}
             <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-4">
               <p className="text-sm font-medium text-emerald-900 mb-3">
-                ✨ Ou importe tudo de uma vez!
+                Ou importe tudo de uma vez!
               </p>
               <Button
                 type="button"
@@ -1345,7 +1358,7 @@ export function SettingsPage() {
                   {/* Complete import summary */}
                   <div className="bg-emerald-50 border-b border-emerald-100 px-4 py-3">
                     <p className="text-sm font-semibold text-emerald-900">
-                      ✅ Importação completa realizada com sucesso!
+                      Importação completa realizada com sucesso!
                     </p>
                   </div>
 
@@ -1384,20 +1397,20 @@ export function SettingsPage() {
                               {result.resource === "fuel-records"
                                 ? "Abastecimentos"
                                 : result.resource === "maintenance-orders"
-                                  ? "Manutenções"
+                                  ? "ManutenÃ§Ãµes"
                                   : result.resource === "vehicles"
-                                    ? "Veículos"
+                                    ? "VeÃ­culos"
                                     : result.resource === "drivers"
                                       ? "Motoristas"
                                       : "Documentos"}
                             </p>
                             <p className="text-xs text-zinc-500 mt-1">
-                              {result.totalRows} linhas · {result.imported}{" "}
-                              inseridos · {result.updated} atualizados
+                              {result.totalRows} linhas Â· {result.imported}{" "}
+                              inseridos Â· {result.updated} atualizados
                               {result.failed > 0 && (
                                 <span className="text-red-600">
                                   {" "}
-                                  · {result.failed} erros
+                                  Â· {result.failed} erros
                                 </span>
                               )}
                             </p>
@@ -1519,8 +1532,8 @@ export function SettingsPage() {
                         {importResult.fileName}
                       </span>
                       {importResult.failed === 0
-                        ? " �????? importado com sucesso!"
-                        : ` �????? ${importResult.failed} linha(s) com erro. Corrija e reimporte.`}
+                        ? " importado com sucesso!"
+                        : `${importResult.failed} linha(s) com erro. Corrija e reimporte.`}
                     </span>
                   </div>
                   {/* Errors */}
@@ -1557,8 +1570,8 @@ export function SettingsPage() {
             <div>
               <CardTitle>Catálogo de multas</CardTitle>
               <p className="mt-1 text-sm text-zinc-500">
-                Cadastre multas grupodrão com código, descrição e valor sugerido
-                para reaproveitar no financeiro.
+                Cadastre multas com código, título e descrição para reaproveitar
+                no financeiro.
               </p>
             </div>
           </CardHeader>
@@ -1570,7 +1583,7 @@ export function SettingsPage() {
                     key={`${item.code}-${index}`}
                     className="rounded-lg border border-fleet-line bg-zinc-50/60 p-4"
                   >
-                    <div className="grid gap-3 md:grid-cols-[150px_1fr_170px_auto]">
+                    <div className="grid gap-3 md:grid-cols-[150px_1fr_auto]">
                       <label className="space-y-2 text-sm font-medium">
                         Código
                         <Input
@@ -1603,46 +1616,15 @@ export function SettingsPage() {
                           placeholder="Excesso de velocidade"
                         />
                       </label>
-                      <label className="space-y-2 text-sm font-medium">
-                        Valor sugerido
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={
-                            item.defaultAmount !== undefined
-                              ? String(item.defaultAmount)
-                              : ""
-                          }
-                          onChange={(event) =>
-                            setFineCatalogDraft((current) =>
-                              current.map((entry, entryIndex) =>
-                                entryIndex === index
-                                  ? {
-                                      ...entry,
-                                      defaultAmount: event.target.value
-                                        ? Number(event.target.value)
-                                        : undefined,
-                                    }
-                                  : entry,
-                              ),
-                            )
-                          }
-                          placeholder="0,00"
-                        />
-                      </label>
                       <div className="flex items-end">
                         <Button
                           type="button"
                           variant="secondary"
-                          disabled={fineCatalogDraft.length === 1}
                           onClick={() =>
                             setFineCatalogDraft((current) =>
-                              current.length === 1
-                                ? current
-                                : current.filter(
-                                    (_entry, entryIndex) => entryIndex !== index,
-                                  ),
+                              current.filter(
+                                (_entry, entryIndex) => entryIndex !== index,
+                              ),
                             )
                           }
                         >
@@ -1664,7 +1646,7 @@ export function SettingsPage() {
                             ),
                           )
                         }
-                        placeholder="Detalhe grupodrão da infração"
+                        placeholder="Detalhe padrão da infração"
                       />
                     </label>
                   </div>
@@ -1684,19 +1666,17 @@ export function SettingsPage() {
                   onClick={() =>
                     setFineCatalogDraft((current) => [
                       ...current,
-                      {
-                        code: "",
-                        title: "",
-                        description: "",
-                        defaultAmount: undefined,
-                      },
+                      { code: "", title: "", description: "" },
                     ])
                   }
                 >
                   <Plus size={16} />
                   Nova multa
                 </Button>
-                <Button type="submit" disabled={saveFineCatalogMutation.isPending}>
+                <Button
+                  type="submit"
+                  disabled={saveFineCatalogMutation.isPending}
+                >
                   {saveFineCatalogMutation.isPending
                     ? "Salvando..."
                     : "Salvar catálogo de multas"}
@@ -1708,96 +1688,135 @@ export function SettingsPage() {
 
         <Card className="overflow-hidden">
           <CardHeader className="bg-gradient-to-r from-violet-50 via-white to-cyan-50">
-            <div>
-              <CardTitle>Grupos de permissões</CardTitle>
-              <p className="mt-1 text-sm text-zinc-500">
-                Monte grupos personalizados para criar, editar, excluir,
-                exportar e administrar módulos específicos.
-              </p>
-            </div>
-            <Button type="button" onClick={openCreateRoleModal}>
-              <ShieldCheck size={18} />
-              Novo grupo
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {roles.map((role) => (
-              <div
-                key={role._id ?? role.key}
-                className="rounded-lg border border-fleet-line bg-white p-4"
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <button
+                type="button"
+                onClick={() => setRolesExpanded((current) => !current)}
+                className="flex min-w-0 flex-1 items-start gap-3 text-left"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <strong className="text-fleet-ink">{role.name}</strong>
-                      <Badge tone={role.system ? "neutral" : "cyan"}>
-                        {role.system ? "Grupodrão" : "Customizado"}
-                      </Badge>
-                      <Badge tone={role.status === "active" ? "green" : "amber"}>
-                        {role.status === "active" ? "Ativo" : "Inativo"}
-                      </Badge>
-                    </div>
-                    <p className="mt-1 text-sm text-zinc-500">
-                      Chave: <span className="font-mono">{role.key}</span>
-                    </p>
-                    {role.description && (
-                      <p className="mt-1 text-sm text-zinc-600">
-                        {role.description}
+                <span className="mt-1 rounded-full border border-violet-200 bg-white p-2 text-violet-600 shadow-sm">
+                  <ChevronRight
+                    size={18}
+                    className={`transition-transform ${rolesExpanded ? "rotate-90" : ""}`}
+                  />
+                </span>
+                <div className="min-w-0">
+                  <CardTitle>Grupos de permissões</CardTitle>
+                  <p className="mt-1 text-sm text-zinc-500">
+                    Monte grupos personalizados para criar, editar, excluir,
+                    exportar e administrar módulos específicos.
+                  </p>
+                  <p className="mt-2 text-xs text-zinc-500">
+                    Apenas o grupo Super Admin permanece protegido.
+                  </p>
+                </div>
+              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setRolesExpanded((current) => !current)}
+                >
+                  {rolesExpanded ? "Recolher" : "Abrir"}
+                </Button>
+                <Button type="button" onClick={openCreateRoleModal}>
+                  <ShieldCheck size={18} />
+                  Novo grupo
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          {rolesExpanded && (
+            <CardContent className="space-y-3">
+              {roles.map((role) => (
+                <div
+                  key={role._id ?? role.key}
+                  className="rounded-lg border border-fleet-line bg-white p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <strong className="text-fleet-ink">{role.name}</strong>
+                        <Badge tone={role.system ? "neutral" : "cyan"}>
+                          {role.system ? "Padrão do sistema" : "Customizado"}
+                        </Badge>
+                        <Badge
+                          tone={role.status === "active" ? "green" : "amber"}
+                        >
+                          {role.status === "active" ? "Ativo" : "Inativo"}
+                        </Badge>
+                      </div>
+                      <p className="mt-1 text-sm text-zinc-500">
+                        Chave: <span className="font-mono">{role.key}</span>
                       </p>
+                      {role.description && (
+                        <p className="mt-1 text-sm text-zinc-600">
+                          {role.description}
+                        </p>
+                      )}
+                      {role.system && (
+                        <p className="mt-2 text-xs text-amber-700">
+                          Grupo protegido do sistema.
+                        </p>
+                      )}
+                    </div>
+                    <ActionMenu
+                      items={[
+                        {
+                          label: role.system
+                            ? "Grupo padrão não editável"
+                            : "Editar",
+                          icon: <Edit2 size={15} />,
+                          disabled: role.system,
+                          onClick: () => openEditRoleModal(role),
+                        },
+                        {
+                          label: role.system
+                            ? "Grupo padrão não removível"
+                            : "Excluir",
+                          icon: <Trash2 size={15} />,
+                          danger: true,
+                          disabled: role.system || deleteRoleMutation.isPending,
+                          onClick: () => {
+                            if (
+                              role._id &&
+                              window.confirm(
+                                `Excluir o grupo ${role.name}? Usuários vinculados perderão esse perfil.`,
+                              )
+                            ) {
+                              deleteRoleMutation.mutate(role._id);
+                            }
+                          },
+                        },
+                      ]}
+                    />
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {role.permissions.slice(0, 6).map((permission) => (
+                      <span
+                        key={permission}
+                        className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs text-zinc-600"
+                      >
+                        {permission}
+                      </span>
+                    ))}
+                    {role.permissions.length > 6 && (
+                      <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs text-zinc-600">
+                        +{role.permissions.length - 6} permissões
+                      </span>
                     )}
                   </div>
-                  <ActionMenu
-                    items={[
-                      {
-                        label: "Editar",
-                        icon: <Edit2 size={15} />,
-                        disabled: role.system,
-                        onClick: () => openEditRoleModal(role),
-                      },
-                      {
-                        label: "Excluir",
-                        icon: <Trash2 size={15} />,
-                        danger: true,
-                        disabled: role.system || deleteRoleMutation.isPending,
-                        onClick: () => {
-                          if (
-                            role._id &&
-                            window.confirm(
-                              `Excluir o grupo ${role.name}? Usuários vinculados perderão esse perfil.`,
-                            )
-                          ) {
-                            deleteRoleMutation.mutate(role._id);
-                          }
-                        },
-                      },
-                    ]}
-                  />
                 </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {role.permissions.slice(0, 6).map((permission) => (
-                    <span
-                      key={permission}
-                      className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs text-zinc-600"
-                    >
-                      {permission}
-                    </span>
-                  ))}
-                  {role.permissions.length > 6 && (
-                    <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs text-zinc-600">
-                      +{role.permissions.length - 6} permissões
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </CardContent>
+              ))}
+            </CardContent>
+          )}
         </Card>
       </section>
 
       <Card className="overflow-hidden">
         <CardHeader className="bg-gradient-to-r from-amber-50 via-white to-emerald-50">
           <div>
-            <CardTitle>Gruporâmetros de alerta</CardTitle>
+            <CardTitle>Parâmetros de alerta</CardTitle>
             <p className="mt-1 text-sm text-zinc-500">
               Limites usados para alertas operacionais e vencimentos.
             </p>
@@ -1864,37 +1883,107 @@ export function SettingsPage() {
           <div>
             <CardTitle>Catálogo de manutenção</CardTitle>
             <p className="mt-1 text-sm text-zinc-500">
-              Cadastre centros de custo, servicos e grupos para usar nos selects da OS.
+              Cadastre centros de custo, serviços e grupos para usar nos selects
+              da OS.
             </p>
           </div>
         </CardHeader>
         <CardContent>
-          <form className="space-y-4" onSubmit={handleSaveMaintenanceCatalog}>
-            <div className="grid gap-4 md:grid-cols-3">
-              <label className="space-y-2 text-sm font-medium">
-                Centros de custo
-                <textarea
-                  name="costCenters"
-                  defaultValue={maintenanceCostCenters.join("\n")}
-                  className="min-h-[180px] w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-fleet-ink outline-none transition placeholder:text-zinc-400 hover:border-emerald-200 focus:border-fleet-green focus:ring-2 focus:ring-emerald-100"
-                />
-              </label>
-              <label className="space-y-2 text-sm font-medium">
-                Serviços
-                <textarea
-                  name="services"
-                  defaultValue={maintenanceServices.join("\n")}
-                  className="min-h-[180px] w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-fleet-ink outline-none transition placeholder:text-zinc-400 hover:border-emerald-200 focus:border-fleet-green focus:ring-2 focus:ring-emerald-100"
-                />
-              </label>
-              <label className="space-y-2 text-sm font-medium">
-                Grupos
-                <textarea
-                  name="parts"
-                  defaultValue={maintenanceGroups.join("\n")}
-                  className="min-h-[180px] w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-fleet-ink outline-none transition placeholder:text-zinc-400 hover:border-emerald-200 focus:border-fleet-green focus:ring-2 focus:ring-emerald-100"
-                />
-              </label>
+          <form className="space-y-5" onSubmit={handleSaveMaintenanceCatalog}>
+            <div className="grid gap-4 xl:grid-cols-3">
+              {[
+                {
+                  title: "Centros de custo",
+                  values: maintenanceCostCentersDraft,
+                  setValues: setMaintenanceCostCentersDraft,
+                  placeholder: "Oficina Central",
+                },
+                {
+                  title: "Serviços",
+                  values: maintenanceServicesDraft,
+                  setValues: setMaintenanceServicesDraft,
+                  placeholder: "Troca de óleo",
+                },
+                {
+                  title: "Grupos",
+                  values: maintenanceGroupsDraft,
+                  setValues: setMaintenanceGroupsDraft,
+                  placeholder: "Suspensão",
+                },
+              ].map((section) => (
+                <div
+                  key={section.title}
+                  className="rounded-xl border border-fleet-line bg-zinc-50/60 p-4"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold text-fleet-ink">
+                        {section.title}
+                      </h3>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        Adicione e remova itens individualmente.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() =>
+                        section.setValues((current: string[]) => [
+                          ...current,
+                          "",
+                        ])
+                      }
+                    >
+                      <Plus size={16} />
+                      Adicionar
+                    </Button>
+                  </div>
+
+                  <div className="mt-4 space-y-3">
+                    {section.values.map((value: string, index: number) => (
+                      <div
+                        key={`${section.title}-${index}`}
+                        className="flex items-end gap-2"
+                      >
+                        <label className="flex-1 space-y-2 text-sm font-medium">
+                          <span className="text-zinc-700">
+                            Item {index + 1}
+                          </span>
+                          <Input
+                            value={value}
+                            onChange={(event) =>
+                              section.setValues((current: string[]) =>
+                                current.map(
+                                  (entry: string, entryIndex: number) =>
+                                    entryIndex === index
+                                      ? event.target.value
+                                      : entry,
+                                ),
+                              )
+                            }
+                            placeholder={section.placeholder}
+                          />
+                        </label>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() =>
+                            section.setValues((current: string[]) =>
+                              current.filter(
+                                (_: string, entryIndex: number) =>
+                                  entryIndex !== index,
+                              ),
+                            )
+                          }
+                        >
+                          <Trash2 size={16} />
+                          Remover
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
             {maintenanceCatalogMessage && (
               <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
@@ -1902,7 +1991,10 @@ export function SettingsPage() {
               </p>
             )}
             <div className="flex justify-end">
-              <Button type="submit" disabled={saveMaintenanceCatalogMutation.isPending}>
+              <Button
+                type="submit"
+                disabled={saveMaintenanceCatalogMutation.isPending}
+              >
                 {saveMaintenanceCatalogMutation.isPending
                   ? "Salvando..."
                   : "Salvar catálogo"}
@@ -1993,7 +2085,7 @@ export function SettingsPage() {
             >
               {createUserMutation.isPending || updateUserMutation.isPending
                 ? "Salvando..."
-                : "Salvar usuário"}
+                : "Salvar usuÃ¡rio"}
             </Button>
           </div>
         </form>
@@ -2001,7 +2093,11 @@ export function SettingsPage() {
 
       <Modal
         open={isRoleModalOpen}
-        title={editingRole ? "Editar grupo de permissões" : "Novo grupo de permissões"}
+        title={
+          editingRole
+            ? "Editar grupo de permissões"
+            : "Novo grupo de permissões"
+        }
         description="Defina o perfil, status e as permissões liberadas para esse grupo."
         onClose={closeRoleModal}
       >
@@ -2037,6 +2133,7 @@ export function SettingsPage() {
               <SearchableSelect
                 name="status"
                 defaultValue={editingRole?.status ?? "active"}
+                searchable={false}
                 options={[
                   { value: "active", label: "Ativo" },
                   { value: "inactive", label: "Inativo" },
@@ -2065,7 +2162,9 @@ export function SettingsPage() {
             </Button>
             <Button
               type="submit"
-              disabled={createRoleMutation.isPending || updateRoleMutation.isPending}
+              disabled={
+                createRoleMutation.isPending || updateRoleMutation.isPending
+              }
             >
               {createRoleMutation.isPending || updateRoleMutation.isPending
                 ? "Salvando..."
@@ -2111,8 +2210,8 @@ export function SettingsPage() {
 
       <Modal
         open={Boolean(detailUser)}
-        title="Detalhes do usuário"
-        description="Dados cadastrais, perfil e acesso à API."
+        title="Detalhes do usuÃ¡rio"
+        description="Dados cadastrais, perfil e acesso Ã  API."
         onClose={() => setDetailUser(undefined)}
       >
         <div className="space-y-4">
@@ -2212,7 +2311,7 @@ export function SettingsPage() {
                     if (
                       detailUser &&
                       window.confirm(
-                        `Revogar o acesso à API do usuário ${detailUser.name}?`,
+                        `Revogar o acesso Ã  API do usuÃ¡rio ${detailUser.name}?`,
                       )
                     ) {
                       disableApiAccessMutation.mutate(detailUser._id);

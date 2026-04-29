@@ -1,4 +1,4 @@
-import {
+﻿import {
   BadRequestException,
   ConflictException,
   Injectable,
@@ -83,7 +83,7 @@ export class UsersService {
       .findOne({ tenantId, email: dto.email.toLowerCase() })
       .lean();
     if (existing) {
-      throw new ConflictException("Já existe um usuário com este email.");
+      throw new ConflictException("JÃ¡ existe um usuÃ¡rio com este email.");
     }
 
     const roles = dto.roles?.length ? dto.roles : ["operator"];
@@ -126,7 +126,9 @@ export class UsersService {
 
   async remove(tenantId: string, id: string, currentUserId: string) {
     if (id === currentUserId) {
-      throw new BadRequestException("Você não pode excluir o próprio usuário.");
+      throw new BadRequestException(
+        "Você não pode excluir o próprio usuário.",
+      );
     }
     const deleted = await this.userModel
       .findOneAndDelete({ _id: id, tenantId })
@@ -142,6 +144,15 @@ export class UsersService {
     await this.userModel.findByIdAndUpdate(userId, {
       refreshTokenHash: refreshToken ? await hash(refreshToken, 12) : undefined,
     });
+  }
+
+  async syncUserPermissions(tenantId: string, userId: string, roles: string[]) {
+    const permissions = await this.expandPermissionsForTenant(tenantId, roles);
+    await this.userModel.updateOne(
+      { _id: userId, tenantId },
+      { permissions },
+    );
+    return permissions;
   }
 
   async enableApiAccess(tenantId: string, id: string) {
@@ -203,22 +214,31 @@ export class UsersService {
   }
 
   async listRoles(tenantId: string) {
-    const customRoles = await this.roleModel
+    let customRoles = await this.roleModel
       .find({ tenantId })
       .sort({ createdAt: -1 })
       .lean()
       .exec();
 
-    const systemRoles = Object.entries(ROLE_PERMISSIONS).map(
-      ([key, permissions]) => ({
-        key,
-        name: UsersService.systemRoleLabel(key),
+    if (customRoles.length === 0) {
+      await this.seedEditableDefaultRoles(tenantId);
+      customRoles = await this.roleModel
+        .find({ tenantId })
+        .sort({ createdAt: -1 })
+        .lean()
+        .exec();
+    }
+
+    const systemRoles = [
+      {
+        key: "super_admin",
+        name: UsersService.systemRoleLabel("super_admin"),
         description: "Perfil padrão do sistema.",
-        permissions,
+        permissions: ROLE_PERMISSIONS.super_admin,
         status: "active",
         system: true,
-      }),
-    );
+      },
+    ];
 
     return [
       ...systemRoles,
@@ -231,10 +251,15 @@ export class UsersService {
 
   async createRole(tenantId: string, payload: Record<string, unknown>) {
     const key = UsersService.normalizeRoleKey(payload.key, payload.name);
-    if (ROLE_PERMISSIONS[key]) {
-      throw new ConflictException("Essa chave já pertence a um perfil padrão.");
+    if (key === "super_admin") {
+      throw new ConflictException(
+        "Essa chave já pertence a um perfil padrão.",
+      );
     }
-    const existing = await this.roleModel.findOne({ tenantId, key }).lean().exec();
+    const existing = await this.roleModel
+      .findOne({ tenantId, key })
+      .lean()
+      .exec();
     if (existing) {
       throw new ConflictException("Já existe um grupo com essa chave.");
     }
@@ -292,7 +317,10 @@ export class UsersService {
   }
 
   async removeRole(tenantId: string, id: string) {
-    const role = await this.roleModel.findOneAndDelete({ _id: id, tenantId }).lean().exec();
+    const role = await this.roleModel
+      .findOneAndDelete({ _id: id, tenantId })
+      .lean()
+      .exec();
     if (!role) {
       throw new NotFoundException("Grupo de permissões não encontrado.");
     }
@@ -341,7 +369,11 @@ export class UsersService {
 
   static expandPermissions(roles: string[]) {
     return Array.from(
-      new Set(roles.flatMap((role) => ROLE_PERMISSIONS[role] ?? [])),
+      new Set(
+        roles.flatMap((role) =>
+          role === "super_admin" ? (ROLE_PERMISSIONS.super_admin ?? []) : [],
+        ),
+      ),
     );
   }
 
@@ -385,7 +417,11 @@ export class UsersService {
     const filter: FilterQuery<User> = roleKey
       ? { tenantId, roles: roleKey }
       : { tenantId };
-    const users = await this.userModel.find(filter).select("_id roles").lean().exec();
+    const users = await this.userModel
+      .find(filter)
+      .select("_id roles")
+      .lean()
+      .exec();
     await Promise.all(
       users.map(async (user) => {
         const permissions = await this.expandPermissionsForTenant(
@@ -419,11 +455,36 @@ export class UsersService {
       super_admin: "Super Admin",
       fleet_manager: "Gestor de Frota",
       operator: "Operador",
-      maintenance_analyst: "Analista de Manutenção",
+      maintenance_analyst: "Analista de Manuten??o",
       finance: "Financeiro",
       driver: "Motorista",
       auditor: "Auditor / Visualizador",
     };
     return labels[key] ?? key;
+  }
+
+  private async seedEditableDefaultRoles(tenantId: string) {
+    const defaultRoles = Object.entries(ROLE_PERMISSIONS).filter(
+      ([key]) => key !== "super_admin",
+    );
+
+    await Promise.all(
+      defaultRoles.map(async ([key, permissions]) => {
+        await this.roleModel.updateOne(
+          { tenantId, key },
+          {
+            $setOnInsert: {
+              tenantId,
+              key,
+              name: UsersService.systemRoleLabel(key),
+              description: "Perfil base inicial do sistema.",
+              permissions,
+              status: "active",
+            },
+          },
+          { upsert: true },
+        );
+      }),
+    );
   }
 }

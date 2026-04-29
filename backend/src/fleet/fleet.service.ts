@@ -2274,6 +2274,14 @@ export class FleetService {
     if (!record) {
       throw new NotFoundException("Motorista nao encontrado.");
     }
+    const existingAttachments = Array.isArray(record.attachments)
+      ? record.attachments
+      : [];
+    if (existingAttachments.length >= 4) {
+      throw new BadRequestException(
+        "O motorista pode ter no maximo 4 anexos.",
+      );
+    }
 
     const uploadsRoot = resolve(
       process.cwd(),
@@ -2622,6 +2630,14 @@ export class FleetService {
     payload: AnyRecord,
     currentId?: string,
   ) {
+    let currentVehicle: AnyRecord | null = null;
+    if (currentId) {
+      currentVehicle = await this.model("vehicles")
+        .findOne({ tenantId, _id: currentId })
+        .select("status")
+        .lean<AnyRecord>()
+        .exec();
+    }
     if (payload.type !== undefined) {
       payload.type = String(payload.type ?? "car").trim() || "car";
     }
@@ -2683,6 +2699,26 @@ export class FleetService {
       payload.acceptedFuelTypes = normalizedFuelTypes;
     } else if (!currentId) {
       payload.acceptedFuelTypes = vehicleFuelDefaults[type] ?? ["gasoline"];
+    }
+    if (
+      currentId &&
+      payload.status !== undefined &&
+      String(payload.status ?? "") !== String(currentVehicle?.status ?? "")
+    ) {
+      const runningMaintenanceOrder = await this.model("maintenance-orders")
+        .findOne({
+          tenantId,
+          vehicleId: currentId,
+          status: "in_progress",
+        })
+        .select("_id")
+        .lean()
+        .exec();
+      if (runningMaintenanceOrder) {
+        throw new BadRequestException(
+          "Nao e possivel alterar o status do veiculo enquanto houver uma OS em execucao.",
+        );
+      }
     }
     if (payload.primaryDriverId) {
       const existing = await this.model("vehicles")

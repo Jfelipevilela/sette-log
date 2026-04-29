@@ -35,6 +35,12 @@ export class AuthService {
       throw new UnauthorizedException('Credenciais invalidas.');
     }
 
+    const effectivePermissions = await this.usersService.syncUserPermissions(
+      user.tenantId,
+      user._id.toString(),
+      user.roles ?? [],
+    );
+
     const payload: TokenPayload = {
       sub: user._id.toString(),
       email: user.email,
@@ -42,13 +48,16 @@ export class AuthService {
       tenantId: user.tenantId,
       branchId: user.branchId,
       roles: user.roles,
-      permissions: user.permissions
+      permissions: effectivePermissions,
     };
     const tokens = await this.signTokens(payload);
     await this.usersService.setRefreshToken(user._id.toString(), tokens.refreshToken);
 
     return {
-      user: this.usersService.toPublic(user.toObject()),
+      user: {
+        ...this.usersService.toPublic(user.toObject()),
+        permissions: effectivePermissions,
+      },
       ...tokens
     };
   }
@@ -68,6 +77,12 @@ export class AuthService {
         throw new UnauthorizedException('Sessao invalida.');
       }
 
+      const effectivePermissions = await this.usersService.syncUserPermissions(
+        user.tenantId,
+        user._id.toString(),
+        user.roles ?? [],
+      );
+
       const nextPayload: TokenPayload = {
         sub: user._id.toString(),
         email: user.email,
@@ -75,13 +90,16 @@ export class AuthService {
         tenantId: user.tenantId,
         branchId: user.branchId,
         roles: user.roles,
-        permissions: user.permissions
+        permissions: effectivePermissions,
       };
       const tokens = await this.signTokens(nextPayload);
       await this.usersService.setRefreshToken(user._id.toString(), tokens.refreshToken);
 
       return {
-        user: this.usersService.toPublic(user.toObject()),
+        user: {
+          ...this.usersService.toPublic(user.toObject()),
+          permissions: effectivePermissions,
+        },
         ...tokens
       };
     } catch {

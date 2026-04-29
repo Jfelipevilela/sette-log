@@ -670,6 +670,7 @@ export function MaintenancePage() {
                 <tr>
                   <Th>Tipo</Th>
                   <Th>Prioridade</Th>
+                  <Th>Veículo</Th>
                   <Th>Status</Th>
                   <Th>Agendamento</Th>
                   <Th>Custo</Th>
@@ -700,6 +701,11 @@ export function MaintenancePage() {
                       >
                         {labelFor(order.priority, priorityLabels)}
                       </Badge>
+                    </Td>
+                    <Td>
+                      {vehicleOptions.find(
+                        (vehicle) => vehicle.value === order.vehicleId,
+                      )?.label ?? "Veículo não encontrado"}
                     </Td>
                     <Td>
                       {order.status === "closed" ? (

@@ -196,6 +196,50 @@ function FuelByDayTooltip({
   );
 }
 
+function HighestCostRankingTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload?: Record<string, unknown> }>;
+  label?: string;
+}) {
+  if (!active || !payload?.length) {
+    return null;
+  }
+
+  const point = payload[0]?.payload ?? {};
+  const totalCost = safeNumber(point.totalCost);
+  const totalLiters = safeNumber(point.totalLiters);
+  const distanceKm = safeNumber(point.distanceKm);
+
+  return (
+    <div
+      className="min-w-[220px] rounded-lg border border-slate-200 bg-white p-3 shadow-[0_12px_30px_rgba(22,24,22,0.12)]"
+      style={chartTooltipStyle}
+    >
+      <p className="text-sm font-semibold text-fleet-ink">{`Veículo ${label}`}</p>
+      <div className="mt-2 space-y-1.5 text-sm text-zinc-600">
+        <div className="flex items-center justify-between gap-3">
+          <span>Custo</span>
+          <strong className="text-fleet-green">
+            {formatCurrency(totalCost)}
+          </strong>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <span>Litros</span>
+          <span>{totalLiters.toLocaleString("pt-BR")} L</span>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <span>Distância</span>
+          <span>{distanceKm.toLocaleString("pt-BR")} km</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function DashboardPage() {
   const today = new Date().toISOString().slice(0, 10);
   const firstDayOfMonth = new Date(
@@ -344,8 +388,9 @@ export function DashboardPage() {
       name: vehicle.plate,
       label: vehicle.label,
       totalCost: safeNumber(vehicle.totalCost),
-      litros: safeNumber(vehicle.totalLiters),
-      lancamentos: safeNumber(vehicle.records),
+      totalLiters: safeNumber(vehicle.totalLiters),
+      distanceKm: safeNumber(vehicle.distanceKm),
+      records: safeNumber(vehicle.records),
       fill:
         index === 0
           ? "#c2413b"
@@ -1071,7 +1116,8 @@ export function DashboardPage() {
             <div>
               <CardTitle>Ranking de maior gasto</CardTitle>
               <p className="mt-1 text-sm text-zinc-500">
-                Veículos com maior custo de combustível no período filtrado.
+                Veículos com maior custo de combustível, litros e km rodados no
+                período filtrado.
               </p>
             </div>
           </CardHeader>
@@ -1098,11 +1144,7 @@ export function DashboardPage() {
                       axisLine={false}
                       width={70}
                     />
-                    <Tooltip
-                      contentStyle={chartTooltipStyle}
-                      formatter={(value) => [formatCurrency(Number(value)), "Custo"]}
-                      labelFormatter={(label) => `Veículo ${label}`}
-                    />
+                    <Tooltip content={<HighestCostRankingTooltip />} />
                     <Bar dataKey="totalCost" radius={[0, 6, 6, 0]}>
                       {rankingCostData.map((entry) => (
                         <Cell key={entry.name} fill={entry.fill} />
@@ -1143,6 +1185,10 @@ export function DashboardPage() {
                   <p className="mt-2 text-sm text-zinc-600">
                     {vehicle.totalLiters.toLocaleString("pt-BR")} L em{" "}
                     {vehicle.records} lançamentos
+                  </p>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    {safeNumber(vehicle.distanceKm).toLocaleString("pt-BR")} km
+                    rodados neste consumo
                   </p>
                 </div>
               ))}

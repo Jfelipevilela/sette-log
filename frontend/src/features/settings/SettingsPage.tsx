@@ -68,13 +68,13 @@ import { formatDateTime } from "../../lib/utils";
 const settings = [
   {
     icon: UsersRound,
-    title: "UsuÃ¡rios e perfis",
+    title: "Usuários e perfis",
     detail: "RBAC por perfil e permissao granular",
     status: "ativo",
   },
   {
     icon: PlugZap,
-    title: "IntegraÃ§Ãµes",
+    title: "Integrações",
     detail: "ERP, TMS, WMS, mapas e rastreadores",
     status: "preparado",
   },
@@ -87,7 +87,7 @@ const settings = [
   {
     icon: KeyRound,
     title: "Tokens de API",
-    detail: "Credenciais para clientes e serviÃ§os externos",
+    detail: "Credenciais para clientes e serviços externos",
     status: "preparado",
   },
 ];
@@ -129,7 +129,7 @@ const resourceMeta: Record<string, ResourceMeta> = {
       "capacidade_tanque",
       "centro_custo",
     ],
-    hint: "Se a placa jÃ¡ existir, o veÃ­culo serÃ¡ atualizado. Preencha odÃ´metro_base_consumo para calcular o primeiro km/L.",
+    hint: "Se a placa já existir, o veículo será atualizado. Preencha odômetro_base_consumo para calcular o primeiro km/L.",
   },
   drivers: {
     step: 2,
@@ -138,7 +138,7 @@ const resourceMeta: Record<string, ResourceMeta> = {
     borderColor: "border-blue-200",
     required: ["nome", "cnh", "categoria_cnh", "validade_cnh"],
     optional: ["cpf", "telefone", "email", "status"],
-    hint: "Se o nÃºmero de CNH jÃ¡ existir, o motorista serÃ¡ atualizado. Pode ser importado junto com veÃ­culos.",
+    hint: "Se o número de CNH já existir, o motorista será atualizado. Pode ser importado junto com veículos.",
   },
   "fuel-records": {
     step: 3,
@@ -152,10 +152,10 @@ const resourceMeta: Record<string, ResourceMeta> = {
       "odometro",
       "data_abastecimento",
       "posto",
-      "combustÃ­vel",
+      "combustível",
     ],
-    hint: "Sempre inserido como novo registro. Preencha o odÃ´metro para calcular km/litro automaticamente.",
-    depends: "Requer veÃ­culos (e opcionalmente motoristas) jÃ¡ importados.",
+    hint: "Sempre inserido como novo registro. Preencha o odômetro para calcular km/litro automaticamente.",
+    depends: "Requer veículos (e opcionalmente motoristas) já importados.",
   },
   "maintenance-orders": {
     step: 4,
@@ -173,7 +173,7 @@ const resourceMeta: Record<string, ResourceMeta> = {
       "descricao",
     ],
     hint: "Sempre inserida como nova ordem. tipo: preventiva, corretiva, preditiva.",
-    depends: "Requer veÃ­culos jÃ¡ importados.",
+    depends: "Requer veículos já importados.",
   },
   expenses: {
     step: 5,
@@ -229,37 +229,37 @@ const statusTone: Record<string, "green" | "amber" | "red" | "neutral"> = {
 
 const permissionOptions = [
   { value: "dashboard:view", label: "Dashboard - visualizar" },
-  { value: "vehicles:view", label: "Veiculos - visualizar" },
-  { value: "vehicles:create", label: "Veiculos - criar" },
-  { value: "vehicles:edit", label: "Veiculos - editar" },
-  { value: "vehicles:delete", label: "Veiculos - excluir" },
+  { value: "vehicles:view", label: "Veículos - visualizar" },
+  { value: "vehicles:create", label: "Veículos - criar" },
+  { value: "vehicles:edit", label: "Veículos - editar" },
+  { value: "vehicles:delete", label: "Veículos - excluir" },
   { value: "tracking:view", label: "Rastreamento - visualizar" },
   { value: "tracking:export", label: "Rastreamento - exportar" },
   { value: "drivers:view", label: "Motoristas - visualizar" },
   { value: "drivers:create", label: "Motoristas - criar" },
   { value: "drivers:edit", label: "Motoristas - editar" },
   { value: "drivers:delete", label: "Motoristas - excluir" },
-  { value: "maintenance:view", label: "Manutencao - visualizar" },
-  { value: "maintenance:create", label: "Manutencao - criar" },
-  { value: "maintenance:edit", label: "Manutencao - editar" },
-  { value: "maintenance:delete", label: "Manutencao - excluir" },
+  { value: "maintenance:view", label: "Manutenção - visualizar" },
+  { value: "maintenance:create", label: "Manutenção - criar" },
+  { value: "maintenance:edit", label: "Manutenção - editar" },
+  { value: "maintenance:delete", label: "Manutenção - excluir" },
   { value: "finance:view", label: "Financeiro - visualizar" },
   { value: "finance:create", label: "Financeiro - criar" },
   { value: "finance:edit", label: "Financeiro - editar" },
   { value: "finance:delete", label: "Financeiro - excluir" },
   {
     value: "fuel_driver_portal:access",
-    label: "Abastecimento do tecnico - acessar portal",
+    label: "Abastecimento do técnico - acessar portal",
   },
   { value: "compliance:view", label: "Compliance - visualizar" },
   { value: "compliance:create", label: "Compliance - criar" },
   { value: "compliance:edit", label: "Compliance - editar" },
   { value: "compliance:delete", label: "Compliance - excluir" },
-  { value: "reports:view", label: "Relatorios - visualizar" },
-  { value: "reports:export", label: "Relatorios - exportar" },
-  { value: "settings:manage", label: "Configuracoes - gerenciar" },
-  { value: "users:manage", label: "Usuarios - gerenciar" },
-  { value: "integrations:manage", label: "Integracoes - gerenciar" },
+  { value: "reports:view", label: "Relatórios - visualizar" },
+  { value: "reports:export", label: "Relatórios - exportar" },
+  { value: "settings:manage", label: "Configurações - gerenciar" },
+  { value: "users:manage", label: "Usuários - gerenciar" },
+  { value: "integrations:manage", label: "Integrações - gerenciar" },
   { value: "alerts:manage", label: "Alertas - gerenciar" },
 ];
 
@@ -684,7 +684,7 @@ export function SettingsPage() {
         return next;
       });
       setDetailUser((current) => (current?._id === user._id ? user : current));
-      setMessage("Acesso Ã  API removido com sucesso.");
+      setMessage("Acesso à API removido com sucesso.");
       await queryClient.invalidateQueries({ queryKey: ["users"] });
     },
     onError: (error) =>
@@ -1084,7 +1084,7 @@ export function SettingsPage() {
           </div>
 
           {usersLoading ? (
-            <LoadingState label="Carregando usuÃ¡rios..." />
+            <LoadingState label="Carregando usuários..." />
           ) : (
             <div className="space-y-4 overflow-x-auto">
               <Table>
@@ -1194,7 +1194,7 @@ export function SettingsPage() {
                               onClick: () => {
                                 if (
                                   window.confirm(
-                                    `Excluir o usuÃ¡rio ${user.name}?`,
+                                    `Excluir o usuário ${user.name}?`,
                                   )
                                 ) {
                                   deleteUserMutation.mutate(user._id);
@@ -1562,9 +1562,9 @@ export function SettingsPage() {
                               {result.resource === "fuel-records"
                                 ? "Abastecimentos"
                                 : result.resource === "maintenance-orders"
-                                  ? "ManutenÃ§Ãµes"
+                                  ? "Manutenções"
                                   : result.resource === "vehicles"
-                                    ? "VeÃ­culos"
+                                    ? "Veículos"
                                     : result.resource === "drivers"
                                       ? "Motoristas"
                                       : "Documentos"}
@@ -2250,7 +2250,7 @@ export function SettingsPage() {
             >
               {createUserMutation.isPending || updateUserMutation.isPending
                 ? "Salvando..."
-                : "Salvar usuÃ¡rio"}
+                : "Salvar usuário"}
             </Button>
           </div>
         </form>
@@ -2375,8 +2375,8 @@ export function SettingsPage() {
 
       <Modal
         open={Boolean(detailUser)}
-        title="Detalhes do usuÃ¡rio"
-        description="Dados cadastrais, perfil e acesso Ã  API."
+        title="Detalhes do usuário"
+        description="Dados cadastrais, perfil e acesso à API."
         onClose={() => setDetailUser(undefined)}
       >
         <div className="space-y-4">
@@ -2476,7 +2476,7 @@ export function SettingsPage() {
                     if (
                       detailUser &&
                       window.confirm(
-                        `Revogar o acesso Ã  API do usuÃ¡rio ${detailUser.name}?`,
+                        `Revogar o acesso à API do usuário ${detailUser.name}?`,
                       )
                     ) {
                       disableApiAccessMutation.mutate(detailUser._id);

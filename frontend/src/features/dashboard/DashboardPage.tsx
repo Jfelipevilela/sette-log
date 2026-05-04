@@ -213,6 +213,8 @@ function HighestCostRankingTooltip({
   const totalCost = safeNumber(point.totalCost);
   const totalLiters = safeNumber(point.totalLiters);
   const distanceKm = safeNumber(point.distanceKm);
+  const efficiencyLiters = safeNumber(point.efficiencyLiters);
+  const displayLiters = efficiencyLiters > 0 ? efficiencyLiters : totalLiters;
 
   return (
     <div
@@ -228,8 +230,8 @@ function HighestCostRankingTooltip({
           </strong>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <span>Litros</span>
-          <span>{totalLiters.toLocaleString("pt-BR")} L</span>
+          <span>Litros válidos</span>
+          <span>{displayLiters.toLocaleString("pt-BR")} L</span>
         </div>
         <div className="flex items-center justify-between gap-3">
           <span>Distância</span>
@@ -390,6 +392,7 @@ export function DashboardPage() {
       totalCost: safeNumber(vehicle.totalCost),
       totalLiters: safeNumber(vehicle.totalLiters),
       distanceKm: safeNumber(vehicle.distanceKm),
+      efficiencyLiters: safeNumber(vehicle.efficiencyLiters),
       records: safeNumber(vehicle.records),
       fill:
         index === 0
@@ -1183,7 +1186,10 @@ export function DashboardPage() {
                     </Badge>
                   </div>
                   <p className="mt-2 text-sm text-zinc-600">
-                    {vehicle.totalLiters.toLocaleString("pt-BR")} L em{" "}
+                    {safeNumber(vehicle.efficiencyLiters || vehicle.totalLiters).toLocaleString(
+                      "pt-BR",
+                    )}{" "}
+                    L em{" "}
                     {vehicle.records} lançamentos
                   </p>
                   <p className="mt-1 text-xs text-zinc-500">

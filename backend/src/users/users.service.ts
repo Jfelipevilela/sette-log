@@ -83,7 +83,7 @@ export class UsersService {
       .findOne({ tenantId, email: dto.email.toLowerCase() })
       .lean();
     if (existing) {
-      throw new ConflictException("JÃ¡ existe um usuÃ¡rio com este email.");
+      throw new ConflictException("Já existe um usuário com este email.");
     }
 
     const roles = dto.roles?.length ? dto.roles : ["operator"];

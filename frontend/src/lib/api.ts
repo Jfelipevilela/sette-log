@@ -34,6 +34,7 @@ const apiOrigin = (() => {
 })();
 
 let sessionExpiredHandled = false;
+let refreshPromise: Promise<void> | null = null;
 
 export function apiErrorMessage(error: unknown, fallback: string) {
   if (error instanceof AxiosError) {
@@ -52,6 +53,76 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+async function performLogoutRedirect(
+  message = "Entre novamente para continuar usando o sistema.",
+) {
+  sessionExpiredHandled = true;
+  useAuthStore.getState().logout();
+  notify({
+    title: "Sessão expirada",
+    description: message,
+    tone: "info",
+  });
+  if (window.location.pathname !== "/login") {
+    window.history.replaceState(null, "", "/login");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }
+}
+
+function decodeJwtExp(token?: string) {
+  if (!token) {
+    return undefined;
+  }
+  try {
+    const [, payload] = token.split(".");
+    if (!payload) {
+      return undefined;
+    }
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const parsed = JSON.parse(window.atob(normalized));
+    return typeof parsed.exp === "number" ? parsed.exp * 1000 : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function getAccessTokenExpiry(token?: string) {
+  return decodeJwtExp(token);
+}
+
+export async function refreshSession() {
+  const refreshToken = useAuthStore.getState().refreshToken;
+  if (!refreshToken) {
+    throw new Error("Sem refresh token");
+  }
+  if (!refreshPromise) {
+    refreshPromise = api
+      .post<{
+        user: AuthUser;
+        accessToken: string;
+        refreshToken: string;
+      }>("/auth/refresh", { refreshToken })
+      .then(({ data }) => {
+        useAuthStore.getState().setSession(data);
+        sessionExpiredHandled = false;
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+}
+
+export async function logoutSession() {
+  try {
+    await api.post("/auth/logout");
+  } catch {
+    // best effort
+  } finally {
+    useAuthStore.getState().logout();
+  }
+}
 
 function successMessage(method?: string, url?: string) {
   const normalizedUrl = url ?? "";
@@ -75,9 +146,9 @@ function successMessage(method?: string, url?: string) {
     return "Registro atualizado";
   }
   if (normalizedMethod === "DELETE") {
-    return "Registro excluido";
+    return "Registro excluído";
   }
-  return "Acao realizada";
+  return "Ação realizada";
 }
 
 api.interceptors.response.use(
@@ -949,7 +1020,7 @@ export async function downloadImportTemplate() {
     window.URL.revokeObjectURL(url);
   } catch (error) {
     throw new Error(
-      apiErrorMessage(error, "N?o foi poss?vel baixar o template."),
+      apiErrorMessage(error, "Não foi possível baixar o template."),
     );
   }
 }
